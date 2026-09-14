@@ -1,0 +1,52 @@
+.options {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.choices {
+  display: grid;
+  gap: var(--s-4);
+}
+
+// The help sits on the control it explains, not in a paragraph under it.
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--s-2);
+}
+
+.help {
+  margin-bottom: 0.4rem;
+}
+
+// Stays outside the lid: it prevents a real failure, so it has to be seen without opening anything.
+.warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.warningIcon {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 1px;
+  color: var(--warn);
+  stroke-width: 1.75;
+}
+
+.warningText {
+  color: var(--warn-ink);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.warning > button {
+  grid-column: 2;
+  justify-self: start;
+}

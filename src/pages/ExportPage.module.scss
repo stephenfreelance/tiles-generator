@@ -1,0 +1,377 @@
+// The handover bench: the finished wall on the left, the one button on the right, the counts under
+// both, and everything that is needed only sometimes folded away below.
+
+.page {
+  // ExportPage sets --filament inline, so the wash it feeds has to be re-derived here beside it.
+  // 8 % is the ceiling the token file names: at that strength a pure black spool still leaves
+  // --ink-3 at 5.25:1 on the wash.
+  --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
+  display: grid;
+  align-content: start;
+  gap: var(--s-5);
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding: clamp(var(--s-4), 1.6vw, var(--s-6));
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.pageEmpty {
+  align-content: center;
+  min-height: min(28rem, 60dvh);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+}
+
+.headText {
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.subject {
+  margin-top: var(--s-1);
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--text-lg);
+  text-overflow: ellipsis;
+}
+
+.headSide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+}
+
+.top {
+  display: grid;
+  grid-template-areas:
+    'design get'
+    'design more'
+    'facts more';
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-content: start;
+  gap: var(--s-4) var(--s-5);
+}
+
+.design {
+  display: grid;
+  align-content: start;
+  grid-area: design;
+  gap: var(--s-3);
+}
+
+// The render is the page's proof, so it lies on a lit bench of its own and takes the wall's shape.
+.preview {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel-2);
+  box-shadow: var(--shadow-md);
+}
+
+.preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(120% 78% at 26% -8%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 62%);
+  pointer-events: none;
+}
+
+.previewCanvas {
+  aspect-ratio: var(--view-aspect, 3 / 2);
+  transition: opacity var(--t-med) var(--ease-out);
+}
+
+// While the wall is meshed the render fades back rather than covering itself with a placeholder.
+.previewCanvas[data-pending] {
+  opacity: 0.4;
+}
+
+// The filament is the most colourful thing on the page, so it gets a real chip on a floating slip.
+.identity {
+  position: absolute;
+  bottom: var(--s-3);
+  left: var(--s-3);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  max-width: calc(100% - var(--s-6));
+  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.swatch {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--filament, var(--panel-2));
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.16),
+    inset 0 7px 11px -7px rgb(255 255 255 / 0.7);
+}
+
+.identityText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.identityName {
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+.identityLine {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+// The one action, and nothing beside it: its own card so the eye lands there first.
+.get {
+  display: grid;
+  align-content: start;
+  grid-area: get;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+// The one action carries a long label: it wraps rather than being cut off by the button's ellipsis.
+.getFiles {
+  white-space: normal;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.getNote {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.error {
+  color: var(--warn-ink);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.progress {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 5.5rem;
+}
+
+// What is in the zip, by what each file is for rather than by its name.
+.contents {
+  display: grid;
+  gap: var(--s-2);
+  margin: var(--s-2) 0 0;
+  padding: var(--s-3) 0 0;
+  border-top: 1px solid var(--hairline);
+  list-style: none;
+}
+
+.contents > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-3);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.contentIcon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15em;
+  color: var(--accent);
+  stroke-width: 1.75;
+}
+
+// Three plain facts on one recessed strip, washed in the filament's own colour.
+.facts {
+  display: grid;
+  grid-area: facts;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--filament-wash);
+}
+
+.fact {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: var(--s-3) var(--s-4);
+  border-left: 1px solid var(--hairline);
+}
+
+.fact:first-child {
+  border-left: 0;
+}
+
+.factValue {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.factNote {
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+// The best news the page can give: an exact fit is green, and says so in words as well.
+.factOk {
+  color: var(--ok-ink);
+  font-weight: 650;
+}
+
+.more {
+  display: grid;
+  align-content: start;
+  grid-area: more;
+  gap: var(--s-4);
+}
+
+.warnings {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--warn-ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  list-style: none;
+
+  > li {
+    position: relative;
+    padding-left: var(--s-4);
+    text-wrap: pretty;
+  }
+
+  > li::before {
+    content: '';
+    position: absolute;
+    top: 0.55em;
+    left: 0;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: currentcolor;
+  }
+}
+
+.secondary {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-2);
+}
+
+.secondaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+}
+
+.secondaryNote {
+  max-width: 54ch;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.piecesNote {
+  max-width: 80ch;
+  margin-bottom: var(--s-3);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.section {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.sectionTitle {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.008em;
+}
+
+// One column: the design, then the action, then the counts, in the order they are read.
+@media (max-width: 60rem) {
+  .top {
+    grid-template-areas: none;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+  }
+
+  .design,
+  .get,
+  .facts,
+  .more {
+    grid-area: auto;
+  }
+
+  .title {
+    font-size: var(--text-xl);
+  }
+
+  // A wide wall still gets enough height to read.
+  .previewCanvas {
+    aspect-ratio: min(var(--view-aspect, 1.5), 1.5);
+  }
+}
+
+@media (max-width: 32rem) {
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fact {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
+  .fact:first-child {
+    border-top: 0;
+  }
+}

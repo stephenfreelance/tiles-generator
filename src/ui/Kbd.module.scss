@@ -1,0 +1,17 @@
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  padding: 0 0.4em;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

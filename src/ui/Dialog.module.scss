@@ -1,0 +1,124 @@
+@use '@/styles/mixins' as *;
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(46 36 27 / 0.45);
+
+  @include motion-safe {
+    animation: overlay-in var(--t-fast) var(--ease-out);
+  }
+}
+
+// A panel laid over the bench.
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 41;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(46rem, calc(100vw - 2 * var(--s-4)));
+  max-height: min(44rem, calc(100dvh - 2 * var(--s-4)));
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: 0 24px 60px -28px rgb(46 36 27 / 0.7);
+
+  &:focus-visible {
+    @include focus-ring-inset;
+  }
+
+  @include motion-safe {
+    animation: slip-in var(--t-med) var(--ease-out);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.headText {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.close {
+  @include button-reset;
+  @include touch-target(2.25rem);
+  display: grid;
+  flex: none;
+  place-items: center;
+  margin-left: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  > svg {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.75;
+  }
+
+  &:hover {
+    background: var(--panel-2);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-4);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+// From an already-legible start: the panel settles, it does not grow out of nothing.
+@keyframes slip-in {
+  from {
+    opacity: 0.6;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}

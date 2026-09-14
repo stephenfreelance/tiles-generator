@@ -1,0 +1,64 @@
+.plan {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+// The plan reads in the page's own ink, so it follows the palette instead of carrying its own.
+.whole {
+  stroke: var(--ink-3);
+}
+
+.outline {
+  fill: none;
+  stroke: var(--ink);
+}
+
+.rule {
+  stroke: var(--ink);
+}
+
+.guide {
+  stroke: var(--ink-3);
+}
+
+.cutLine {
+  stroke: var(--cut);
+}
+
+.inkText {
+  fill: var(--ink);
+}
+
+.cutText {
+  fill: var(--cut);
+}
+
+.guideText {
+  fill: var(--ink-3);
+}
+
+// The one authored moment on this page: the dimension chain draws itself as the panel scrolls into
+// view. Every line carries pathLength="1", so one inherited dash offset draws them at one rate.
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .chain {
+      stroke-dasharray: 1;
+      animation: draw-chain linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 45%;
+    }
+  }
+}
+
+@keyframes draw-chain {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}

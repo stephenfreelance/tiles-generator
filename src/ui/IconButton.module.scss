@@ -1,0 +1,123 @@
+@use '@/styles/mixins' as *;
+
+.button {
+  @include button-reset;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  &:hover:not(:disabled) {
+    background: rgb(36 28 20 / 0.06);
+    color: var(--ink);
+  }
+
+  &:active:not(:disabled) {
+    background: rgb(36 28 20 / 0.11);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+
+  &:disabled {
+    color: var(--ink-3);
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+
+    &:hover:not(:disabled) {
+      background: #e2ecd8;
+      color: var(--accent);
+    }
+  }
+
+  // An invisible 44 px pad under a finger, so small glyphs keep their place on the bench.
+  @include coarse-pointer {
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+.sm {
+  width: 2rem;
+  height: 2rem;
+  --glyph: 1rem;
+}
+
+.md {
+  width: 2.25rem;
+  height: 2.25rem;
+  --glyph: 1.125rem;
+}
+
+.lg {
+  width: 2.75rem;
+  height: 2.75rem;
+  --glyph: 1.25rem;
+}
+
+.outline {
+  border-color: var(--hairline);
+  background: var(--panel);
+
+  &:hover:not(:disabled) {
+    border-color: #d8c9af;
+    background: #fbf5ea;
+  }
+
+  &:active:not(:disabled) {
+    background: var(--panel-2);
+  }
+
+  &:disabled {
+    @include disabled-hatch;
+    border-color: var(--hairline);
+  }
+}
+
+.glyph {
+  display: inline-flex;
+
+  > svg {
+    width: var(--glyph);
+    height: var(--glyph);
+    stroke-width: 1.75;
+  }
+}
+
+// A pressed tool says so with a tinted plate, which a forced palette erases: take the system's pair.
+@include forced-colors {
+  .button[aria-pressed='true'],
+  .button[aria-pressed='true']:hover:not(:disabled) {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+
+  .button:disabled {
+    color: GrayText;
+  }
+}

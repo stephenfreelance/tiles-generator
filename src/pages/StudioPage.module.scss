@@ -1,0 +1,197 @@
+@use '@/styles/mixins' as *;
+
+// The wall on the left, the five numbered choices that make it on the right.
+.studio {
+  // The chosen filament, painted into the bench. Both mixes are derived HERE rather than in the
+  // token file because a custom property holding a var() resolves against the element it is
+  // declared on: only here does --filament exist, set inline from the design.
+  //
+  // 8% is the ceiling: at 10% a pure black spool drops the smallest note text under AA on this
+  // strip. Nothing lighter than --ink-3 may sit on it.
+  --filament-wash: color-mix(in srgb, var(--filament, var(--accent)) 8%, var(--panel));
+  // No text sits on the drawn tiles, so they can take more colour.
+  --filament-tint: color-mix(in srgb, var(--filament, var(--accent)) 12%, var(--panel));
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 33rem;
+  gap: var(--s-4);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--s-4);
+}
+
+.stage {
+  min-width: 0;
+  min-height: 0;
+}
+
+// The column of choices: a single panel, scrolling its steps against a foot that never leaves.
+.rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e7dcc8;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.steps {
+  min-height: 0;
+  padding: var(--s-2) var(--s-5) var(--s-4);
+}
+
+// One hairline between steps. The rule lives here rather than in the step itself so the panel that
+// folds and the fit block below it are ruled off on the same terms.
+.steps > * + * {
+  border-top: 1px solid #f0e7d6;
+}
+
+.advanced,
+.plan {
+  padding-block: var(--s-4);
+}
+
+.plan {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.planBody {
+  height: clamp(16rem, 34vh, 24rem);
+}
+
+// The answer to the only question this screen exists to settle, washed in the filament's colour.
+.foot {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+}
+
+.fit {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border-radius: var(--radius-md);
+  background: var(--filament-wash, var(--panel-2));
+}
+
+.fitIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--cut);
+  color: var(--accent-ink);
+
+  > svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+    stroke-width: 2.75;
+  }
+
+  &[data-exact] {
+    background: var(--ok);
+  }
+}
+
+.fitText {
+  min-width: 0;
+}
+
+.fitWeight {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.micro {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.copyLink {
+  justify-self: center;
+}
+
+@media (min-width: 1100px) {
+  // Only this column scrolls: the bench itself stays the size of the window.
+  .steps {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    // The last step fades under the foot rather than being cut off by it, so there is always a
+    // sign that the column goes on.
+    mask-image: linear-gradient(#000 calc(100% - 2rem), rgb(0 0 0 / 0));
+  }
+}
+
+@media (max-width: 1099px) {
+  // One column: the render leads, the choices follow, and the action is pinned to the screen.
+  .studio {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    padding: var(--s-3);
+    // Clear of the pinned foot (a fit strip over a 54 px button), so the last step is never left
+    // sitting behind it at the end of the scroll.
+    padding-bottom: 11rem;
+  }
+
+  .stage {
+    flex: none;
+    aspect-ratio: 16 / 11;
+  }
+
+  .rail {
+    overflow: visible;
+  }
+
+  .steps {
+    padding: var(--s-2) var(--s-4) var(--s-3);
+  }
+
+  // The plan grows with the drawing; the page is what scrolls.
+  .planBody {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  // The action follows the maker down the page: at this width the column is long, and the answer
+  // to "how does it fit" belongs with the button that acts on it.
+  .foot {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    padding-bottom: max(var(--s-3), env(safe-area-inset-bottom));
+    border: 1px solid var(--hairline);
+    border-bottom: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -10px 30px -18px rgb(46 36 27 / 0.75);
+  }
+
+  // Two lines of small print under a pinned bar is one line too many.
+  .micro,
+  .fitWeight {
+    display: none;
+  }
+
+  .copyLink {
+    display: none;
+  }
+}

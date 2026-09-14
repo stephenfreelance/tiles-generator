@@ -1,0 +1,149 @@
+// Tessera design tokens, direction A: a well-lit maker's workbench.
+// A dark espresso bar anchors the page, the ground is a warm off-white, panels are soft rounded
+// surfaces with gentle depth, one green carries the primary action, and the chosen filament tints
+// the interface. Every ratio quoted below was computed against that exact pair, not estimated.
+
+:root {
+  // Chrome: the espresso bar is the only dark surface in the app.
+  --bar: #2e241b;
+  --bar-ink: #f7f1e6; // 13.49:1 on --bar
+
+  // The bench: a warm ground, panels lifted off it, and one recessed surface for wells and strips.
+  --ground: #f2eadc;
+  --panel: #fffdf8;
+  --panel-2: #efe7d8;
+
+  // Ink. Three weights, each measured on the lightest ground it is allowed to sit on.
+  --ink: #241c14; // 16.51:1 on --panel, 14.05:1 on --ground
+  --ink-2: #5c5044; // 7.69:1 on --panel, 6.54:1 on --ground, 6.36:1 on --panel-2
+  --ink-3: #6b5d4d; // 6.26:1 on --panel, 5.18:1 on --panel-2: still AA at 12 px
+
+  --hairline: #e4d8c4;
+
+  // The one green. It carries the primary action, selection and focus, and it is FIXED: a maker who
+  // picks a white or a yellow spool must not be able to drag the interface under its contrast floor,
+  // so the filament tints (below) and the accent decides.
+  --accent: #35682a;
+  --accent-ink: #fffdf8; // 6.53:1 on --accent
+  --accent-soft: #edf3e6; // --accent on it is 5.87:1, so the soft chip can carry green lettering
+
+  // Status. The plain tone is for fills, ticks and marks; the -ink variant is what carries text.
+  --ok: #2c6b3a;
+  --ok-ink: #265c31; // 7.77:1 on --panel
+  --warn: #a6501e;
+  --warn-ink: #8a4216; // 7.19:1 on --panel
+
+  // Cut pieces and warnings, and nothing else. Dark enough to be read as text as well as drawn
+  // as a stroke, so a cut note and a cut tile are the same colour.
+  --cut: #a3321a; // 7.14:1 on --panel, 5.87:1 on --panel-2
+  --cut-soft: #fbeae4;
+
+  // The chosen filament. StudioPage sets --filament inline from the design; the value here is the
+  // default spool so the name always resolves.
+  //
+  // --filament-wash cannot be derived once, here, for the whole app: a custom property holding a
+  // var() resolves against the element it is DECLARED on, so this :root copy would always mix the
+  // default green no matter what a descendant sets. Any element that sets --filament inline must
+  // re-derive --filament-wash beside it (see StudioPage.module.scss). 8% is the ceiling: at that
+  // strength a pure black spool still leaves --ink-3 at 5.25:1 on the wash.
+  --filament: #5c9748;
+  --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
+
+  // Type
+  --font: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: clamp(2.25rem, 1.2rem + 3.2vw, 3.75rem);
+  --text-display: clamp(2.75rem, 1rem + 6vw, 6rem);
+
+  // Space (4 px grid)
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+  --s-9: 6rem;
+
+  // Corners. Nothing in this world is square: a panel is a rounded surface, a chip is a pressable.
+  --radius-sm: 11px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+
+  // Depth: soft and warm, never a grey drop shadow.
+  --shadow-sm: 0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28);
+  --shadow-md: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5);
+
+  // Motion
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 140ms;
+  --t-med: 260ms;
+  --t-slow: 560ms;
+
+  // Layout
+  --header-h: 3.5rem;
+
+  // Ruled pitch of the saved-designs list. One token so the filed rows and the empty rows beneath
+  // them cannot drift apart.
+  --register-row: 5rem;
+
+  color-scheme: light;
+
+  // ---------------------------------------------------------------------------------------------
+  // Names from the drafting-sheet world, kept alive and pointed at the workbench palette.
+  //
+  // src/three is out of bounds for this rebuild and reads a dozen of these, and the other four
+  // screens are being restyled in parallel; without this block those files would render against
+  // undefined colours. Nothing new should use them: the contract above is the vocabulary.
+  // The two that carried the retired sheet border are deliberately neutralised rather than mapped,
+  // so the 2 px ink frame and the paper tooth cannot come back by inheritance.
+  // ---------------------------------------------------------------------------------------------
+  --desk: var(--ground);
+  --desk-deep: #e7dcc8;
+  --sheet: var(--panel);
+  --sheet-raised: var(--panel);
+  --sheet-sunk: var(--panel-2);
+  --rule: var(--hairline);
+  --rule-strong: #d8c9af;
+  --pencil: var(--ink-3);
+  --line: 1px solid var(--hairline);
+  --frame: 1px solid var(--hairline);
+  --chip-radius: var(--radius-sm);
+  --paper-tooth: none;
+  --desk-tooth: none;
+  --sheet-margin: 0px;
+  --gridref: 0px;
+  --chalk: var(--accent);
+  --chalk-wash: var(--accent-soft);
+  --red: var(--cut);
+  --red-ink: var(--cut);
+  --red-press: #8c2a15;
+  --red-wash: var(--cut-soft);
+  --red-hatch: rgb(163 50 26 / 0.55);
+  --ok-wash: var(--accent-soft);
+  --warn-wash: #fbeeda;
+  --accent-hover: #2f5e24;
+  --accent-press: #295220;
+  --accent-wash: var(--accent-soft);
+  --shadow-sheet: var(--shadow-md);
+  --shadow-float: var(--shadow-md);
+  --hatch-red: repeating-linear-gradient(-45deg, rgb(163 50 26 / 0.55) 0 1px, transparent 1px 6px);
+  --hatch-ink: repeating-linear-gradient(-45deg, rgb(36 28 20 / 0.28) 0 1px, transparent 1px 6px);
+  --filament-tint: color-mix(in srgb, var(--filament) 12%, var(--panel));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-med: 0ms;
+    --t-slow: 0ms;
+  }
+}

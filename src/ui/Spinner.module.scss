@@ -1,0 +1,71 @@
+@use '@/styles/mixins' as *;
+
+.spinner {
+  display: inline-flex;
+  flex: none;
+  color: currentColor;
+}
+
+.svg {
+  display: block;
+  animation: spin 1.6s linear infinite;
+}
+
+.construction {
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.22;
+}
+
+.stroke {
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-dasharray: 62 100;
+  animation: draw 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// The lead draws the arc on, then lifts off as the tail catches up, like a pencil going round.
+@keyframes draw {
+  0% {
+    stroke-dasharray: 1 100;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    stroke-dasharray: 62 100;
+    stroke-dashoffset: -12;
+  }
+
+  100% {
+    stroke-dasharray: 62 100;
+    stroke-dashoffset: -99;
+  }
+}
+
+@include reduced-motion {
+  .svg {
+    animation: none;
+  }
+
+  .stroke {
+    animation: breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}

@@ -1,0 +1,88 @@
+name: CI
+
+# Pull requests already cover their own branches, so pushes only run on main: otherwise every
+# PR branch is checked twice. A push to main (or a manual run on it) also publishes GitHub Pages.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A newer PR push makes the older check moot, but a run on main carries a deploy: let it finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc # the single source of truth, matched by "engines" in package.json
+          cache: npm
+
+      # sass-embedded ships its compiler as an optional platform dependency and playwright 1.63 has
+      # no install script, so nothing in this tree needs postinstall to run.
+      - run: npm ci --ignore-scripts
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Builds the site beside the gates rather than after them; deploy waits for both.
+  pages:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read # configure-pages reads the site to learn its base path
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - id: site
+        uses: actions/configure-pages@v6
+
+      # A project site lives under /<repo>/, so the router and every asset URL take that base.
+      # base_path is "/tiles-generator" today and empty if a custom domain is ever set.
+      - run: npm run build -- --base "$BASE_PATH/"
+        env:
+          BASE_PATH: ${{ steps.site.outputs.base_path }}
+
+      # Pages has no rewrites. Each route gets a copy of the shell, so a deep link or a shared design
+      # answers 200 (Pages serves /studio from studio.html), and 404.html boots the app for any other
+      # path so NotFoundPage can say so. A new route belongs in this list.
+      - name: Add SPA fallbacks
+        run: |
+          for route in studio download history; do cp dist/index.html "dist/$route.html"; done
+          cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: [check, pages]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write # lets Pages verify the deployment comes from main
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

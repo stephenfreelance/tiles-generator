@@ -1,0 +1,272 @@
+@use '@/styles/mixins' as *;
+
+.button {
+  @include button-reset;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+
+  &[aria-busy='true'] {
+    cursor: progress;
+  }
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+
+  > svg {
+    width: var(--icon-size, 1rem);
+    height: var(--icon-size, 1rem);
+    stroke-width: 2;
+  }
+}
+
+// Sizes
+
+.sm {
+  min-height: 2rem;
+  padding: 0 var(--s-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  --icon-size: 0.875rem;
+}
+
+.md {
+  min-height: 2.5rem;
+  padding: 0 var(--s-4);
+  font-size: var(--text-md);
+  --icon-size: 1rem;
+}
+
+// The one action that closes the screen: tall enough to be the obvious end of the column.
+.lg {
+  min-height: 3.375rem;
+  padding: 0 var(--s-5);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  --icon-size: 1.1875rem;
+}
+
+// After the sizes so a finger always gets 44 px, whatever size the caller picked.
+@include coarse-pointer {
+  .sm,
+  .md {
+    min-height: 2.75rem;
+  }
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+// Variants
+
+// The green primary. One per screen.
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    0 10px 20px -12px rgb(53 104 42 / 0.9);
+
+  &:hover:not(:disabled, [aria-busy='true']) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  &:active:not(:disabled, [aria-busy='true']) {
+    background: var(--accent-press);
+    border-color: var(--accent-press);
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    background: var(--panel-2);
+    border-color: var(--hairline);
+    color: var(--ink-3);
+    box-shadow: none;
+  }
+}
+
+.secondary {
+  background: var(--panel);
+  border-color: var(--hairline);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+
+  &:hover:not(:disabled, [aria-busy='true']) {
+    background: #fbf5ea;
+    border-color: #d8c9af;
+  }
+
+  &:active:not(:disabled, [aria-busy='true']) {
+    background: var(--panel-2);
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    background: var(--panel-2);
+    border-color: var(--hairline);
+    color: var(--ink-3);
+    box-shadow: none;
+  }
+}
+
+// Ghost and danger-quiet are words on the bench rather than pressable plates.
+.ghost,
+.dangerQuiet {
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+
+  &.sm {
+    font-size: var(--text-sm);
+  }
+
+  &.md {
+    font-size: var(--text-md);
+    padding: 0 var(--s-3);
+  }
+
+  &.lg {
+    font-size: var(--text-lg);
+  }
+
+  &:disabled {
+    color: var(--ink-3);
+    text-decoration-color: transparent;
+  }
+}
+
+.ghost {
+  color: var(--accent);
+
+  &:hover:not(:disabled, [aria-busy='true']) {
+    background: var(--accent-soft);
+  }
+
+  &:active:not(:disabled, [aria-busy='true']) {
+    background: #e2ecd8;
+  }
+}
+
+.dangerQuiet {
+  color: var(--ink-2);
+
+  &:hover:not(:disabled, [aria-busy='true']) {
+    background: var(--cut-soft);
+    color: var(--cut);
+  }
+
+  &:active:not(:disabled, [aria-busy='true']) {
+    background: #f6dcd3;
+  }
+}
+
+// Loading
+
+.button[data-loading='spinner'] .content {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+// Clipped rather than scaled so the strokes keep their spacing as the fill grows.
+.progress {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include hatch(rgb(255 255 255 / 0.28), 5px);
+  clip-path: inset(0 calc((1 - var(--progress)) * 100%) 0 0);
+  transition: clip-path var(--t-med) var(--ease-out);
+}
+
+// The pale buttons carry dark lettering, so their progress fill is drawn in ink rather than white.
+.secondary .progress,
+.ghost .progress,
+.dangerQuiet .progress {
+  @include hatch(rgb(36 28 20 / 0.22), 5px);
+}
+
+// The primary is the one action on the screen. A forced palette would sink it into every other
+// button, so it takes the system's emphasis pair; every state is restated, because opting out of
+// the forced colours means nothing else is translated for it either.
+@include forced-colors {
+  .primary {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: HighlightText;
+    color: HighlightText;
+  }
+
+  .primary:hover:not(:disabled, [aria-busy='true']),
+  .primary:active:not(:disabled, [aria-busy='true']) {
+    background: Highlight;
+    border-color: Canvas;
+  }
+
+  .primary .progress {
+    background-image: repeating-linear-gradient(-45deg, HighlightText 0 1px, transparent 1px 5px);
+  }
+
+  .button:disabled,
+  .primary:disabled {
+    forced-color-adjust: auto;
+    background: Canvas;
+    background-image: none;
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .progress {
+    forced-color-adjust: none;
+    background-image: repeating-linear-gradient(-45deg, CanvasText 0 1px, transparent 1px 5px);
+  }
+}

@@ -1,0 +1,4 @@
+# Tessera renders entirely on the client, so a crawler needs the bundle under /assets/
+# to see anything at all. Nothing here is private: there is no server and no user data.
+User-agent: *
+Allow: /

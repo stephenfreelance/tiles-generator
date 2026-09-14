@@ -1,0 +1,399 @@
+@use '@/styles/mixins' as *;
+
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--ground);
+}
+
+// The studio is the size of the window: its own columns scroll, the page never does.
+@media (min-width: 1100px) {
+  .app[data-fill] {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+.skipLink {
+  position: absolute;
+  top: -100vh;
+  left: 0;
+
+  &:focus {
+    @include paper-slip;
+    position: fixed;
+    top: var(--s-4);
+    left: var(--s-4);
+    z-index: 60;
+    padding: var(--s-2) var(--s-3);
+    font-weight: 650;
+    text-decoration: none;
+  }
+}
+
+// The espresso bar: the only dark surface in the app, and what the page hangs from.
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--header-h);
+  padding-inline: var(--s-4);
+  background: var(--bar);
+  color: var(--bar-ink);
+
+  // The accent green is only 2.29:1 on the bar, so everything up here focuses in the bar's own
+  // light ink (13.49:1) instead. Without this the ring would be all but invisible.
+  :focus-visible {
+    outline-color: var(--bar-ink);
+  }
+}
+
+.brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s-2);
+  border-radius: 8px;
+  color: var(--bar-ink);
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 3px solid var(--bar-ink);
+    outline-offset: 3px;
+  }
+}
+
+// Six tiles laid up in the accent, the app's own subject as its mark.
+.glyph {
+  display: grid;
+  grid-template-columns: repeat(3, 7px);
+  grid-auto-rows: 7px;
+  gap: 2px;
+
+  > i {
+    display: block;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  > i:nth-child(2),
+  > i:nth-child(4),
+  > i:nth-child(6) {
+    opacity: 0.55;
+  }
+}
+
+.wordmark {
+  flex: none;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: 0.005em;
+}
+
+.barDivider {
+  flex: none;
+  width: 1px;
+  height: 1.625rem;
+  background: rgb(247 241 230 / 0.22);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: rgb(247 241 230 / 0.1);
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 var(--s-4);
+  border-radius: 8px;
+  // 10.17:1 on the bar.
+  color: #ded2c0;
+  font-size: var(--text-md);
+  font-weight: 550;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  &:hover {
+    background: rgb(247 241 230 / 0.1);
+    color: var(--bar-ink);
+  }
+}
+
+// The screen you are on wears the light plate, and its label darkens to the bar's own colour:
+// the dim label would only be 1.33:1 against it.
+.navLinkActive,
+.navLinkActive:hover {
+  background: var(--bar-ink);
+  color: var(--bar);
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+.tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+// The bar's own tools: light glyphs that warm on hover, never the panel's dark ink.
+.barTool {
+  color: #ded2c0;
+
+  &:hover:not(:disabled) {
+    background: rgb(247 241 230 / 0.1);
+    color: var(--bar-ink);
+  }
+
+  &:active:not(:disabled) {
+    background: rgb(247 241 230 / 0.16);
+  }
+
+  &:disabled {
+    color: rgb(222 210 192 / 0.45);
+  }
+}
+
+.help {
+  display: inline-flex;
+
+  // HelpTip's key cap is drawn for a panel; on the bar it takes the bar's own palette.
+  > * {
+    border-color: rgb(247 241 230 / 0.3);
+    background: rgb(247 241 230 / 0.12);
+    color: #ded2c0;
+
+    &:hover {
+      border-color: rgb(247 241 230 / 0.5);
+      background: rgb(247 241 230 / 0.2);
+      color: var(--bar-ink);
+    }
+
+    &[data-state='open'] {
+      border-color: var(--bar-ink);
+      background: var(--bar-ink);
+      color: var(--bar);
+    }
+  }
+}
+
+// The design's name, edited in place in the bar.
+.drawingTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.drawingLabel {
+  flex: none;
+  color: #ded2c0;
+  font-size: var(--text-md);
+}
+
+.drawingInput {
+  min-width: 5rem;
+  max-width: 16rem;
+  height: 2.25rem;
+  padding: 0 var(--s-2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bar-ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out);
+
+  &:hover {
+    background: rgb(247 241 230 / 0.09);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--bar-ink);
+    background: rgb(247 241 230 / 0.12);
+  }
+}
+
+.main {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (max-width: 899px) {
+  .bar {
+    gap: var(--s-2);
+    padding-inline: var(--s-3);
+  }
+
+  // An 80-character name cannot share a phone's bar with the screens and the tools. The name is
+  // editable on the History screen, and the studio's own heading still shows it.
+  .drawingTitle,
+  .barDivider {
+    display: none;
+  }
+
+  // A shortcut list has nothing to offer a device with no keyboard.
+  .help {
+    display: none;
+  }
+
+  .navLink {
+    padding: 0 var(--s-3);
+  }
+}
+
+// Shortcut list inside the header's help.
+.shortcuts {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 15rem;
+}
+
+.shortcutRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--hairline);
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.shortcutKeys {
+  display: flex;
+  flex: none;
+  gap: 3px;
+}
+
+.shortcutAction {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+// The screen before its work arrives. The 200 ms delay is the whole point of it, so a route that
+// resolves quickly never shows a thing.
+.fallback {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(21rem, 1fr);
+  gap: var(--s-4);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--s-4);
+  animation: waiting 0s linear 200ms both;
+}
+
+.fallbackView {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #eeece5 0%, #eceae4 100%);
+}
+
+.fallbackBlock {
+  display: grid;
+  align-content: start;
+  gap: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.fallbackCell {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.fallbackLabel {
+  @include label-caps(var(--text-md));
+  color: var(--ink-3);
+}
+
+.fallbackBar {
+  height: 2.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+
+@keyframes waiting {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1099px) {
+  .fallback {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+    padding: var(--s-3);
+  }
+
+  .fallbackView {
+    height: 34vh;
+    min-height: 11rem;
+  }
+}
+
+// The screen a route falls back to when its page throws.
+.errorSheet {
+  display: grid;
+  gap: var(--s-3);
+  place-content: center start;
+  width: 100%;
+  max-width: 46rem;
+  margin: var(--s-6) auto;
+  padding: var(--s-7) var(--s-6);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.errorLabel {
+  @include label-caps(var(--text-sm));
+  color: var(--cut);
+}
+
+.errorHeading {
+  max-width: 24ch;
+  font-size: var(--text-2xl);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.errorBody {
+  max-width: 60ch;
+  color: var(--ink-2);
+}
+
+.errorAction {
+  justify-self: start;
+  margin-top: var(--s-2);
+}

@@ -1,0 +1,324 @@
+@use '@/styles/mixins' as *;
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+}
+
+.drawing {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  // The list of marks may never squeeze the drawing out of its own frame.
+  min-height: 8rem;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// Linework: one vocabulary, every stroke a hairline whatever the drawing size.
+.surface {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.tile {
+  fill: rgb(36 28 20 / 0.03);
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill var(--t-fast) var(--ease-out);
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.tileCut {
+  stroke: var(--cut);
+}
+
+.tile:hover,
+.tileActive {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.tile:focus-visible {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.mark {
+  fill: var(--ink-2);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}
+
+.markCut {
+  fill: var(--cut);
+  font-weight: 700;
+}
+
+// Measurement chains
+.chainLine {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.tick {
+  stroke: var(--ink-2);
+  stroke-width: 1.25;
+}
+
+.extension {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+.dimText {
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  user-select: none;
+}
+
+.dimTextCut {
+  fill: var(--cut);
+  font-weight: 650;
+}
+
+.dimTotal {
+  fill: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  user-select: none;
+}
+
+.chainTitle {
+  fill: var(--ink-3);
+  font-weight: 650;
+  user-select: none;
+}
+
+.leader {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+}
+
+.leaderCut {
+  stroke: var(--cut);
+}
+
+// The corner to measure from, and the lines a tiler snaps across the wall.
+.centreLine {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 14 3 2 3;
+  opacity: 0.7;
+}
+
+.setOut {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.setOutFill {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.setOutLabel {
+  fill: var(--accent);
+  font-weight: 650;
+  user-select: none;
+}
+
+// Lettering is written over the linework with a halo of the panel colour, so a figure is readable
+// wherever it lands. In em it stays tied to the text size, which is already screen-constant.
+.mark,
+.dimText,
+.dimTotal,
+.chainTitle,
+.setOutLabel {
+  paint-order: stroke fill;
+  stroke: var(--panel);
+  stroke-width: 0.25em;
+  stroke-linejoin: round;
+}
+
+// The authored moment: a change of size redraws the chains.
+@include motion-safe {
+  .chains {
+    animation: redraw var(--t-slow) var(--ease-out);
+  }
+}
+
+@keyframes redraw {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+// The list of marks under the drawing.
+.legend {
+  flex: none;
+  max-height: 12rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+}
+
+.legendHead,
+.legendRow {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto 2.75rem;
+  gap: var(--s-2);
+  align-items: baseline;
+  padding: var(--s-1) var(--s-3);
+}
+
+.legendHead {
+  @include label-caps;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--ink-3);
+}
+
+.legendList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendRow {
+  @include button-reset;
+  width: 100%;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease-out);
+
+  &:hover,
+  &[data-active] {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    @include focus-ring-inset;
+  }
+}
+
+.legendList li:last-child .legendRow {
+  border-bottom: 0;
+}
+
+.legendMark {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.legendRow[data-cut] .legendMark {
+  color: var(--cut);
+}
+
+.legendLabel {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Notes, numbered as the installer reads them.
+.notes {
+  display: grid;
+  gap: var(--s-1);
+  margin: 0;
+  padding: var(--s-3);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  list-style: none;
+}
+
+.note {
+  display: flex;
+  gap: var(--s-2);
+  text-wrap: pretty;
+}
+
+.noteNumber {
+  flex: none;
+  width: 1rem;
+  color: var(--accent);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+// On a phone the page scrolls, so the frame grows instead of the list becoming a scroller inside a
+// scroller, and the drawing keeps a share of the screen that is worth looking at.
+@media (max-width: 1099px) {
+  .drawing {
+    flex: none;
+    height: 58vw;
+    min-height: 12rem;
+  }
+
+  .legend {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+// Forced colours flatten every stroke to one ink, so a cut keeps its hatch (the pattern's own
+// stroke is translated for us) and the piece being pointed at is outlined in the system's selected
+// colour instead of washed in the accent.
+@include forced-colors {
+  .tile:hover,
+  .tileActive,
+  .tile:focus-visible {
+    stroke: Highlight;
+    stroke-width: 2.5;
+  }
+
+  .legendRow:hover,
+  .legendRow[data-active] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

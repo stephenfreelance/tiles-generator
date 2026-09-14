@@ -1,0 +1,23 @@
+.page {
+  display: grid;
+  place-content: center;
+  min-height: min(30rem, 60dvh);
+  padding: clamp(1rem, 0.5rem + 1.5vw, 2.5rem);
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-3);
+}
+
+.path {
+  padding: 1px 0.25rem;
+  border-radius: 5px;
+  background: var(--panel-2);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

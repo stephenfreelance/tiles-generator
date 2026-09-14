@@ -1,0 +1,208 @@
+@use '@/styles/mixins' as *;
+
+// A measurement well: the field name small above the figure, the unit and the steppers beside it.
+
+.field {
+  display: grid;
+  gap: var(--s-1);
+  min-width: 0;
+}
+
+.label {
+  @include label-caps;
+  justify-self: start;
+  color: var(--ink-3);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 3rem;
+  padding: 0 var(--s-2) 0 var(--s-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  transition:
+    border-color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
+
+  &:hover {
+    border-color: #d8c9af;
+  }
+
+  // The ring sits on the whole well so the unit and the steppers read as part of what is focused.
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  &[data-invalid] {
+    border-color: var(--warn-ink, #{$warn-ink-fallback});
+  }
+}
+
+.field[data-disabled] .control {
+  @include disabled-hatch;
+  border-color: var(--hairline);
+  color: var(--ink-3);
+}
+
+.input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.1875rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid transparent;
+  }
+
+  &:disabled {
+    color: inherit;
+    cursor: not-allowed;
+  }
+}
+
+.suffix {
+  align-self: center;
+  padding-inline: var(--s-1) var(--s-2);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.steppers {
+  display: flex;
+  flex: none;
+  gap: var(--s-1);
+}
+
+.stepper {
+  @include button-reset;
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: #f7f1e6;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  > svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+    stroke-width: 2;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--panel-2);
+    color: var(--ink);
+  }
+
+  &:active:not(:disabled) {
+    background: #e6dcc9;
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+
+  &:disabled {
+    color: var(--ink-3);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.hint {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-1);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+
+.hintAlert {
+  @include warn-text;
+  font-weight: 500;
+}
+
+.hintIcon {
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+  stroke-width: 2;
+  transform: translateY(0.12em);
+}
+
+// Compact rows keep the limits for screen readers only; notices still show.
+.hintQuiet {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Compact: label left and the field right, for the settings rows behind Advanced.
+.compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--s-3);
+
+  .label {
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .control {
+    width: var(--field-width, 9rem);
+    height: 2.25rem;
+  }
+
+  .input {
+    font-size: var(--text-md);
+    text-align: right;
+  }
+
+  .stepper {
+    width: 1.625rem;
+    height: 1.625rem;
+  }
+
+  .hint {
+    grid-column: 1 / -1;
+  }
+}
+
+// Last, so a finger gets 44 px whatever the layout.
+@include coarse-pointer {
+  .control,
+  .compact .control {
+    height: 3rem;
+  }
+
+  .stepper,
+  .compact .stepper {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

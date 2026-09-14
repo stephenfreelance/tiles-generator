@@ -1,0 +1,730 @@
+@use '@/styles/mixins' as *;
+
+// The studio's own vocabulary: the five numbered steps, the chips they are chosen with, the one
+// panel that folds, the tools resting on the render, and the notes about the fit.
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2);
+  align-items: start;
+  min-width: 0;
+}
+
+.hint {
+  margin-top: var(--s-1);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.toggles {
+  display: grid;
+  gap: var(--s-3);
+}
+
+// One of the five choices, numbered so the eye is led down the column.
+.group {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+  padding-block: var(--s-4);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.groupStep {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.groupTitle {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: 0.005em;
+}
+
+// What the step currently says, at the end of its own heading.
+.groupNow {
+  margin-left: auto;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.groupHint {
+  margin-top: calc(-1 * var(--s-2));
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  text-wrap: pretty;
+}
+
+.groupBody {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+// Chips: a name that does the choosing and a line saying what it costs.
+// A grid rather than a wrapping flex row: the last chip of an odd row keeps a chip's width instead
+// of stretching across the whole rail, which made "Custom" read as a second recommendation.
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.choicesStack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-2);
+}
+
+.choice {
+  @include button-reset;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
+
+  &:hover:not([aria-checked='true']) {
+    border-color: #d8c9af;
+    background: #fbf5ea;
+  }
+
+  &:active {
+    background: var(--panel-2);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+    z-index: 1;
+  }
+
+  // Chosen: the accent frame every selected surface in this app wears.
+  &[aria-checked='true'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+}
+
+.choicesStack .choice {
+  width: 100%;
+}
+
+// The size Tessera would pick: a full-width card that leads with the size and wears the word.
+.choiceFeatured {
+  grid-column: 1 / -1;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-md);
+}
+
+.choiceTick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1.5px solid var(--hairline);
+  border-radius: 50%;
+  color: transparent;
+
+  > svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+    stroke-width: 2.75;
+  }
+}
+
+.choice[aria-checked='true'] .choiceTick {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.choiceSample {
+  display: inline-flex;
+  flex: none;
+  color: var(--ink-2);
+}
+
+.choice[aria-checked='true'] .choiceSample {
+  color: var(--accent);
+}
+
+.choiceText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.choiceName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5em;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.choiceFeatured .choiceName {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.choiceFigure {
+  color: var(--ink-2);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+
+.choiceNote {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+.choice[aria-checked='true'] .choiceNote {
+  color: var(--ink-2);
+}
+
+// Green is the best news this app can give: no cut pieces at all.
+.choice[data-tone='ok'] .choiceNote {
+  color: var(--ok-ink);
+  font-weight: 550;
+}
+
+// "Recommended": Tessera's own suggestion, not a status.
+.choiceBadge {
+  flex: none;
+  padding: 3px var(--s-2);
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+// The small tick on an ordinary chip sits out of the way of its words.
+.choiceMark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--accent);
+
+  > svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 3.25;
+  }
+}
+
+// Three drawn edge profiles side by side.
+.thicknessGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s-2);
+
+  .choice {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+    padding: var(--s-3);
+  }
+}
+
+// The relief samples are the reason anyone is here, so the grid gets the width it needs.
+.textureGrid {
+  --chip-min: 3.25rem;
+}
+
+// Filament: the chosen spool, named, with the popular row under it.
+.filamentChosen {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--filament-wash, var(--panel-2));
+}
+
+.filamentSwatch {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 11px;
+  box-shadow:
+    inset 0 0 0 1px rgb(36 28 20 / 0.16),
+    inset 0 9px 14px -8px rgb(255 255 255 / 0.75);
+}
+
+.filamentText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.filamentName {
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+
+// --ink-2, never --ink-3: the wash behind this text has already spent part of the contrast budget.
+.filamentMeta {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.filamentFinish {
+  flex: none;
+  margin-left: auto;
+  padding: 4px var(--s-3);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.filamentRow {
+  padding-inline: 4px;
+}
+
+.filamentMore {
+  justify-self: start;
+}
+
+// The one thing on this screen that folds away, with its contents written on the lid.
+.disclosure {
+  min-width: 0;
+}
+
+.disclosureTrigger {
+  @include button-reset;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 3.25rem;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: #f7f1e6;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out);
+
+  &:hover {
+    border-color: #d8c9af;
+    background: var(--panel-2);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+}
+
+.disclosureChevron {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--ink-2);
+  stroke-width: 2;
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.disclosureTrigger[aria-expanded='true'] .disclosureChevron {
+  transform: rotate(90deg);
+}
+
+.disclosureText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.disclosureLabel {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  text-wrap: pretty;
+}
+
+.disclosureDescription {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+// What has moved away from the defaults, said on the lid: a folded panel must never be able to
+// change a design silently.
+.disclosureBadge {
+  flex: none;
+  margin-left: auto;
+  padding: 3px var(--s-2);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.disclosurePanel {
+  display: grid;
+  gap: var(--s-5);
+  margin-top: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.advGroup {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+// The stage: the render, and the few tools that rest on it.
+.viewportBody {
+  min-height: 0;
+}
+
+.stageTools {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+// What is being shown, named on the render itself.
+.matPill {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 var(--s-3) 0 var(--s-2);
+  @include stage-tool;
+  border-radius: var(--radius-md);
+}
+
+.matDot {
+  flex: none;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.12),
+    inset 0 6px 10px -6px rgb(255 255 255 / 0.7);
+}
+
+.matName {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.matMeta {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  @include stage-tool;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+// View options: the instruments that change how the wall is drawn, not what it is.
+.viewTrigger {
+  @include button-reset;
+  @include touch-target(2rem);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  height: 2rem;
+  padding: 0 var(--s-2);
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  > svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    stroke-width: 1.75;
+  }
+
+  &:hover {
+    background: rgb(36 28 20 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+
+  &[data-state='open'] {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+}
+
+.viewPopover {
+  @include paper-slip;
+  display: grid;
+  justify-items: center;
+  gap: var(--s-3);
+  width: 17rem;
+  padding: var(--s-4);
+  z-index: 30;
+
+  > *:first-child,
+  > *:last-child {
+    width: 100%;
+  }
+}
+
+.viewTitle {
+  @include label-caps(var(--text-md));
+  justify-self: start;
+  color: var(--ink);
+}
+
+.dial {
+  display: block;
+}
+
+.dialRing {
+  fill: none;
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.dialTick {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.dialTile {
+  fill: var(--panel-2);
+  stroke: var(--ink-2);
+  stroke-width: 1.25;
+}
+
+.dialShadow {
+  fill: rgb(36 28 20 / 0.16);
+}
+
+.dialRay {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.dialSun {
+  fill: var(--warn);
+  stroke: var(--warn-ink);
+  stroke-width: 1.25;
+}
+
+// Notes about the fit: what the checker found, and the one move that answers each.
+.notes {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-2);
+  min-width: 0;
+  padding: var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--cut-soft);
+}
+
+.noteLeader {
+  width: 1.0625rem;
+  height: 1.0625rem;
+  margin-top: 1px;
+  color: var(--cut);
+}
+
+.noteText {
+  color: var(--cut);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.noteFix {
+  grid-column: 2;
+  justify-self: start;
+}
+
+// A hint is not a finding: the red is kept for cut pieces and for what is actually wrong.
+.noteQuiet {
+  background: var(--panel-2);
+}
+
+.noteQuiet .noteLeader {
+  color: var(--ink-3);
+}
+
+.noteQuiet .noteText {
+  color: var(--ink-2);
+}
+
+// The fit, in the product's own words.
+.summaryText {
+  color: var(--ink);
+  font-size: var(--text-md);
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.figure {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+// Forced colours: every state carried in colour or fill has to be re-drawn in the viewer's own
+// palette, or it stops being a state at all.
+@include forced-colors {
+  .choice[aria-checked='true'] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Canvas;
+    box-shadow: inset 0 0 0 2px Highlight;
+  }
+
+  .choice[aria-checked='true'] .choiceTick {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .choiceMark {
+    color: Highlight;
+  }
+
+  .choice[data-tone='ok'] .choiceNote {
+    color: CanvasText;
+  }
+
+  .choiceBadge {
+    box-shadow: inset 0 0 0 1px CanvasText;
+    color: CanvasText;
+  }
+
+  .groupStep {
+    forced-color-adjust: none;
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+    color: CanvasText;
+  }
+
+  // The chosen filament's colour is a fact about the design rather than decoration: it stays.
+  .filamentSwatch,
+  .matDot {
+    forced-color-adjust: none;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  .viewTrigger[data-state='open'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  // Marked text, not a filled band.
+  .note {
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+
+  .noteText {
+    color: CanvasText;
+  }
+}

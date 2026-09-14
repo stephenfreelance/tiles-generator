@@ -1,0 +1,347 @@
+// The front page as a lit workbench: the wall on a stage, then the proof that every cut fits,
+// the samples you can start from, and what you take away.
+
+.page {
+  --pad: clamp(1rem, 0.4rem + 2vw, 3rem);
+  --gutter: max(var(--pad), calc((100% - 84rem) / 2));
+  display: grid;
+  align-content: start;
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
+  align-items: center;
+  gap: var(--s-6) var(--s-7);
+  padding: clamp(var(--s-5), 3vw, var(--s-8)) var(--gutter) clamp(var(--s-6), 3.5vw, var(--s-8));
+}
+
+.heroText {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.headline {
+  font-size: clamp(2rem, 1rem + 2.7vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.06;
+  text-wrap: balance;
+}
+
+.support {
+  max-width: 46ch;
+  color: var(--ink-2);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+.heroNote {
+  max-width: 44ch;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.section {
+  display: grid;
+  align-content: start;
+  gap: var(--s-5);
+  padding: clamp(var(--s-6), 3.5vw, var(--s-8)) var(--gutter);
+  border-top: 1px solid var(--hairline);
+}
+
+.sectionHead {
+  display: grid;
+  gap: var(--s-3);
+  max-width: 68ch;
+}
+
+.heading {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.subheading {
+  margin-top: var(--s-2);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.008em;
+}
+
+.lede {
+  color: var(--ink-2);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.note {
+  max-width: 70ch;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.fineprint {
+  max-width: 70ch;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+// The proof: the plan beside the printed pieces, each on its own soft panel.
+.proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-4) var(--s-5);
+}
+
+.panel {
+  display: grid;
+  align-content: start;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.panelTitle {
+  font-size: var(--text-md);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.panelNote {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+.planBody,
+.proofBody {
+  display: grid;
+  padding: var(--s-4);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0 var(--s-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendRow {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+// The mark keeps the shape it has on the plan; a cut takes the red border and wash, never red text,
+// so the letter itself always reads at full strength.
+.legendMark {
+  display: grid;
+  place-items: center;
+  height: 1.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  font-weight: 700;
+}
+
+.legendRow[data-cut] .legendMark {
+  border-color: var(--cut);
+  background: var(--cut-soft);
+}
+
+.legendSize {
+  color: var(--ink-2);
+}
+
+.deliver {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--s-4) var(--s-5);
+}
+
+.files {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-4);
+    padding: var(--s-2) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  > li:last-child {
+    border-bottom: 0;
+  }
+}
+
+.fileWhat {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.fileCount {
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.facts {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+
+  > li {
+    position: relative;
+    padding-left: var(--s-4);
+  }
+
+  > li::before {
+    content: '';
+    position: absolute;
+    top: 0.62em;
+    left: 0;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+}
+
+// The closing invitation sits on the bench rather than on the page: one warm band, one action.
+.close {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-4);
+  margin-top: var(--s-2);
+  padding: clamp(var(--s-6), 3vw, var(--s-7)) var(--s-5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel-2);
+  text-align: center;
+}
+
+.closeHeading {
+  max-width: 24ch;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.footer {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--gutter) var(--s-7);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+
+  > p {
+    max-width: 78ch;
+  }
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  margin-top: var(--s-2);
+
+  // Each link keeps a 24 px target of its own, and a finger's 44 px where the pointer is coarse.
+  > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    color: var(--ink);
+    text-decoration-color: var(--hairline);
+    text-decoration-line: underline;
+
+    &:hover {
+      text-decoration-color: currentcolor;
+    }
+
+    @media (pointer: coarse) {
+      min-height: 2.75rem;
+    }
+  }
+}
+
+// A cut piece is a fact, not a colour: in a forced palette the mark keeps a visible edge.
+@media (forced-colors: active) {
+  .legendRow[data-cut] .legendMark {
+    border-width: 2px;
+  }
+}
+
+@media (max-width: 68rem) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+
+  .proof,
+  .deliver {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 48rem) {
+  .heading,
+  .closeHeading {
+    font-size: var(--text-xl);
+  }
+
+  .support,
+  .lede {
+    font-size: var(--text-md);
+  }
+
+  .heroActions {
+    gap: var(--s-3);
+  }
+}

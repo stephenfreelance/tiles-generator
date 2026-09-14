@@ -1,0 +1,35 @@
+import { unzipSync } from 'fflate'
+import { describe, expect, it } from 'vitest'
+import { zipFiles } from './zip'
+
+const text = (s: string) => new TextEncoder().encode(s)
+
+describe('zipFiles', () => {
+  it('round-trips every file', () => {
+    const files = [
+      { name: 'A_full-tile_150x150_x40.stl', data: new Uint8Array(5000).fill(7) },
+      { name: 'setting-out-plan.svg', data: text('<svg></svg>') },
+      { name: 'README.txt', data: text('TESSERA') },
+    ]
+    const unzipped = unzipSync(zipFiles(files))
+    expect(Object.keys(unzipped).sort()).toEqual(files.map((f) => f.name).sort())
+    expect(new TextDecoder().decode(unzipped['README.txt'])).toBe('TESSERA')
+    expect(unzipped['A_full-tile_150x150_x40.stl']).toHaveLength(5000)
+  })
+
+  it('compresses repetitive geometry well', () => {
+    const data = new Uint8Array(200_000).fill(3)
+    const zipped = zipFiles([{ name: 'tile.step', data }])
+    expect(zipped.length).toBeLessThan(data.length / 10)
+  })
+
+  it('keeps duplicate names apart', () => {
+    const unzipped = unzipSync(
+      zipFiles([
+        { name: 'tile.stl', data: text('one') },
+        { name: 'tile.stl', data: text('two') },
+      ]),
+    )
+    expect(Object.keys(unzipped).sort()).toEqual(['tile-2.stl', 'tile.stl'])
+  })
+})

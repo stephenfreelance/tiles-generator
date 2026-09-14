@@ -1,0 +1,57 @@
+// A hairline of bench between the pieces reads as the joint; the relief still runs across it.
+.wall {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--hairline);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+}
+
+.cell {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-2);
+
+  // The sample is centred in a square chip; the piece itself is scaled to fill the cell exactly,
+  // which means the image overflows the cell (the base max-width would squeeze it back).
+  > img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    max-width: none;
+    max-height: none;
+    object-fit: fill;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.pending {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--panel-2);
+}
+
+// A cut piece is labelled where it sits: red edge, warm wash, and the letter in full-strength ink.
+.mark {
+  position: absolute;
+  right: var(--s-1);
+  bottom: var(--s-1);
+  padding: 1px 6px;
+  border: 1px solid var(--cut);
+  border-radius: 6px;
+  background: var(--cut-soft);
+  color: var(--ink);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (forced-colors: active) {
+  .mark {
+    border-width: 2px;
+  }
+}

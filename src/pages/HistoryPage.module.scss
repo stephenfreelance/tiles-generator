@@ -1,0 +1,85 @@
+// The shelf: every design this browser kept, on one warm panel, newest at the top.
+
+.page {
+  display: grid;
+  align-content: start;
+  gap: var(--s-5);
+  width: 100%;
+  max-width: 88rem;
+  margin-inline: auto;
+  padding: clamp(var(--s-4), 1.6vw, var(--s-6));
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.count {
+  margin-top: var(--s-1);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+// A quiet challenge before anything is thrown away, beside the button rather than over the page.
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--cut);
+  border-radius: var(--radius-md);
+  background: var(--cut-soft);
+}
+
+.confirmText {
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
+.register {
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footnote {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+@media (max-width: 48rem) {
+  .title {
+    font-size: var(--text-xl);
+  }
+}

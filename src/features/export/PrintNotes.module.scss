@@ -1,0 +1,27 @@
+.list {
+  display: grid;
+  gap: var(--s-2);
+  max-width: 76ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.list > li {
+  position: relative;
+  padding-left: var(--s-4);
+  text-wrap: pretty;
+}
+
+.list > li::before {
+  content: '';
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--accent);
+}

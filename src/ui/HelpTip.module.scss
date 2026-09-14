@@ -1,0 +1,127 @@
+@use '@/styles/mixins' as *;
+
+.trigger {
+  @include button-reset;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9px;
+  color: var(--ink-2);
+  cursor: help;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  > svg {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    stroke-width: 1.75;
+  }
+
+  &:hover {
+    background: rgb(36 28 20 / 0.06);
+    color: var(--ink);
+  }
+
+  &:active {
+    background: rgb(36 28 20 / 0.11);
+  }
+
+  &[data-state='open'] {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+
+  &:disabled {
+    color: var(--ink-3);
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  @include coarse-pointer {
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 44px;
+      height: 44px;
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+// Where the tip is opened by a key, the trigger wears that key.
+.cap {
+  width: auto;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0 0.5em;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #d8c9af;
+    background: #fbf5ea;
+    color: var(--ink);
+  }
+
+  &:active {
+    background: var(--panel-2);
+  }
+
+  &[data-state='open'] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+}
+
+.content {
+  @include paper-slip;
+  z-index: 60;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2rem));
+  padding: var(--s-4);
+  @include slip-entrance(settle);
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.title {
+  @include label-caps(var(--text-sm));
+  margin-bottom: var(--s-2);
+  color: var(--ink);
+}
+
+.body {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink-2);
+
+  > p + p {
+    margin-top: var(--s-2);
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0.4;
+    transform: translateY(3px);
+  }
+}

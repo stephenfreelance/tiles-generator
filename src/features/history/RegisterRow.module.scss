@@ -1,0 +1,272 @@
+// One template shared by the column headings and every row, so the shelf stays aligned.
+@mixin register-grid {
+  display: grid;
+  grid-template-columns:
+    4.5rem minmax(13.5rem, 1.9fr) minmax(6rem, 0.85fr) minmax(5.75rem, 0.75fr)
+    minmax(6rem, 0.85fr) minmax(6.5rem, 0.9fr) minmax(4.25rem, 0.45fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.header {
+  @include register-grid;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel-2);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.row {
+  @include register-grid;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+  transition: background-color var(--t-fast) var(--ease-out);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &:hover,
+  &:focus-within {
+    background: var(--panel-2);
+  }
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+
+  > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.thumbEmpty {
+  position: absolute;
+  inset: 0;
+  background: var(--panel-2);
+}
+
+.drawing {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nameButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+}
+
+.name {
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pencil {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--ink-3);
+  opacity: 0;
+  stroke-width: 1.75;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.nameButton:hover .pencil,
+.nameButton:focus-visible .pencil {
+  opacity: 1;
+}
+
+.rename {
+  width: 100%;
+  padding: 2px var(--s-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+
+  &:focus-visible {
+    outline-offset: 1px;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-3);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+// A small badge: green once the files have been taken, plain while it is still a draft.
+.stamp {
+  padding: 1px 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-3);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+
+  &[data-validated] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--ok-ink);
+  }
+}
+
+.fact {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.factLabel {
+  display: none;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.subFact {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+.numeric {
+  text-align: right;
+}
+
+// The swatch and the colour it stands for are one token, at any width.
+.filamentName {
+  white-space: nowrap;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.375rem;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+  vertical-align: baseline;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+
+// Narrow: the row folds into a block, each fact keeping its own label.
+@media (max-width: 78rem) {
+  .header {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s-2) var(--s-4);
+    padding: var(--s-4);
+  }
+
+  .thumb {
+    grid-row: span 2;
+  }
+
+  .drawing {
+    gap: var(--s-1);
+  }
+
+  .fact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+    grid-column: 2;
+    padding: var(--s-1) 0;
+    border-bottom: 1px solid var(--hairline);
+    text-align: right;
+  }
+
+  .factLabel {
+    display: inline;
+  }
+
+  // Names ("Matcha Green", "PLA-CF") wrap whole or not at all, so the column keeps its edge.
+  .factValue {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0 var(--s-2);
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .subFact {
+    display: inline;
+    margin-left: var(--s-2);
+  }
+
+  .factValue .subFact {
+    margin-left: 0;
+  }
+
+  .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    margin-top: var(--s-2);
+  }
+}
+
+@media (max-width: 34rem) {
+  .row {
+    grid-template-columns: 4rem minmax(0, 1fr);
+  }
+}
+
+// The filament's colour is a fact about the saved design, so it is kept when the palette is forced;
+// the badge and the name already say the rest in words.
+@media (forced-colors: active) {
+  .swatch {
+    forced-color-adjust: none;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  .stamp[data-validated] {
+    border-width: 2px;
+  }
+}
