@@ -380,10 +380,29 @@ describe('T-13 coral wood', () => {
 })
 
 describe('sampling speed', () => {
-  it('samples a 600x600 grid of every texture and reports the cost', () => {
-    const size = 600
+  /**
+   * Best of several passes over a small grid, rather than one pass over a large one. What this has
+   * to report is the steady-state cost of a sampler, and the minimum is the only statistic that
+   * throws away a GC pause or a noisy neighbour: a single pass on a shared CI runner reports those
+   * as the cost of the texture. 65k samples still puts the dearest texture at tens of milliseconds,
+   * far above the resolution of the clock.
+   */
+  const GRID = 256
+  const PASSES = 3
+  /**
+   * Per-sample ceiling, and a deliberately generous one: it catches a texture gone pathologically
+   * slow, not a constant factor. It is a wall clock, so it is calibrated off the SLOWEST machine the
+   * gates run on and not off a laptop. The dearest texture is coral wood (fifteen lattice cells
+   * searched per sample, then an fbm for the grain), which costs about 0.8 us on an Apple-silicon
+   * dev machine and about 1.3 us on a GitHub-hosted runner. The old 1 us ceiling came from the
+   * former and CI duly failed it on a texture that had never regressed.
+   */
+  const CEILING_NS = 4000
+
+  it('samples every texture and keeps the dearest well under the ceiling', () => {
     const rows: string[] = []
-    let slowest = 0
+    let slowestNs = 0
+    let slowestId = ''
     for (const def of TEXTURES) {
       const config: DesignConfig = {
         ...DEFAULT_CONFIG,
@@ -396,24 +415,32 @@ describe('sampling speed', () => {
       }
       const field = createHeightField(config)
       const { width, height } = config.tile
-      // Warm the JIT so the reported number is the steady-state cost.
+      // Warm the JIT so even the first pass is steady-state.
       for (let i = 0; i < 2000; i++) field((i * 0.37) % width, (i * 0.71) % height)
-      const start = performance.now()
-      let sink = 0
-      for (let iy = 0; iy < size; iy++) {
-        const y = (iy / size) * height
-        for (let ix = 0; ix < size; ix++) {
-          sink += field((ix / size) * width, y)
+      let bestMs = Infinity
+      for (let pass = 0; pass < PASSES; pass++) {
+        const start = performance.now()
+        let sink = 0
+        for (let iy = 0; iy < GRID; iy++) {
+          const y = (iy / GRID) * height
+          for (let ix = 0; ix < GRID; ix++) {
+            sink += field((ix / GRID) * width, y)
+          }
         }
+        const ms = performance.now() - start
+        // Reading the sum keeps the loop alive: an unused one is free to optimise away.
+        expect(Number.isFinite(sink)).toBe(true)
+        bestMs = Math.min(bestMs, ms)
       }
-      const ms = performance.now() - start
-      expect(Number.isFinite(sink)).toBe(true)
-      const ns = (ms * 1e6) / (size * size)
-      slowest = Math.max(slowest, ns)
-      rows.push(`${def.mark} ${def.id.padEnd(16)} ${ms.toFixed(1).padStart(7)} ms  ${ns.toFixed(0).padStart(4)} ns/sample`)
+      const ns = (bestMs * 1e6) / (GRID * GRID)
+      if (ns > slowestNs) {
+        slowestNs = ns
+        slowestId = def.id
+      }
+      rows.push(`${def.mark} ${def.id.padEnd(16)} ${bestMs.toFixed(1).padStart(7)} ms  ${ns.toFixed(0).padStart(4)} ns/sample`)
     }
-    console.log(`\n600x600 samples per texture\n${rows.join('\n')}\n`)
-    // A generous ceiling: the point of the assertion is to catch a pathological regression.
-    expect(slowest).toBeLessThan(1000)
+    console.log(`\nbest of ${PASSES} passes over a ${GRID}x${GRID} grid per texture\n${rows.join('\n')}\n`)
+    // Name the offender: a bare number in a CI log says nothing about which texture to go and look at.
+    expect(slowestNs, `dearest texture: ${slowestId}`).toBeLessThan(CEILING_NS)
   })
 })
