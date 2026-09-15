@@ -42,7 +42,9 @@ export interface TextureChipProps {
 
 /** One relief sample chip with its catalog mark. Render inside TextureChipGrid. */
 export function TextureChip({ item }: TextureChipProps) {
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  // Only the first image fades in. A new colour swaps src under an image already on screen, and the
+  // browser keeps painting the old one until the new one decodes, so fading again would only blink.
+  const [loaded, setLoaded] = useState(false)
   const chip = (
     <RadioGroup.Item
       value={item.id}
@@ -59,8 +61,8 @@ export function TextureChip({ item }: TextureChipProps) {
             alt=""
             draggable={false}
             decoding="async"
-            data-loaded={loadedSrc === item.src || undefined}
-            onLoad={() => setLoadedSrc(item.src)}
+            data-loaded={loaded || undefined}
+            onLoad={() => setLoaded(true)}
           />
         )}
         <RadioGroup.Indicator className={styles.check}>

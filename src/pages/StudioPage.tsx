@@ -1,22 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Check, Download, Scissors } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { isTypingTarget } from '@/app/keyboard'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
-import { filamentById } from '@/core/filaments'
-import { FitDiagram } from '@/features/plan/FitDiagram'
-import { PlanView } from '@/features/plan/PlanView'
+import { cutEdgesText, planTotals } from '@/features/plan/planCopy'
+import { PlanPieces } from '@/features/plan/PlanPieces'
+import { WallMap } from '@/features/plan/WallMap'
+import { planLayoutKey } from '@/features/plan/wallMapGeometry'
 import { AdvancedPanel } from '@/features/studio/AdvancedPanel'
 import { Disclosure } from '@/features/studio/Disclosure'
+import { ColorGroup } from '@/features/studio/ColorGroup'
 import { ElevationView } from '@/features/studio/ElevationView'
-import { FilamentGroup } from '@/features/studio/FilamentGroup'
 import { FirstRunNote } from '@/features/studio/FirstRunNote'
 import { fitSummary } from '@/features/studio/fitCopy'
 import { FitSummary } from '@/features/studio/FitSummary'
 import { TextureGroup } from '@/features/studio/TextureGroup'
 import { ThicknessGroup } from '@/features/studio/ThicknessGroup'
 import { TileSizeGroup } from '@/features/studio/TileSizeGroup'
+import { useStudioUpdate } from '@/features/studio/useStudioUpdate'
 import { WallGroup } from '@/features/studio/WallGroup'
 import { WarningNotes } from '@/features/studio/WarningNotes'
 import { useFilamentEstimate, useLayout, usePlanModel } from '@/hooks'
@@ -24,7 +26,7 @@ import { useDesign } from '@/state/designStore'
 import { useHistory } from '@/state/historyStore'
 import { usePrefs } from '@/state/prefsStore'
 import type { TileViewportHandle } from '@/three/TileViewport'
-import { announce, Button, toast, ViewFrame } from '@/ui'
+import { announce, Button, toast } from '@/ui'
 import type { StyleWithVars } from '@/ui/cx'
 import styles from './StudioPage.module.scss'
 
@@ -44,7 +46,8 @@ function weightText(grams: number): string | null {
  */
 export function StudioPage() {
   const config = useDesign((s) => s.config)
-  const update = useDesign((s) => s.update)
+  // Every group edits through this, so a Recommended tile follows the wall within the same undo step.
+  const { update, chooseTile, tileChoice } = useStudioUpdate(config)
   const plan = useLayout(config)
   const model = usePlanModel(config, plan)
   const { estimate } = useFilamentEstimate(config, plan)
@@ -56,19 +59,32 @@ export function StudioPage() {
   useDesignFromLink()
 
   const viewportRef = useRef<TileViewportHandle | null>(null)
-  const [highlightPieceId, setHighlightPieceId] = useState<string | null>(null)
+  // A piece is chosen by a click on the drawing (a piece or its chip) and pointed at by hovering a warning;
+  // the warning wins while the pointer is on it, and leaving it can never wipe the maker's own choice.
+  const [pinnedPiece, setPinnedPiece] = useState<{ id: string; layout: string } | null>(null)
+  const [warningPieceId, setWarningPieceId] = useState<string | null>(null)
+  // Derived, not synced: ids are letters handed out again on every relayout, so a choice only holds
+  // for the layout it was made on (a recolour keeps the key, and the choice).
+  const layoutKey = planLayoutKey(model)
+  const pinned = pinnedPiece?.layout === layoutKey ? pinnedPiece.id : null
+  const shownPieceId = warningPieceId ?? pinned
+  const togglePiece = useCallback(
+    (pieceId: string) =>
+      setPinnedPiece((was) => (was?.id === pieceId && was.layout === layoutKey ? null : { id: pieceId, layout: layoutKey })),
+    [layoutKey],
+  )
+  const clearPiece = useCallback(() => setPinnedPiece(null), [])
   const [saving, setSaving] = useState(false)
   // The first-run note has done its work the moment the maker changes anything or points at a piece.
   const [openingConfig] = useState(config)
-  const hintAnswered = highlightPieceId !== null || config !== openingConfig
+  const hintAnswered = pinnedPiece !== null || warningPieceId !== null || config !== openingConfig
 
   const summary = fitSummary(plan)
   const spokenFit = useRef(summary.sentence)
-  const filament = filamentById(config.colorId)
-  // The chosen spool tints the bench: the fit strip and the drawn tiles take its colour, so picking
-  // Matcha Green turns the page green. One wash, kept light enough to leave every text contrast
-  // where it was (see StudioPage.module.scss).
-  const studioStyle: StyleWithVars = { '--filament': filament.hex }
+  // The chosen color tints the bench: the fit strip and the drawn tiles take it, so picking Green
+  // turns the page green. One wash, kept light enough to leave every text contrast where it was
+  // (see StudioPage.module.scss).
+  const studioStyle: StyleWithVars = { '--filament': config.color }
   const weight = weightText(estimate.totalGrams)
 
   // Every relayout is spoken, because the counts are the answer the maker is waiting for.
@@ -107,7 +123,8 @@ export function StudioPage() {
     setSaving(true)
     let thumbnail: string | undefined
     try {
-      thumbnail = (await viewportRef.current?.capture(THUMBNAIL_PX)) ?? undefined
+      // No waiting on the re-lay wave here: the download page takes the settled thumbnail on arrival.
+      thumbnail = (await viewportRef.current?.capture(THUMBNAIL_PX, { maxWaitMs: 0 })) ?? undefined
     } catch (error) {
       // A missing thumbnail is not worth stopping the download for.
       console.warn('[studio] could not capture a preview thumbnail', error)
@@ -118,7 +135,14 @@ export function StudioPage() {
     navigate('/download')
   }
 
-  const modelCount = plan.pieces.length
+  const { files } = planTotals(model)
+
+  // Escape lets go of a chosen piece, and only then: otherwise the key belongs to whoever else wants it.
+  const onPlanKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape' || !pinned) return
+    clearPiece()
+    event.stopPropagation()
+  }
 
   return (
     <div className={styles.studio} style={studioStyle}>
@@ -126,47 +150,54 @@ export function StudioPage() {
         className={styles.stage}
         config={config}
         plan={plan}
-        highlightPieceId={highlightPieceId}
+        highlightPieceId={shownPieceId}
         viewportRef={viewportRef}
       />
 
       <section className={styles.rail} aria-label="Your choices">
         <div className={styles.steps}>
           <WallGroup config={config} update={update} />
-          <TileSizeGroup config={config} update={update} />
+          <TileSizeGroup
+            config={config}
+            update={update}
+            choice={tileChoice}
+            onChoose={chooseTile}
+          />
           <ThicknessGroup config={config} update={update} />
           <TextureGroup config={config} update={update} />
-          <FilamentGroup config={config} update={update} />
+          <ColorGroup config={config} update={update} />
 
           <div className={styles.advanced}>
             <AdvancedPanel config={config} update={update} />
           </div>
 
-          <div className={styles.plan}>
-            <FitDiagram model={model} />
+          <section className={styles.plan} aria-labelledby="studio-plan-title" onKeyDown={onPlanKeyDown}>
+            <div className={styles.planHead}>
+              <h2 id="studio-plan-title" className={styles.planTitle}>
+                Tiling plan
+              </h2>
+              <span className={styles.planNow}>{cutEdgesText(model)}</span>
+            </div>
 
-            <Disclosure
-              label="Show the tiling plan"
-              badge={`${modelCount} different ${modelCount === 1 ? 'tile' : 'tiles'}`}
-            >
-              {/* Everything a person transfers to a real wall: the measurements, the corner to
-                  start from, and the list of marks. */}
-              <ViewFrame number={2} title="Where each tile goes" bodyClassName={styles.planBody}>
-                <PlanView model={model} highlightPieceId={highlightPieceId} onHighlight={setHighlightPieceId} />
-              </ViewFrame>
-            </Disclosure>
+            <WallMap model={model} selectedPieceId={shownPieceId} onSelect={togglePiece} />
 
+            {/* Warnings sit right under the drawing, so opening the lid never pushes them away. */}
             <WarningNotes
               warnings={plan.warnings}
               config={config}
               plan={plan}
               update={update}
-              onHighlight={setHighlightPieceId}
+              onHighlight={setWarningPieceId}
             />
 
             {/* A real warning outranks a hint, so the note only speaks when the layout has nothing to say. */}
             <FirstRunNote suppressed={plan.warnings.length > 0} answered={hintAnswered} />
-          </div>
+
+            {/* The pieces to print. The drawing above already shows where to start, and a row tints to match its choice. */}
+            <Disclosure flush revealOnOpen label="Your pieces" badge={`${files} ${files === 1 ? 'file' : 'files'}`}>
+              <PlanPieces model={model} selectedPieceId={shownPieceId} />
+            </Disclosure>
+          </section>
         </div>
 
         <div className={styles.foot}>

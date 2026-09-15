@@ -23,7 +23,7 @@ export function CopyLinkButton({ config, as = 'text', className }: CopyLinkButto
     const link = `${window.location.origin}${href}?${toSearch(config)}`
     try {
       await navigator.clipboard.writeText(link)
-      toast('Link copied. It carries the wall, the tile, the relief and the filament.', { tone: 'success' })
+      toast('Link copied. It carries the wall, the tile, the relief and the color.', { tone: 'success' })
     } catch {
       toast('This browser would not let Tessera reach the clipboard. Copy the address bar instead.', { tone: 'error' })
     }

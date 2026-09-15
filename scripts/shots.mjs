@@ -66,6 +66,9 @@ async function captureOgCard(context) {
   const page = await newPage(context, { width: 1200, height: 630 })
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' })
   await settle(page)
+  // The card is the hero alone: the next section starts inside the 630px frame and would be cut through.
+  // Visibility, not display, so neither the hero nor its canvas reflows.
+  await page.addStyleTag({ content: '#main-content section:first-of-type ~ *, footer { visibility: hidden !important; }' })
   const file = path.join(root, 'public/og-cover.png')
   await page.screenshot({ path: file })
   await page.close()

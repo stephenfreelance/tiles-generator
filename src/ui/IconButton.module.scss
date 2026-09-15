@@ -41,7 +41,7 @@
     color: var(--accent);
 
     &:hover:not(:disabled) {
-      background: #e2ecd8;
+      background: color-mix(in srgb, var(--accent) 7%, var(--accent-soft));
       color: var(--accent);
     }
   }

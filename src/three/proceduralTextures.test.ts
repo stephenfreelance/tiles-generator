@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateDetailData, generateFlakeData, periodicFbm, periodicValueNoise } from './proceduralTextures'
+import { generateGrainData, periodicFbm, periodicValueNoise } from './proceduralTextures'
 
 describe('procedural textures', () => {
   it('noise is periodic, so textures tile without seams', () => {
@@ -13,22 +13,25 @@ describe('procedural textures', () => {
     expect(periodicFbm(0, 0.4, 4, 4, 1)).toBeCloseTo(periodicFbm(1, 0.4, 4, 4, 1), 12)
   })
 
-  it('flake coverage is close to the requested fraction', () => {
-    const size = 128
-    const data = generateFlakeData({ coverage: 0.1, radiusPx: [1.5, 3], seed: 4 }, size)
-    let covered = 0
-    for (let k = 0; k < size * size; k++) if (data[k * 4 + 3] > 0) covered++
-    const fraction = covered / (size * size)
-    expect(fraction).toBeGreaterThan(0.05)
-    expect(fraction).toBeLessThan(0.14)
-  })
-
-  it('detail maps are deterministic and use their channels', () => {
-    const a = generateDetailData('stone', 64, 3)
-    const b = generateDetailData('stone', 64, 3)
-    expect(a).toEqual(b)
-    let speckle = 0
-    for (let k = 0; k < 64 * 64; k++) speckle += a[k * 4 + 1]
-    expect(speckle).toBeGreaterThan(0)
+  it('the grain map is deterministic, centred on mid grey in red and opaque', () => {
+    const size = 64
+    const a = generateGrainData(size, 3)
+    expect(a).toEqual(generateGrainData(size, 3))
+    expect(a).not.toEqual(generateGrainData(size, 4))
+    let sum = 0
+    let min = 255
+    let max = 0
+    for (let k = 0; k < size * size; k++) {
+      const red = a[k * 4]
+      sum += red
+      min = Math.min(min, red)
+      max = Math.max(max, red)
+      expect(a[k * 4 + 3]).toBe(255)
+    }
+    const mean = sum / (size * size)
+    expect(mean).toBeGreaterThan(108)
+    expect(mean).toBeLessThan(148)
+    // A visible grain, not a flat fill.
+    expect(max - min).toBeGreaterThan(60)
   })
 })

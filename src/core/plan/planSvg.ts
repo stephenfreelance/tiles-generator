@@ -1,4 +1,4 @@
-import { filamentById } from '../filaments'
+import { colorName } from '../colors'
 import { textureById } from '../textures/registry'
 import type { DesignConfig, LayoutPlan } from '../types'
 import { formatLength, formatSize } from '../units'
@@ -18,14 +18,13 @@ const isoDay = (d: Date) =>
 
 export function planSheetInfo(config: DesignConfig, opts: PlanSvgOptions = {}): SheetInfo {
   const texture = textureById(config.texture.id)
-  const filament = filamentById(config.colorId)
   return {
     title: opts.title ?? config.name,
     surface: formatSize(config.surface.width, config.surface.height),
     tile: `${formatSize(config.tile.width, config.tile.height)}, ${formatLength(config.tile.thickness)} base`,
     joint: config.joint > 0 ? formatLength(config.joint) : 'Butt joint (0 mm)',
     texture: `${texture.name}, ${formatLength(config.texture.depth)} relief`,
-    filament: `${filament.line} ${filament.name}`,
+    color: `${colorName(config.color)} (${config.color})`,
     date: isoDay(opts.date ?? new Date()),
   }
 }

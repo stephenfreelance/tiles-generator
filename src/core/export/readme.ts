@@ -1,31 +1,53 @@
-import { filamentById } from '../filaments'
+import { colorName } from '../colors'
 import { effectiveBevel } from '../geometry/heightfield'
+import { buildPlanModel, tileAtPoint, wallCutSides, type PlanModel } from '../plan/planModel'
 import { resolveParams, textureById } from '../textures/registry'
 import type { DesignConfig, ExportFormat, LayoutPlan } from '../types'
 import { formatNumber } from '../units'
 import { pieceFileName, sizeText } from './filenames'
 
 const ORIGIN_TEXT: Record<DesignConfig['layout']['origin'], string> = {
-  // The grid is read from the top-left, so the leftover falls at the right edge and the bottom.
-  corner: 'Started from the top-left corner, cuts on the right and bottom edges',
-  center: 'Centred on the surface, equal cuts on opposite edges',
+  corner: 'Set out from the left edge',
+  center: 'Centred on the surface',
   balanced: 'Balanced, shifted to keep the edge cuts as wide as possible',
 }
 
-/** Step 2 of laying out: where the whole tiles are anchored decides where the installer starts. */
-const SETOUT_TEXT: Record<DesignConfig['layout']['origin'], string[]> = {
-  corner: [
-    '  2. Mark the setting-out point, shown as SO on the plan. The whole tiles are read from the',
-    '     top-left corner, so the cut pieces fall on the right edge and along the bottom.',
-  ],
-  center: [
-    '  2. Snap the centre lines shown on the plan and work outwards from the setting-out point',
-    '     marked SO. The cuts are shared equally between opposite edges.',
-  ],
-  balanced: [
-    '  2. Snap the centre lines shown on the plan and work outwards from the setting-out point',
-    '     marked SO. The grid is shifted to keep the edge cuts as wide as possible.',
-  ],
+/** The wall edges that really take cuts, as the studio's plan names them. */
+function cutsText(model: PlanModel): string {
+  if (model.exact) return 'no cuts'
+  const sides = wallCutSides(model)
+  if (sides.length === 0) return 'cuts at the edges'
+  if (sides.length === 4) return 'cuts on every edge'
+  const list = sides.length === 1 ? sides[0] : `${sides.slice(0, -1).join(', ')} and ${sides.at(-1)}`
+  return `cuts on the ${list} ${sides.length === 1 ? 'edge' : 'edges'}`
+}
+
+/** One numbered step, wrapped under its number the way the rest of the file is set. */
+function step(number: number, text: string, width = 88): string[] {
+  const lines: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    if (line && `${line} ${word}`.length > width - 5) {
+      lines.push(line)
+      line = word
+    } else line = line ? `${line} ${word}` : word
+  }
+  if (line) lines.push(line)
+  return lines.map((text, i) => `${i === 0 ? `  ${number}. ` : '     '}${text}`)
+}
+
+/** Where to start, from the same setting-out point the plan and the studio draw. */
+function setOutStep(config: DesignConfig, model: PlanModel): string {
+  const { point } = model.settingOut
+  const cuts = model.exact ? '' : ` The ${cutsText(model).replace(/^cuts/, 'cut pieces fall')}.`
+  if (config.layout.origin === 'corner') {
+    if (point.y > 0.01) {
+      return `Mark the setting-out point, shown as SO on the plan: measure ${sizeText(point.y)} mm up from the bottom edge at the left and draw a level line. The first full-height row sits on it.${cuts}`
+    }
+    return `Start in the bottom-left corner, at the setting-out point marked SO on the plan.${cuts}`
+  }
+  const why = config.layout.origin === 'center' ? ' The cuts are shared between opposite edges.' : ' The grid is shifted to keep the edge cuts as wide as possible.'
+  return `Snap the setting-out lines shown on the plan and work outwards from the point marked SO.${why}`
 }
 
 const OFFSET_TEXT: Record<string, string> = {
@@ -39,8 +61,9 @@ const pad = (label: string) => `  ${label.padEnd(16)}`
 export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: ExportFormat): string {
   const texture = textureById(config.texture.id)
   const params = resolveParams(texture, config.texture.params)
-  const filament = filamentById(config.colorId)
   const area = (config.surface.width * config.surface.height) / 1e6
+  const model = buildPlanModel(config, plan)
+  const firstPiece = tileAtPoint(model.tiles, model.settingOut.point)
   const lines: string[] = []
 
   lines.push(`TESSERA / ${config.name}`)
@@ -50,10 +73,11 @@ export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: Expo
   lines.push('SURFACE')
   lines.push(`${pad('Size')}${sizeText(config.surface.width)} x ${sizeText(config.surface.height)} mm (${formatNumber(area, 2)} m2)`)
   lines.push(`${pad('Tile')}${sizeText(config.tile.width)} x ${sizeText(config.tile.height)} x ${sizeText(config.tile.thickness)} mm`)
+  lines.push(`${pad('Color')}${colorName(config.color)} (${config.color})`)
   lines.push(`${pad('Joint')}${sizeText(config.joint)} mm between tiles`)
   // The chamfer the mesher actually cuts: never more than half the base plate.
   lines.push(`${pad('Bevel')}${sizeText(effectiveBevel(config))} mm chamfer on every tile edge`)
-  lines.push(`${pad('Layout')}${ORIGIN_TEXT[config.layout.origin]}`)
+  lines.push(`${pad('Layout')}${ORIGIN_TEXT[config.layout.origin]}, ${cutsText(model)}`)
   lines.push(`${pad('Rows')}${OFFSET_TEXT[String(config.layout.rowOffset)] ?? OFFSET_TEXT['0']}`)
   lines.push(`${pad('Tiles')}${plan.fullCount} full, ${plan.partialCount} cut, ${plan.columns} columns x ${plan.rows} rows`)
   lines.push('')
@@ -72,12 +96,6 @@ export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: Expo
   if (texture.directional && config.texture.rotate) lines.push(`${pad('Rotated')}Quarter turn`)
   lines.push('')
 
-  lines.push('FILAMENT')
-  lines.push(`${pad('Colour')}${filament.name}`)
-  lines.push(`${pad('Line')}${filament.line}`)
-  lines.push(`${pad('Hex')}${filament.hex}`)
-  lines.push('')
-
   lines.push(`MODELS (${format.toUpperCase()})`)
   lines.push('  Mark  Piece                     Size            Copies  File')
   for (const piece of plan.pieces) {
@@ -94,10 +112,18 @@ export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: Expo
   lines.push('LAYING OUT')
   lines.push('  1. Open setting-out-plan.svg. It shows the surface seen from the front, with each')
   lines.push('     tile position marked A, B, C and so on, and the cut pieces dimensioned.')
-  lines.push(...SETOUT_TEXT[config.layout.origin])
-  lines.push('  3. Lay the full tiles first, working from the bottom up, then fill the edges with')
-  lines.push('     the cut pieces. Every cut piece carries the slice of pattern it replaces, so the')
-  lines.push('     relief runs continuously across the joints when each piece sits on its mark.')
+  lines.push(...step(2, setOutStep(config, model)))
+  // A row that starts on a cut (a running bond) cannot leave its cuts for last.
+  const order =
+    firstPiece?.cut || plan.fullCount === 0
+      ? 'Lay each row from its first piece, working from the bottom up and fitting the cut pieces as you reach them.'
+      : 'Lay the full tiles first, working from the bottom up, then fill the edges with the cut pieces.'
+  lines.push(
+    ...step(
+      3,
+      `${order} Every cut piece carries the slice of pattern it replaces, so the relief runs continuously across the joints when each piece sits on its mark.`,
+    ),
+  )
   if (config.joint > 0) {
     lines.push(`  4. Keep a ${sizeText(config.joint)} mm joint between tiles; spacers of that size help.`)
   }
@@ -110,7 +136,7 @@ export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: Expo
   lines.push('  Walls           3 perimeters, so the chamfered edges stay crisp.')
   lines.push('  Infill          15%, gyroid or grid.')
   lines.push('  Brim            Add a brim for the small cut pieces; they have little bed contact.')
-  lines.push('  Filament        Any PLA prints well. Matte filaments hide layer lines best.')
+  lines.push('  Filament        Any PLA in the color listed under SURFACE.')
   lines.push('')
 
   lines.push('MOUNTING')

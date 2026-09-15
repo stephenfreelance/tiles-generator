@@ -103,6 +103,39 @@ describe('rehydrating a corrupted store', () => {
     expect(second.validated).toBe(false)
   })
 
+  it('keeps the color of an entry saved with a retired filament id', async () => {
+    const legacy: Record<string, unknown> = { ...design('Old splashback'), colorId: 'pla-matte-terracotta' }
+    delete legacy.color
+    const store = await loadStore(payload([{ id: 'old', config: legacy, createdAt: 1, updatedAt: 2, validated: true }]))
+    const [entry] = store.getState().entries
+    expect(entry.config.color).toBe('#B15533')
+    expect(entry.config.name).toBe('Old splashback')
+    expect(entry.config).not.toHaveProperty('colorId')
+  })
+
+  it('merges rows whose retired filament ids now read as the same color, keeping what either had', async () => {
+    const legacy = (colorId: string): Record<string, unknown> => {
+      const config: Record<string, unknown> = { ...design('Two blacks'), colorId }
+      delete config.color
+      return config
+    }
+    const thumbnail = 'data:image/webp;base64,old'
+    const store = await loadStore(
+      payload([
+        { id: 'older', config: legacy('pla-matte-charcoal'), createdAt: 1, updatedAt: 2, thumbnail, validated: true },
+        { id: 'newer', config: legacy('pla-basic-black'), createdAt: 5, updatedAt: 6, validated: false },
+      ]),
+    )
+    const entries = store.getState().entries
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ id: 'newer', createdAt: 1, updatedAt: 6, thumbnail, validated: true })
+    expect(entries[0].config.color).toBe('#000000')
+
+    // save() now finds the one row for that design instead of leaving a twin behind.
+    store.getState().save(entries[0].config)
+    expect(store.getState().entries).toHaveLength(1)
+  })
+
   it('starts empty when the stored value is not JSON at all', async () => {
     const store = await loadStore('{ not json')
     expect(store.getState().entries).toEqual([])
@@ -112,12 +145,13 @@ describe('rehydrating a corrupted store', () => {
     const store = await loadStore(
       payload([
         { id: 'no-stamp', config: design('No stamp') },
-        { id: 'null-stamp', createdAt: null, updatedAt: null },
-        { id: 'text-stamp', createdAt: 'whenever', updatedAt: 'whenever' },
-        { id: 'huge-stamp', updatedAt: 1e99 },
-        { id: 'negative-stamp', createdAt: -9, updatedAt: -5 },
-        { id: 'iso-stamp', updatedAt: '2026-01-02T03:04:05.000Z' },
-        { id: 'good', createdAt: 1000, updatedAt: 2000 },
+        // Distinct designs: rows with the same config are one drawing and merge on the way in.
+        { id: 'null-stamp', config: design('Null stamp'), createdAt: null, updatedAt: null },
+        { id: 'text-stamp', config: design('Text stamp'), createdAt: 'whenever', updatedAt: 'whenever' },
+        { id: 'huge-stamp', config: design('Huge stamp'), updatedAt: 1e99 },
+        { id: 'negative-stamp', config: design('Negative stamp'), createdAt: -9, updatedAt: -5 },
+        { id: 'iso-stamp', config: design('ISO stamp'), updatedAt: '2026-01-02T03:04:05.000Z' },
+        { id: 'good', config: design('Good'), createdAt: 1000, updatedAt: 2000 },
       ]),
     )
     const entries = store.getState().entries
@@ -141,9 +175,9 @@ describe('rehydrating a corrupted store', () => {
   it('keeps only a thumbnail the browser can draw offline', async () => {
     const store = await loadStore(
       payload([
-        { id: 'remote', thumbnail: 'https://example.com/shot.png' },
-        { id: 'not-text', thumbnail: 42 },
-        { id: 'real', thumbnail: 'data:image/webp;base64,aaa' },
+        { id: 'remote', config: design('Remote'), thumbnail: 'https://example.com/shot.png' },
+        { id: 'not-text', config: design('Not text'), thumbnail: 42 },
+        { id: 'real', config: design('Real'), thumbnail: 'data:image/webp;base64,aaa' },
       ]),
     )
     const byId = new Map(store.getState().entries.map((e) => [e.id, e]))

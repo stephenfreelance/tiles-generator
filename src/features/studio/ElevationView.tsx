@@ -1,6 +1,6 @@
 import { useState, type RefObject } from 'react'
 import { Focus } from 'lucide-react'
-import { filamentById } from '@/core/filaments'
+import { presetByHex } from '@/core/colors'
 import { textureById } from '@/core/textures/registry'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { usePrefs, type ViewMode } from '@/state/prefsStore'
@@ -43,7 +43,8 @@ export function ElevationView({ config, plan, highlightPieceId, viewportRef, cla
   const showPending = useDelayedFlag(pending, PENDING_DELAY_MS)
 
   const texture = textureById(config.texture.id)
-  const filament = filamentById(config.colorId)
+  // A preset is named; a custom color has no name worth reading, so its code stands in for one.
+  const colorLabel = presetByHex(config.color)?.name ?? config.color
 
   return (
     <ViewFrame
@@ -71,9 +72,9 @@ export function ElevationView({ config, plan, highlightPieceId, viewportRef, cla
         ) : (
           // What is on the bench, named on the bench.
           <span className={styles.matPill}>
-            <span className={styles.matDot} style={{ background: filament.hex }} aria-hidden="true" />
+            <span className={styles.matDot} style={{ background: config.color }} aria-hidden="true" />
             <span className={styles.matName}>{texture.name}</span>
-            <span className={styles.matMeta}>in {filament.name}</span>
+            <span className={styles.matMeta}>in {colorLabel}</span>
           </span>
         ),
         bottomRight: (

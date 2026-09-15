@@ -1,10 +1,13 @@
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 import { buttonClassName } from '@/ui'
 import styles from './AppShell.module.scss'
+import { useAccentTheme } from './useAccentTheme'
 
 /** Where a route lands when its screen throws: plain words and a way back to the wall. */
 export function RouteError() {
   const error = useRouteError()
+  // This sheet replaces AppShell, so it paints the accent itself when a cold load fails.
+  useAccentTheme()
   const detail = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error instanceof Error

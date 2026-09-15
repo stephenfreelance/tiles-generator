@@ -9,7 +9,7 @@ import styles from './SpecimenStrip.module.scss'
 const CHIP_PX = 176
 
 export interface SpecimenStripProps {
-  /** The design the samples are rendered in: its tile size, depth range and filament. */
+  /** The design the samples are rendered in: its tile size, depth range and color. */
   base: DesignConfig
   onPick: (textureId: string) => void
 }

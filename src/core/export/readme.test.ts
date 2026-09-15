@@ -36,6 +36,15 @@ describe.skipIf(!hasRegistry)('buildReadme', () => {
     for (const piece of plan.pieces) expect(readme).toContain(piece.mark)
   })
 
+  it('names the color by preset, or as custom, with its hex and nothing about materials', async () => {
+    const { buildReadme } = await import('./readme')
+    const preset = buildReadme(testConfig({ color: '#C0582F' }), plan, 'stl')
+    expect(preset).toMatch(/Color +Terracotta \(#C0582F\)/)
+    const custom = buildReadme(testConfig({ color: '#12AB34' }), plan, 'stl')
+    expect(custom).toMatch(/Color +Custom \(#12AB34\)/)
+    for (const word of ['FILAMENT', 'Line', 'Matte', 'Silk', 'PETG']) expect(custom).not.toContain(word)
+  })
+
   it('names the corner the whole tiles are really read from', async () => {
     const { buildReadme } = await import('./readme')
     const layout = { origin: 'corner', rowOffset: 0 } as const
@@ -49,11 +58,25 @@ describe.skipIf(!hasRegistry)('buildReadme', () => {
     expect(cornerPlan.pieces.map((p) => p.label)).toEqual(
       expect.arrayContaining(['Bottom edge', 'Right edge', 'Bottom-right corner']),
     )
-    const readme = buildReadme(testConfig({ layout }), cornerPlan, 'stl')
-    expect(readme).toContain('Started from the top-left corner, cuts on the right and bottom edges')
-    expect(readme).toContain('top-left corner, so the cut pieces fall on the right edge and along the bottom')
+    const readme = buildReadme(testConfig({ layout, surface: { width: 1000, height: 800 } }), cornerPlan, 'stl')
+    expect(readme).toContain('Set out from the left edge, cuts on the right and bottom edges')
+    // Step 2 measures the same set-out point the plan and the studio draw, above the bottom strip.
+    expect(readme.replace(/\s+/g, ' ')).toContain('measure 50 mm up from the bottom edge at the left and draw a level line')
+    expect(readme).not.toContain('top-left')
     // The old sheet sent the installer to the corner where the narrow cuts actually go.
     expect(readme).not.toContain('bottom-left corner')
+  })
+
+  it('names every cut edge of a running bond, and does not leave its cuts for last', async () => {
+    const { buildReadme } = await import('./readme')
+    const layout = { origin: 'corner', rowOffset: 0.3333 } as const
+    const surface = { width: 1250, height: 640 }
+    const tile = { width: 100, height: 100, thickness: 4 }
+    const bondPlan = computeLayout({ surface, tile, joint: 0, layout })
+    const readme = buildReadme(testConfig({ surface, tile, joint: 0, layout }), bondPlan, 'stl')
+    expect(readme).toContain('cuts on the right, bottom and left edges')
+    expect(readme.replace(/\s+/g, ' ')).toContain('Lay each row from its first piece')
+    expect(readme).not.toContain('Lay the full tiles first')
   })
 
   it('lists one file line per piece and never uses an em-dash', async () => {

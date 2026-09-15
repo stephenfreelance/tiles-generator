@@ -26,11 +26,25 @@ export const LOOK = {
   quality: {
     /** Upper device-pixel-ratio bound per tier. */
     dprMax: [1, 1.5, 2] as const,
-    /** AdaptiveDpr / CameraControls regress floor. */
-    performanceMin: 0.5,
-    /** PerformanceMonitor only samples while something moves (demand frameloop gives sparse frames). */
+    /** The governor only samples while something moves (demand frameloop gives sparse frames). */
     sampleWhileMovingMs: 700,
-    flipflops: 3,
+    /** Quality governor (qualityGovernor.ts): frame-rate thresholds are absolute, whatever the display's refresh rate. */
+    governor: {
+      windowMs: 2000,
+      minFrames: 12,
+      gapMs: 250,
+      slowStreak: 3,
+      cooldownMs: 2500,
+      /** Decline when more than a quarter of the frames run below 40 fps for three windows running: a stall of two seconds cannot slow three. */
+      declineFps: 40,
+      declinePercentile: 0.75,
+      declineWindows: 3,
+      /** Incline, before any decline only, when nine frames in ten run above 50 fps for two windows. */
+      inclineFps: 50,
+      inclinePercentile: 0.9,
+      inclineWindows: 2,
+      maxChanges: 3,
+    },
   },
 
   camera: {
@@ -67,8 +81,8 @@ export const LOOK = {
   },
 
   env: {
-    /** scene.environmentIntensity; metallic and silk finishes also scale envMapIntensity. */
-    intensity: 0.85,
+    /** scene.environmentIntensity. With key.intensity it sets exposure: a flat lit face shows mid colors near their swatch. */
+    intensity: 1.7,
     resolution: [128, 256, 512] as const,
     /** Lightformers for the wall stage (world +Z is the wall normal, +Y is up). */
     wall: [
@@ -78,7 +92,7 @@ export const LOOK = {
       { form: 'rect', position: [0, 7, 2], scale: [12, 0.7], intensity: 3.2, color: '#FFF6EA' },
       // Vertical strip on the right: highlight lines along vertical ridges.
       { form: 'rect', position: [7, 0, 2], scale: [0.7, 12], intensity: 2.4, color: '#FFF6EA' },
-      // Cool fill, low and in front, so dark filaments never go pitch black.
+      // Cool fill, low and in front, so dark colors never go pitch black.
       { form: 'rect', position: [2, -2, 8], scale: [8, 3], intensity: 0.55, color: '#D4E0F2' },
       // Warm bounce from the desk below.
       { form: 'rect', position: [0, -7, 3], scale: [12, 2], intensity: 0.45, color: '#EBDCC6' },
@@ -98,8 +112,8 @@ export const LOOK = {
   },
 
   key: {
-    /** The one shadow-casting raking light. */
-    intensity: 2.8,
+    /** The one shadow-casting raking light. Scale it with env.intensity: the ratio draws the relief, the sum is exposure. */
+    intensity: 5.6,
     color: '#FFF0DC',
     /** Elevation above the tile surface: low angles rake across the relief so it self-shadows. */
     elevationDeg: { wall: 16, tile: 18 },
@@ -155,22 +169,27 @@ export const LOOK = {
     quality: ['performance', 'medium', 'high'] as const,
   },
 
-  bloom: {
-    threshold: 0.9,
-    smoothing: 0.15,
-    /** Bloom stays mounted with intensity 0 for finishes not listed here. */
-    byFinish: { sparkle: 0.35, galaxy: 0.4, metallic: 0.18, glow: 0.8 } as Partial<Record<string, number>>,
-  },
-
+  /** The one printed look, a matte PLA: every tile color renders with these. */
   materials: {
-    /** Exponential damping rate (1/s) of filament colour changes. */
-    colorDamp: 8,
+    /** Exponential damping rate (1/s) of tile color changes: 95% there in 0.25 s, 99% in 0.4 s. */
+    colorDamp: 12,
     envMapIntensity: 1,
-    /** Near-white and near-black albedo clamps (sRGB), per the filament rendering hints. */
-    whiteMatte: '#EDEBE6',
-    whiteGlossy: '#F2F2EE',
-    blackMatte: '#222222',
-    blackGlossy: '#1C1C1C',
+    /** Near-white and near-black albedo clamps (sRGB): pure white clips under the key light, pure black reads as a silhouette. */
+    whiteClamp: '#EDEBE6',
+    blackClamp: '#222222',
+    roughness: 0.9,
+    metalness: 0,
+    /** Physical tiers only (tier 0 has none of these): specular strength, index of refraction and a faint sheen. */
+    specularIntensity: 0.42,
+    ior: 1.46,
+    sheen: 0.08,
+    /** Sheen colour: the tile color moved this far toward white. */
+    sheenLighten: 0.3,
+    sheenRoughness: 0.8,
+    /** Fine print grain: repeat size on the tile (mm) and how far it moves roughness and albedo. */
+    grain: { tileMm: 18, roughness: 0.06, albedo: 0.04 },
+    /** Fraction of the layer-line amplitude a matte print shows. */
+    layerLines: 0.5,
   },
 
   layerLines: {
@@ -197,6 +216,8 @@ export const LOOK = {
     fadeMs: 460,
     /** Above this many tiles the wall appears without the wave (matrix updates get costly). */
     maxInstances: 5000,
+    /** Longest a thumbnail capture waits for the wave on screen to settle. */
+    captureWaitMaxMs: 3000,
   },
 
   highlight: {

@@ -105,13 +105,15 @@
   pointer-events: none;
 }
 
+// Controls on the view start one corner radius in from the side (less the frame's 1px border they sit
+// inside): clear of the curve, stacked on one line top and bottom, and level with the home board's pill.
 .corner {
   position: absolute;
   z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  padding: var(--s-3);
+  padding: var(--s-3) calc(var(--radius-lg) - 1px);
 }
 
 .topLeft {
@@ -147,12 +149,14 @@
   }
 }
 
+// Inset by the frame's radius on both ends, so the name and the aside clear the corner curves above them.
 .viewTitle {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-2) var(--s-3);
+  padding-inline: var(--radius-lg);
 }
 
 // A view that names itself needs no caption. The text stays in the document because the frame is

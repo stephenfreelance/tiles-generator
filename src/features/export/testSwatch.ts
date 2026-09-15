@@ -6,7 +6,7 @@ import type { DesignConfig, LayoutPlan } from '@/core/types'
 export const SWATCH_MM = 60
 
 /**
- * A single 60 x 60 mm tile carrying the same relief, depth and filament as the design.
+ * A single 60 x 60 mm tile carrying the same relief, depth and color as the design.
  * The pattern repeats fewer times over a smaller tile, but every feature keeps its size in mm.
  */
 export function testSwatch(config: DesignConfig): { config: DesignConfig; plan: LayoutPlan } {

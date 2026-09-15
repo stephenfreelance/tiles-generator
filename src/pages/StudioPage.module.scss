@@ -2,11 +2,12 @@
 
 // The wall on the left, the five numbered choices that make it on the right.
 .studio {
-  // The chosen filament, painted into the bench. Both mixes are derived HERE rather than in the
-  // token file because a custom property holding a var() resolves against the element it is
-  // declared on: only here does --filament exist, set inline from the design.
+  // The chosen color, painted into the bench. Both mixes are derived HERE as well as in the token
+  // file because a custom property holding a var() resolves against the element it is declared on:
+  // :root's copy mixes the root's --filament (useAccentTheme), and this one mixes the value set
+  // inline from the design, which is the one the studio must show.
   //
-  // 8% is the ceiling: at 10% a pure black spool drops the smallest note text under AA on this
+  // 8% is the ceiling: at 10% a pure black color drops the smallest note text under AA on this
   // strip. Nothing lighter than --ink-3 may sit on it.
   --filament-wash: color-mix(in srgb, var(--filament, var(--accent)) 8%, var(--panel));
   // No text sits on the drawn tiles, so they can take more colour.
@@ -57,13 +58,34 @@
 .plan {
   display: grid;
   gap: var(--s-3);
+  min-width: 0;
 }
 
-.planBody {
-  height: clamp(16rem, 34vh, 24rem);
+// The plan is the answer to the five choices above it, so its head carries no step number.
+.planHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+  min-width: 0;
 }
 
-// The answer to the only question this screen exists to settle, washed in the filament's colour.
+.planTitle {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: 0.005em;
+}
+
+.planNow {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: right;
+}
+
+// The answer to the only question this screen exists to settle, washed in the chosen colour.
 .foot {
   display: grid;
   gap: var(--s-3);
@@ -160,12 +182,6 @@
 
   .steps {
     padding: var(--s-2) var(--s-4) var(--s-3);
-  }
-
-  // The plan grows with the drawing; the page is what scrolls.
-  .planBody {
-    height: auto;
-    aspect-ratio: 4 / 3;
   }
 
   // The action follows the maker down the page: at this width the column is long, and the answer

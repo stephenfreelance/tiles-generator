@@ -85,7 +85,20 @@ function reviveEntries(raw: unknown): HistoryEntry[] {
   // The cap belongs on the way in too: an over-full store otherwise reads "50 of 40 designs" and
   // then loses eleven drawings at once on the next save.
   entries.sort((a, b) => b.updatedAt - a.updatedAt)
-  return entries.slice(0, MAX_ENTRIES)
+  // Retired filament ids that share a hex load as one config, and save() refreshes only the first
+  // match, so the newest row absorbs its duplicates here (before the cap, so they take no slots).
+  const merged: HistoryEntry[] = []
+  for (const entry of entries) {
+    const kept = merged.find((e) => sameConfig(e.config, entry.config))
+    if (!kept) {
+      merged.push(entry)
+      continue
+    }
+    kept.thumbnail ??= entry.thumbnail
+    kept.validated ||= entry.validated
+    kept.createdAt = Math.min(kept.createdAt, entry.createdAt)
+  }
+  return merged.slice(0, MAX_ENTRIES)
 }
 
 type WriteOutcome = 'ok' | 'full' | 'unavailable'

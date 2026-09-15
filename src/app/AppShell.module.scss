@@ -43,8 +43,8 @@
   background: var(--bar);
   color: var(--bar-ink);
 
-  // The accent green is only 2.29:1 on the bar, so everything up here focuses in the bar's own
-  // light ink (13.49:1) instead. Without this the ring would be all but invisible.
+  // The accent reaches 2.3:1 at most on the bar, whatever the tile color, so everything up here
+  // focuses in the bar's own light ink (13.49:1) instead. Without this the ring would be all but invisible.
   :focus-visible {
     outline-color: var(--bar-ink);
   }
@@ -76,6 +76,9 @@
     display: block;
     border-radius: 2px;
     background: var(--accent);
+    // A dark tile's accent sinks into the espresso (Charcoal's is 1.15:1), so the mark never drops below
+    // the retired green's OKLCH lightness: every tile color keeps it at 2.1:1 or better, as that green was.
+    background: oklch(from var(--accent) max(l, 0.47) c h);
   }
 
   > i:nth-child(2),

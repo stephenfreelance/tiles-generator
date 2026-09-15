@@ -1,16 +1,10 @@
 import * as THREE from 'three'
 
 // One onBeforeCompile patch shared by every tile material (standard and physical):
-// FDM layer lines, procedural finish detail (grain, speckle, wood, fibres, flakes), dual-colour silk,
-// and the per-instance red-pencil wash / hatch / dim used by highlights and the re-lay wave.
+// FDM layer lines, the fine print grain, and the per-instance red-pencil wash / hatch / dim used by
+// highlights and the re-lay wave.
 // Per-instance tint arrives in the `tsTint` instanced attribute: x = wash, y = hatch, z = dim.
 // A missing attribute reads as (0, 0, 0, 1), which means "no tint".
-
-export interface PatchFeatures {
-  detail: boolean
-  flakes: boolean
-  dual: boolean
-}
 
 export interface TesseraUniforms {
   tsLayerMm: THREE.IUniform<number>
@@ -25,26 +19,12 @@ export interface TesseraUniforms {
   tsHatchLine: THREE.IUniform<number>
   tsHatchGlow: THREE.IUniform<number>
   tsWashGlow: THREE.IUniform<number>
-  tsSecondary: THREE.IUniform<THREE.Color>
-  tsLightTint: THREE.IUniform<THREE.Color>
-  tsDetailMap: THREE.IUniform<THREE.Texture | null>
-  tsDetailMm: THREE.IUniform<number>
+  /** Grain in the red channel, around 0.5; tiles seamlessly. */
+  tsGrainMap: THREE.IUniform<THREE.Texture | null>
+  /** Size of one grain repeat on the tile, mm. */
+  tsGrainMm: THREE.IUniform<number>
   tsGrainRough: THREE.IUniform<number>
   tsGrainAlbedo: THREE.IUniform<number>
-  tsSpeckleDark: THREE.IUniform<number>
-  tsSpeckleLight: THREE.IUniform<number>
-  tsFiber: THREE.IUniform<number>
-  tsWoodBands: THREE.IUniform<number>
-  tsWoodFreq: THREE.IUniform<number>
-  tsFlakeMap: THREE.IUniform<THREE.Texture | null>
-  tsFlakeMm: THREE.IUniform<number>
-  tsFlakeTilt: THREE.IUniform<number>
-  tsFlakeTint: THREE.IUniform<number>
-  tsFlakeRough: THREE.IUniform<number>
-  tsFlakeMetal: THREE.IUniform<number>
-  /** Iridescence kept outside flakes (galaxy glitter shimmers only on the flakes). */
-  tsFlakeIri: THREE.IUniform<number>
-  tsFlakeColor: THREE.IUniform<THREE.Color>
 }
 
 export function createTesseraUniforms(): TesseraUniforms {
@@ -59,25 +39,10 @@ export function createTesseraUniforms(): TesseraUniforms {
     tsHatchLine: { value: 0.28 },
     tsHatchGlow: { value: 0.35 },
     tsWashGlow: { value: 0.08 },
-    tsSecondary: { value: new THREE.Color(0, 0, 0) },
-    tsLightTint: { value: new THREE.Color(1, 1, 1) },
-    tsDetailMap: { value: null },
-    tsDetailMm: { value: 24 },
+    tsGrainMap: { value: null },
+    tsGrainMm: { value: 18 },
     tsGrainRough: { value: 0 },
     tsGrainAlbedo: { value: 0 },
-    tsSpeckleDark: { value: 0 },
-    tsSpeckleLight: { value: 0 },
-    tsFiber: { value: 0 },
-    tsWoodBands: { value: 0 },
-    tsWoodFreq: { value: 0.2 },
-    tsFlakeMap: { value: null },
-    tsFlakeMm: { value: 16 },
-    tsFlakeTilt: { value: 0 },
-    tsFlakeTint: { value: 0 },
-    tsFlakeRough: { value: 0.15 },
-    tsFlakeMetal: { value: 1 },
-    tsFlakeIri: { value: 1 },
-    tsFlakeColor: { value: new THREE.Color(1, 1, 1) },
   }
 }
 
@@ -121,32 +86,10 @@ uniform float tsHatchPitch;
 uniform float tsHatchLine;
 uniform float tsHatchGlow;
 uniform float tsWashGlow;
-uniform vec3 tsSecondary;
-uniform vec3 tsLightTint;
-#ifdef TS_DETAIL
-	uniform sampler2D tsDetailMap;
-	uniform float tsDetailMm;
-	uniform float tsGrainRough;
-	uniform float tsGrainAlbedo;
-	uniform float tsSpeckleDark;
-	uniform float tsSpeckleLight;
-	uniform float tsFiber;
-	uniform float tsWoodBands;
-	uniform float tsWoodFreq;
-#endif
-#ifdef TS_FLAKES
-	uniform sampler2D tsFlakeMap;
-	uniform float tsFlakeMm;
-	uniform float tsFlakeTilt;
-	uniform float tsFlakeTint;
-	uniform float tsFlakeRough;
-	uniform float tsFlakeMetal;
-	uniform float tsFlakeIri;
-	uniform vec3 tsFlakeColor;
-	#ifndef USE_NORMALMAP_OBJECTSPACE
-		uniform mat3 normalMatrix;
-	#endif
-#endif
+uniform sampler2D tsGrainMap;
+uniform float tsGrainMm;
+uniform float tsGrainRough;
+uniform float tsGrainAlbedo;
 
 // Planar projection picked by the dominant axis of the object normal: tops use xy, walls use their plane.
 vec2 tsProject( vec3 p, vec3 n ) {
@@ -173,9 +116,8 @@ vec3 tsObjN = normalize( vTsObjNormal );
 #ifdef USE_NORMALMAP_OBJECTSPACE
 	tsObjN = normalize( texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0 );
 #endif
-// Every instance samples the detail at a different offset, so identical tiles do not print identical speckle.
+// Every instance samples the grain at a different offset, so identical tiles do not print identical grain.
 vec2 tsUv = tsProject( vTsPos, tsObjN ) + vec2( 0.6180339, 0.3819660 ) * vTsSeed;
-float tsFlakeMask = 0.0;
 
 if ( tsLayerAmp > 0.0 ) {
 	float tsZl = vTsPos.z / tsLayerMm;
@@ -190,34 +132,9 @@ if ( tsLayerAmp > 0.0 ) {
 	normal = tsPerturbNormal( - vViewPosition, normal, vec2( dFdx( tsH ), dFdy( tsH ) ), faceDirection );
 }
 
-#ifdef TS_FLAKES
-	vec4 tsFlake = texture2D( tsFlakeMap, tsUv / tsFlakeMm );
-	tsFlakeMask = tsFlake.a;
-	// Tilt lives in the tile plane (object space), so flakes stay put and wink as the view moves.
-	normal = normalize( normal + normalMatrix * vec3( tsFlake.rg * 2.0 - 1.0, 0.0 ) * tsFlakeTilt );
-	diffuseColor.rgb = mix( diffuseColor.rgb, tsFlakeColor, tsFlakeMask * tsFlakeTint );
-	roughnessFactor = mix( roughnessFactor, tsFlakeRough, tsFlakeMask );
-	metalnessFactor = mix( metalnessFactor, tsFlakeMetal, tsFlakeMask );
-#endif
-
-#ifdef TS_DETAIL
-	vec4 tsDet = texture2D( tsDetailMap, tsUv / tsDetailMm );
-	float tsGrain = tsDet.r - 0.5;
-	roughnessFactor = clamp( roughnessFactor + tsGrain * tsGrainRough - tsDet.g * tsFiber * 0.3, 0.04, 1.0 );
-	diffuseColor.rgb *= 1.0 + tsGrain * tsGrainAlbedo - tsDet.g * tsFiber * 0.15;
-	diffuseColor.rgb = mix( diffuseColor.rgb, tsSecondary, tsDet.g * tsSpeckleDark );
-	diffuseColor.rgb = mix( diffuseColor.rgb, tsLightTint, tsDet.b * tsSpeckleLight );
-	float tsBandPhase = tsUv.x * tsWoodFreq + tsDet.a * 1.7;
-	float tsBand = 0.5 + 0.5 * sin( 6.2831853 * tsBandPhase );
-	float tsBandFade = 1.0 - smoothstep( 0.2, 0.5, fwidth( tsBandPhase ) );
-	diffuseColor.rgb = mix( diffuseColor.rgb, tsSecondary, tsWoodBands * tsBandFade * smoothstep( 0.45, 1.0, tsBand ) );
-#endif
-
-#ifdef TS_DUAL
-	// Co-extruded dual silk: slopes facing one way read as one colour, the other way as the second.
-	float tsSide = smoothstep( -0.3, 0.3, dot( tsObjN.xy, vec2( 0.70710678 ) ) );
-	diffuseColor.rgb = mix( diffuseColor.rgb, tsSecondary, tsSide );
-#endif
+float tsGrain = texture2D( tsGrainMap, tsUv / tsGrainMm ).r - 0.5;
+roughnessFactor = clamp( roughnessFactor + tsGrain * tsGrainRough, 0.04, 1.0 );
+diffuseColor.rgb *= 1.0 + tsGrain * tsGrainAlbedo;
 
 // Red-pencil hatch continuous across every cut: world-space lines at a screen-constant pitch.
 vec3 tsWorld = cameraPosition + transpose( mat3( viewMatrix ) ) * ( - vViewPosition );
@@ -233,21 +150,8 @@ roughnessFactor = mix( roughnessFactor, 0.7, tsRed );
 float tsRedGlow = vTsTint.y * tsHatchCov * tsHatchGlow + vTsTint.x * tsWashGlow;
 `
 
-const FRAGMENT_CLEARCOAT = /* glsl */ `
-#ifdef USE_CLEARCOAT
-	// The coat covers the printed relief, so it follows the relief normal (map and layer lines included).
-	clearcoatNormal = normal;
-#endif
-`
-
 const FRAGMENT_EMISSIVE = /* glsl */ `
 totalEmissiveRadiance += tsTintRed * tsRedGlow;
-`
-
-const FRAGMENT_LIGHTS = /* glsl */ `
-#if defined( USE_IRIDESCENCE ) && defined( TS_FLAKES )
-	material.iridescence *= mix( tsFlakeIri, 1.0, tsFlakeMask );
-#endif
 `
 
 function inject(source: string, anchor: string, code: string, where: 'after' | 'before' = 'after'): string {
@@ -261,13 +165,7 @@ function inject(source: string, anchor: string, code: string, where: 'after' | '
 const PATCH_VERSION = 'tessera-v1'
 
 /** Installs the shared patch on a tile material; uniforms are shared objects, so one update reaches every material. */
-export function applyTesseraPatch(material: THREE.MeshStandardMaterial, uniforms: TesseraUniforms, features: PatchFeatures): void {
-  const defines: Record<string, string> = { ...(material.defines as Record<string, string> | undefined) }
-  if (features.detail) defines.TS_DETAIL = ''
-  if (features.flakes) defines.TS_FLAKES = ''
-  if (features.dual) defines.TS_DUAL = ''
-  material.defines = defines
-  const key = `${PATCH_VERSION}:${features.detail ? 'd' : ''}${features.flakes ? 'f' : ''}${features.dual ? 's' : ''}`
+export function applyTesseraPatch(material: THREE.MeshStandardMaterial, uniforms: TesseraUniforms): void {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     let vs = shader.vertexShader
@@ -278,11 +176,10 @@ export function applyTesseraPatch(material: THREE.MeshStandardMaterial, uniforms
     let fs = shader.fragmentShader
     fs = inject(fs, '#include <common>', FRAGMENT_PARS)
     fs = inject(fs, '#include <normal_fragment_maps>', FRAGMENT_SURFACE)
-    fs = inject(fs, '#include <clearcoat_normal_fragment_maps>', FRAGMENT_CLEARCOAT)
     fs = inject(fs, '#include <emissivemap_fragment>', FRAGMENT_EMISSIVE)
-    fs = inject(fs, '#include <lights_physical_fragment>', FRAGMENT_LIGHTS)
     shader.fragmentShader = fs
   }
-  material.customProgramCacheKey = () => key
+  // Every tile material runs the same patch; three already keys standard and physical programs apart.
+  material.customProgramCacheKey = () => PATCH_VERSION
   material.needsUpdate = true
 }

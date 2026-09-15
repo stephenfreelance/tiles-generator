@@ -1,5 +1,4 @@
 // Filament weight, spools and plates for the whole surface. An estimate: the slicer knows best.
-import { densityOf, filamentById } from './filaments'
 import { piecesPerPlate, printerById } from './printers'
 import type { DesignConfig, LayoutPlan } from './types'
 
@@ -37,6 +36,9 @@ export const PRINT_SETTINGS = {
 export const INFILL_RANGE = { low: 0.1, high: 0.2 } as const
 
 export const SPOOL_GRAMS = 1000
+
+/** PLA density, g/cm³: the app advises PLA only, so one figure serves every color. */
+export const PLA_DENSITY_G_PER_CM3 = 1.24
 
 /**
  * Plastic in one piece at a given infill density, mm³.
@@ -129,9 +131,8 @@ export function estimateFilament(
   plan: LayoutPlan,
   volumes: Record<string, number>,
 ): FilamentEstimate {
-  const filament = filamentById(config.colorId)
   const printer = printerById(config.printerId)
-  const density = densityOf(filament)
+  const density = PLA_DENSITY_G_PER_CM3
   // g/cm³ to g/mm³.
   const gramsPerMm3 = density / 1000
 

@@ -1,9 +1,10 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react'
+import { CHIP_SHADE_BUDGET_BYTES, reliefShadeBytes, reliefShadeKey } from '@/core/textures/hillshade'
 import type { CropRect, DesignConfig } from '@/core/types'
 import { geometryClient } from '@/workers/geometryClient'
 import type { ChipImage } from '@/workers/protocol'
 import { isAbortError } from './abort'
-import { ChipCache } from './chipCache'
+import { ChipCache, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
 import { cropKey, geometryKey } from './geometryKey'
 
 export interface ChipItem {
@@ -13,16 +14,19 @@ export interface ChipItem {
 }
 
 const CHIP_CACHE_SIZE = 120
-/** Small batches so the picker fills in progressively instead of all at once. */
+/** Small batches so a relief drawn for the first time fills in progressively instead of all at once. */
 const BATCH_SIZE = 6
 
 // Shared by every chip strip on the page: the picker and the schedule reuse each other's renders.
 const cache = new ChipCache(CHIP_CACHE_SIZE, (url) => URL.revokeObjectURL(url))
-const inflight = new Map<string, Promise<void>>()
+const inflight = new Map<string, SharedRender>()
+// A quarter of the worker's budget is left as headroom: it also keeps shades from batches the page
+// cancelled, and overlapping requests reorder its recency, so the page must forget first.
+const shades = new ShadeLedger(CHIP_SHADE_BUDGET_BYTES * 0.75)
 
 /** Chip identity: the relief, the color, the piece shape and the pixel size. */
 export const chipCacheKey = (item: Pick<ChipItem, 'config' | 'crop'>, sizePx: number): string =>
-  `${geometryKey(item.config)}|${item.config.colorId}|${cropKey(item.crop)}|${sizePx}`
+  `${geometryKey(item.config)}|${item.config.color}|${cropKey(item.crop)}|${sizePx}`
 
 /** ImageData needs pixels on a plain ArrayBuffer; worker results always are, but stay safe. */
 function toImageData(chip: ChipImage): ImageData {
@@ -32,12 +36,18 @@ function toImageData(chip: ChipImage): ImageData {
   return new ImageData(pixels, chip.width, chip.height)
 }
 
+/**
+ * The pixels only pass through on their way to a PNG, so the canvas stays on the CPU: a GPU canvas
+ * uploads them and then blocks the main thread reading them back (about 75 ms for a strip of 23).
+ */
+const CANVAS_OPTIONS: CanvasRenderingContext2DSettings = { willReadFrequently: true }
+
 async function chipToUrl(chip: ChipImage): Promise<string> {
   const image = toImageData(chip)
   let blob: Blob
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(chip.width, chip.height)
-    const context = canvas.getContext('2d')
+    const context = canvas.getContext('2d', CANVAS_OPTIONS)
     if (!context) throw new Error('2D canvas unavailable')
     context.putImageData(image, 0, 0)
     blob = await canvas.convertToBlob({ type: 'image/png' })
@@ -45,7 +55,7 @@ async function chipToUrl(chip: ChipImage): Promise<string> {
     const canvas = document.createElement('canvas')
     canvas.width = chip.width
     canvas.height = chip.height
-    const context = canvas.getContext('2d')
+    const context = canvas.getContext('2d', CANVAS_OPTIONS)
     if (!context) throw new Error('2D canvas unavailable')
     context.putImageData(image, 0, 0)
     blob = await new Promise<Blob>((resolve, reject) =>
@@ -57,76 +67,92 @@ async function chipToUrl(chip: ChipImage): Promise<string> {
 
 interface PendingChip {
   cacheKey: string
+  /** The chip minus its colour: what the worker's shade cache is keyed by. */
+  shadeKey: string
   config: DesignConfig
   crop?: CropRect
 }
 
-/** Renders one batch in the worker and stores PNG URLs; concurrent callers share the promise. */
-function renderBatch(batch: PendingChip[], sizePx: number): Promise<void> {
-  const job = geometryClient
-    .request({ kind: 'chips', sizePx, items: batch.map((c) => ({ key: c.cacheKey, config: c.config, crop: c.crop })) })
+/** Renders one batch in the worker and stores PNG URLs; concurrent strips share (and hold) it. */
+function renderBatch(batch: PendingChip[], sizePx: number): SharedRender {
+  const controller = new AbortController()
+  const promise = geometryClient
+    .request(
+      { kind: 'chips', sizePx, items: batch.map((c) => ({ key: c.cacheKey, config: c.config, crop: c.crop })) },
+      { signal: controller.signal },
+    )
     .then(async (result) => {
+      for (const chip of batch) shades.add(chip.shadeKey, reliefShadeBytes(sizePx))
       const urls = await Promise.all(result.chips.map(async (chip) => [chip.key, await chipToUrl(chip)] as const))
       for (const [key, url] of urls) cache.set(key, url)
     })
-  for (const chip of batch) inflight.set(chip.cacheKey, job)
   const forget = () => {
-    for (const chip of batch) if (inflight.get(chip.cacheKey) === job) inflight.delete(chip.cacheKey)
+    for (const chip of batch) if (inflight.get(chip.cacheKey) === render) inflight.delete(chip.cacheKey)
   }
-  job.then(forget, forget)
-  return job
+  const render = new SharedRender(promise, () => {
+    // Out of the table first, so no strip starts waiting on a render that is about to reject.
+    forget()
+    controller.abort()
+  })
+  for (const chip of batch) inflight.set(chip.cacheKey, render)
+  promise.then(forget, forget)
+  return render
 }
 
 /**
- * Lit relief swatches as PNG object URLs, keyed by item key. Fills in progressively; while a chip
- * re-renders (new color, new depth) the previous image for that item stays visible.
+ * Lit relief swatches as PNG object URLs, keyed by item key. The first time a relief is drawn the
+ * strip fills in progressively; once the worker holds every shade, a new colour arrives in one
+ * commit. While a chip re-renders the previous image for that item stays visible.
  * `base` is the current design: chips of its texture render first.
  */
 export function useTextureChips(base: DesignConfig, items: ChipItem[], sizePx: number): Map<string, string> {
   const [, setLanded] = useState(0)
   /** Item key -> cache key of the last image shown for it. */
-  const [lastShown, setLastShown] = useState<Record<string, string>>({})
+  const [lastShown, setLastShown] = useState<Readonly<Record<string, string>>>({})
 
   const entries = items.map((item) => ({ key: item.key, cacheKey: chipCacheKey(item, sizePx) }))
   const itemsKey = JSON.stringify(entries)
 
   const fill = useEffectEvent(async (signal: AbortSignal) => {
+    const recordShown = () => setLastShown((prev) => nextShown(prev, entries, (key) => cache.has(key)))
+    // A change that is fully cached never lands a batch, and must still become the fallback.
+    recordShown()
+
     const current = base.texture.id
     const ordered = [...items].sort(
       (a, b) => Number(b.config.texture.id === current) - Number(a.config.texture.id === current),
     )
     const todo = new Map<string, PendingChip>()
-    const waiting = new Set<Promise<void>>()
+    const waiting = new Set<SharedRender>()
     for (const item of ordered) {
       const key = chipCacheKey(item, sizePx)
       if (cache.has(key) || todo.has(key)) continue
       const running = inflight.get(key)
-      if (running) waiting.add(running)
-      else todo.set(key, { cacheKey: key, config: item.config, crop: item.crop })
+      if (running && !running.cancelled) waiting.add(running)
+      else {
+        const shadeKey = reliefShadeKey(item.config, { sizePx, crop: item.crop })
+        todo.set(key, { cacheKey: key, shadeKey, config: item.config, crop: item.crop })
+      }
     }
 
     const landed = () => {
       if (signal.aborted) return
       setLanded((n) => n + 1)
-      setLastShown((prev) => {
-        const next: Record<string, string> = {}
-        let changed = Object.keys(prev).length !== entries.length
-        for (const entry of entries) {
-          const shown = cache.has(entry.cacheKey) ? entry.cacheKey : prev[entry.key]
-          if (shown !== undefined) next[entry.key] = shown
-          if (next[entry.key] !== prev[entry.key]) changed = true
-        }
-        return changed ? next : prev
-      })
+      recordShown()
     }
 
-    for (const promise of waiting) promise.then(landed, () => {})
-    const queue = [...todo.values()]
-    for (let i = 0; i < queue.length; i += BATCH_SIZE) {
-      // Changed items stop the queue; a batch already in the worker still lands in the cache.
+    for (const render of waiting) {
+      render.hold(signal)
+      render.promise.then(landed, () => {})
+    }
+    const batches = planBatches([...todo.values()], (chip) => shades.has(chip.shadeKey), BATCH_SIZE)
+    for (const batch of batches) {
+      // Changed items stop the queue and cancel the batch in the worker, unless another strip holds it.
       if (signal.aborted) return
+      const render = renderBatch(batch, sizePx)
+      render.hold(signal)
       try {
-        await renderBatch(queue.slice(i, i + BATCH_SIZE), sizePx)
+        await render.promise
         landed()
       } catch (error) {
         if (!isAbortError(error)) console.warn('[chips] could not render texture chips', error)

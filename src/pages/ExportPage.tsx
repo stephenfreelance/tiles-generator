@@ -1,11 +1,11 @@
 // The handover: what you designed, one button that gives you all of it, and the detail behind it.
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
-import { ArrowLeft, Box, Download, FileText, LayoutGrid, Square, X } from 'lucide-react'
+import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, X } from 'lucide-react'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { studioIntent } from '@/app/prefetchStudio'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
-import { filamentById } from '@/core/filaments'
+import { presetByHex } from '@/core/colors'
 import { planSvg } from '@/core/plan/planSvg'
 import { textureById } from '@/core/textures/registry'
 import type { PieceSpec } from '@/core/types'
@@ -28,7 +28,7 @@ import styles from './ExportPage.module.scss'
 const THUMBNAIL_PX = 360
 /** How far the preview frame may depart from the wall's own proportions before it is clamped. */
 const VIEW_ASPECT_RANGE = { min: 0.8, max: 1.9 }
-/** Let the re-lay wave settle before the thumbnail is grabbed. */
+/** A short debounce after the build lands; capture() itself waits for the re-lay wave to settle. */
 const CAPTURE_DELAY_MS = 600
 
 type JobKind = 'all' | 'piece' | 'swatch'
@@ -72,9 +72,11 @@ export function ExportPage() {
   const viewport = useRef<TileViewportHandle>(null)
   const capturedFor = useRef<string | null>(null)
   const retryRef = useRef<(() => void) | null>(null)
+  const testTileNoteId = useId()
 
   const texture = textureById(config.texture.id)
-  const filament = filamentById(config.colorId)
+  // A custom pick has no name of its own, so the pill says so in words and the hex carries the rest.
+  const colorLabel = presetByHex(config.color)?.name ?? 'a custom color'
   const models = plan.pieces.length
   const tiles = plan.placements.length
   const signature = geometryKey(config)
@@ -222,8 +224,8 @@ export function ExportPage() {
         {
           '--view-aspect': viewAspect,
           // The wash is re-derived from this in ExportPage.module.scss: a custom property holding a
-          // var() resolves against the element it is declared on, so it has to sit beside --filament.
-          '--filament': filament.hex,
+          // var() resolves against the element it is declared on, so it has to sit beside --tile-color.
+          '--tile-color': config.color,
         } as CSSProperties
       }
     >
@@ -259,9 +261,9 @@ export function ExportPage() {
               <span className={styles.swatch} aria-hidden="true" />
               <span className={styles.identityText}>
                 <span className={styles.identityName}>
-                  {texture.name} in {filament.name}
+                  {texture.name} in {colorLabel}
                 </span>
-                <span className={styles.identityLine}>{filament.line}</span>
+                <span className={styles.identityLine}>{config.color}</span>
               </span>
             </p>
           </div>
@@ -363,18 +365,26 @@ export function ExportPage() {
           />
 
           <div className={styles.secondary}>
-            <div className={styles.secondaryRow}>
-              <Button variant="secondary" leadingIcon={<Square />} disabled={busy} onClick={downloadTestTile}>
-                Print a test tile first
-              </Button>
-              <Button variant="ghost" leadingIcon={<FileText />} onClick={downloadPlan}>
-                Plan only (.svg)
+            {/* The reason sits above the button and is its description, so nobody has to click to learn why. */}
+            <div className={styles.testTile}>
+              <p className={styles.testTileLabel}>Test first</p>
+              <p id={testTileNoteId} className={styles.secondaryNote}>
+                One 60 × 60 mm tile of the same relief and color: worth an hour before you print{' '}
+                {plural(tiles, 'tile', 'tiles')}.
+              </p>
+              <Button
+                variant="secondary"
+                leadingIcon={<Download />}
+                disabled={busy}
+                aria-describedby={testTileNoteId}
+                onClick={downloadTestTile}
+              >
+                Download a test tile (.{format})
               </Button>
             </div>
-            <p className={styles.secondaryNote}>
-              The test tile is one 60 × 60 mm piece of the same relief: worth an hour before you print{' '}
-              {plural(tiles, 'tile', 'tiles')}.
-            </p>
+            <Button variant="ghost" leadingIcon={<FileDown />} onClick={downloadPlan}>
+              Download the plan only (.svg)
+            </Button>
           </div>
         </section>
       </div>

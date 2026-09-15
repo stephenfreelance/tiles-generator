@@ -6,6 +6,8 @@ import { formatLength, formatNumber } from '../units'
 
 /** Two lengths closer than this are the same length (mm), as in layout.ts. */
 const EPS = 0.01
+/** A tile corner this close to the setting-out point is the tile the maker sets first (mm). */
+const POINT_TOLERANCE = 0.5
 
 const round2 = (v: number) => Math.round(v * 100) / 100
 const mod = (a: number, n: number) => ((a % n) + n) % n
@@ -78,9 +80,13 @@ export type AxisSetOut = 'edge' | 'tile-centred' | 'joint-centred'
 
 export interface SettingOut {
   origin: LayoutOrigin
-  /** Corner of a full tile to measure from, surface mm. */
+  /** Bottom-left corner of the first piece to set, surface mm. */
   point: { x: number; y: number }
-  /** Centre lines to snap a chalk line on (null when set out from the edge). */
+  /**
+   * Lines to snap a chalk line on (null when set out from the edge). The level one is the middle of
+   * the wall; in a running bond the upright one moves to the nearest tile centre or joint of the
+   * start row, so it can sit a little off the middle.
+   */
   centreLines: { x: number | null; y: number | null }
   modeX: AxisSetOut
   modeY: AxisSetOut
@@ -178,24 +184,90 @@ function axisPoint(
   return round2(length / 2 + joint / 2)
 }
 
+export type WallSide = 'top' | 'right' | 'bottom' | 'left'
+
+/** Clockwise from the top, the order a sentence lists the edges in. */
+const SIDE_ORDER: readonly WallSide[] = ['top', 'right', 'bottom', 'left']
+
+/** The wall edges a piece's cut sits on: along each axis where it is short, the edges it touches. */
+export function tileCutSides(tile: PlanTile, model: Pick<PlanModel, 'width' | 'height' | 'tile'>): WallSide[] {
+  const sides: WallSide[] = []
+  if (!tile.cut) return sides
+  if (tile.w < model.tile.width - EPS) {
+    if (tile.x <= EPS) sides.push('left')
+    if (tile.x + tile.w >= model.width - EPS) sides.push('right')
+  }
+  if (tile.h < model.tile.height - EPS) {
+    if (tile.y <= EPS) sides.push('bottom')
+    if (tile.y + tile.h >= model.height - EPS) sides.push('top')
+  }
+  return sides
+}
+
+/** Every wall edge that takes a cut, clockwise from the top. */
+export function wallCutSides(model: Pick<PlanModel, 'width' | 'height' | 'tile' | 'tiles'>): WallSide[] {
+  const found = new Set<WallSide>()
+  for (const t of model.tiles) for (const side of tileCutSides(t, model)) found.add(side)
+  return SIDE_ORDER.filter((side) => found.has(side))
+}
+
+/** The piece whose bottom-left corner sits on the setting-out point, if one does. */
+export function tileAtPoint(tiles: readonly PlanTile[], point: { x: number; y: number }): PlanTile | null {
+  return tiles.find((t) => Math.abs(t.x - point.x) <= POINT_TOLERANCE && Math.abs(t.y - point.y) <= POINT_TOLERANCE) ?? null
+}
+
+/**
+ * A running bond lays every row on its own grid, so the upright line is read from the row the
+ * setting-out point starts: the middle of the wall can fall on a joint there, or inside a tile, and
+ * the line then moves to the nearest tile centre or joint of that row.
+ */
+function bondLineX(
+  tiles: readonly PlanTile[],
+  centre: number,
+  rowBottom: number,
+  size: number,
+  joint: number,
+): { mode: AxisSetOut; line: number } | null {
+  let row: number | null = null
+  let best = Infinity
+  for (const t of tiles) {
+    const d = Math.abs(t.y - rowBottom)
+    if (d < best - EPS) {
+      best = d
+      row = t.row
+    }
+  }
+  const whole = tiles.find((t) => t.row === row && Math.abs(t.w - size) < EPS)
+  if (!whole) return null
+  const pitch = size + joint
+  const nearest = (offset: number) => whole.x + offset + Math.round((centre - whole.x - offset) / pitch) * pitch
+  const tileLine = nearest(size / 2)
+  const jointLine = nearest(size + joint / 2)
+  return Math.abs(tileLine - centre) <= Math.abs(jointLine - centre) + EPS
+    ? { mode: 'tile-centred', line: round2(tileLine) }
+    : { mode: 'joint-centred', line: round2(jointLine) }
+}
+
 function settingOutNotes(
   model: Pick<SettingOut, 'modeX' | 'modeY' | 'centreLines' | 'point'>,
   joint: number,
   rowOffset: RowOffset,
+  exact: boolean,
+  first: PlanTile | null,
 ): string[] {
   const notes: string[] = []
   const { modeX, modeY, centreLines, point } = model
   if (modeX === 'edge' && modeY === 'edge') {
     if (point.y > EPS) {
-      // Whole tiles are read from the top-left (axisStart anchors y at its end), so the bottom row is cut.
+      // The grid is anchored at the top, so the bottom row is cut and the set-out point sits above it.
       notes.push(
-        'Set out from the top-left corner: the whole tiles are read from there, so any cuts fall on the right edge and along the bottom.',
+        `Measure ${formatLength(point.y)} up from the bottom edge at the left and draw a level line: the first full-height row sits on it.`,
       )
-      notes.push(
-        `Measure ${formatLength(point.y)} up from the bottom edge and lay the first whole row on that line; the strip below it is the bottom cut.`,
-      )
-    } else {
+      notes.push('Lay the tiles up and to the right from that line; the strip below it is the bottom cut.')
+    } else if (first && !first.cut) {
       notes.push('Set out from the bottom-left corner: the first whole tile sits in the corner.')
+    } else {
+      notes.push(`Set out from the bottom-left corner: piece ${first?.mark ?? 'A'} sits in the corner.`)
     }
   } else {
     const onLine = (mode: AxisSetOut) => (mode === 'tile-centred' ? 'centre a tile on it' : joint > 0 ? 'centre a joint on it' : 'start a tile on it')
@@ -215,7 +287,9 @@ function settingOutNotes(
       `Running bond: shift every row by ${rowShiftCycle(rowOffset) === 2 ? 'half a tile' : 'a third of a tile'} against the one below it.`,
     )
   }
-  notes.push('Fix the full tiles first, then the cuts at the edges.')
+  // An exact fit has no cuts to leave for last, and a row that starts on a cut cannot leave them.
+  if (!exact && first && !first.cut) notes.push('Fix the full tiles first, then the cuts at the edges.')
+  else if (!exact) notes.push('Lay each row from its first piece, fitting the cut pieces as you reach them.')
   return notes
 }
 
@@ -275,16 +349,28 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
     }),
   )
 
-  const modeX = axisMode(W, config.tile.width, joint, config.layout.origin)
+  let modeX = axisMode(W, config.tile.width, joint, config.layout.origin)
   const modeY = axisMode(H, config.tile.height, joint, config.layout.origin)
+  // Surface y runs upward and the corner grid is anchored at its end, as in computeLayout.
+  const pointY = axisPoint(H, config.tile.height, joint, modeY, config.layout.origin, 'end')
+  let lineX = round2(W / 2)
+  if (modeX !== 'edge' && cycle > 1) {
+    const bond = bondLineX(tiles, W / 2, pointY, config.tile.width, joint)
+    if (bond) {
+      modeX = bond.mode
+      lineX = bond.line
+    }
+  }
   const centreLines = {
-    x: modeX === 'edge' ? null : round2(W / 2),
+    x: modeX === 'edge' ? null : lineX,
     y: modeY === 'edge' ? null : round2(H / 2),
   }
   const point = {
-    x: axisPoint(W, config.tile.width, joint, modeX, config.layout.origin, 'start'),
-    // Surface y runs upward and the corner grid is anchored at its end, as in computeLayout.
-    y: axisPoint(H, config.tile.height, joint, modeY, config.layout.origin, 'end'),
+    x:
+      modeX === 'edge'
+        ? axisPoint(W, config.tile.width, joint, modeX, config.layout.origin, 'start')
+        : round2(modeX === 'tile-centred' ? lineX - config.tile.width / 2 : lineX + joint / 2),
+    y: pointY,
   }
   const settingOut: SettingOut = {
     origin: config.layout.origin,
@@ -292,7 +378,13 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
     centreLines,
     modeX,
     modeY,
-    notes: settingOutNotes({ modeX, modeY, centreLines, point }, joint, config.layout.rowOffset),
+    notes: settingOutNotes(
+      { modeX, modeY, centreLines, point },
+      joint,
+      config.layout.rowOffset,
+      plan.exact,
+      tileAtPoint(tiles, point),
+    ),
   }
 
   return {

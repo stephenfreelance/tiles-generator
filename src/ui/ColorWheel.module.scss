@@ -1,0 +1,136 @@
+@use '@/styles/mixins' as *;
+
+// The disc is three exact layers, so it shows the very colors it picks: hues round the rim (a conic
+// gradient runs clockwise from the top, as the maths does), white fading out towards the rim for
+// saturation (linear alpha, so the fade is HSV saturation), and black laid over it for brightness.
+.wheel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, #fff, rgb(255 255 255 / 0)),
+    conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  // Brightness, plus the hairline that keeps a pale rim visible on the panel.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgb(0 0 0 / var(--dim, 0));
+    box-shadow: inset 0 0 0 1px rgb(36 28 20 / 0.16);
+    pointer-events: none;
+  }
+
+  &[data-dragging] {
+    cursor: grabbing;
+  }
+
+  &[data-disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// The picked color itself, ringed in panel white and a dark hairline so it reads on any hue.
+.thumb {
+  position: absolute;
+  top: var(--thumb-y, 50%);
+  left: var(--thumb-x, 50%);
+  z-index: 1;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid var(--panel);
+  border-radius: 50%;
+  background: var(--thumb-color, var(--panel));
+  box-shadow:
+    0 0 0 1px rgb(36 28 20 / 0.45),
+    0 2px 6px rgb(46 36 27 / 0.35);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  transition:
+    transform var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
+
+  // 36 px of target without widening the drawn knob.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -9px;
+    border-radius: 50%;
+  }
+
+  &:focus-visible {
+    @include focus-ring(3px);
+  }
+
+  // A panel halo fills the ring's 3px offset, so the accent ring clears 3:1 on any hue and brightness
+  // beneath it (the disc or the track), as the chosen swatch holds its ring off the chip.
+  &:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: -6px; // from the padding box, 3px inside the border edge, out to where the outline starts
+    border: 3px solid var(--panel);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .wheel[data-disabled] & {
+    cursor: not-allowed;
+    box-shadow: 0 0 0 1px rgb(36 28 20 / 0.3);
+  }
+
+  @include coarse-pointer {
+    width: 1.875rem;
+    height: 1.875rem;
+  }
+}
+
+.wheel:hover:not([data-disabled]) .thumb {
+  box-shadow:
+    0 0 0 1px rgb(36 28 20 / 0.55),
+    0 3px 9px rgb(46 36 27 / 0.4);
+
+  @include motion-safe {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+// Held: the knob lifts under the finger, so the color beneath it is not hidden by a shrinking ring.
+.wheel[data-dragging]:not([data-disabled]) .thumb {
+  cursor: grabbing;
+  box-shadow:
+    0 0 0 1px rgb(36 28 20 / 0.6),
+    0 6px 14px rgb(46 36 27 / 0.45);
+
+  @include motion-safe {
+    transform: translate(-50%, -50%) scale(1.18);
+  }
+}
+
+// The disc is content, not decoration: without its colours it cannot be used, so it keeps them and
+// only the thumb's ring is redrawn in the viewer's palette.
+@include forced-colors {
+  .wheel,
+  .thumb {
+    forced-color-adjust: none;
+  }
+
+  .thumb {
+    border-color: Canvas;
+    box-shadow: 0 0 0 2px CanvasText;
+  }
+
+  .thumb:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .thumb:focus-visible::after {
+    border-color: Canvas;
+  }
+}

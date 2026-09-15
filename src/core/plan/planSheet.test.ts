@@ -4,6 +4,7 @@ import { computeLayout } from '../layout'
 import type { DesignConfig } from '../types'
 import { buildPlanModel } from './planModel'
 import { renderPlanSheet, type SheetInfo } from './planSheet'
+import { planSheetInfo } from './planSvg'
 
 const design = (over: Partial<DesignConfig> = {}): DesignConfig => ({ ...structuredClone(DEFAULT_CONFIG), ...over })
 
@@ -13,7 +14,7 @@ const info: SheetInfo = {
   tile: '150 × 150 mm, 4 mm base',
   joint: '2 mm',
   texture: 'Wavy, 2.4 mm relief',
-  filament: 'PLA-CF Matcha Green',
+  color: 'Green (#5C9748)',
   date: '2026-09-11',
 }
 
@@ -57,6 +58,14 @@ describe('renderPlanSheet', () => {
     expect(svg).not.toContain('\u2014')
   })
 
+  it('names the color in the title block, by preset or as custom, with its hex', () => {
+    expect(planSheetInfo(design({ color: '#C0582F' })).color).toBe('Terracotta (#C0582F)')
+    expect(planSheetInfo(design({ color: '#12AB34' })).color).toBe('Custom (#12AB34)')
+    const { svg } = sheetFor(design())
+    expect(svg).toContain('Green (#5C9748)')
+    expect(svg).not.toMatch(/filament/i)
+  })
+
   it('draws every tile once, cuts hatched', () => {
     const { plan, svg } = sheetFor(design({ surface: { width: 1000, height: 800 }, layout: { origin: 'balanced', rowOffset: 0.5 } }))
     expect(svg.match(/class="tile /g)).toHaveLength(plan.placements.length)
@@ -82,5 +91,14 @@ describe('renderPlanSheet', () => {
     expect(svg).toContain('>CL<')
     expect(svg).toContain('>SO<')
     expect(svg).toContain('Snap a vertical line at 500 mm')
+  })
+
+  it('names the cut piece that really sits on the SO point of a running bond', () => {
+    const tile = { width: 100, height: 100, thickness: 4 }
+    const { svg } = sheetFor(design({ surface: { width: 1250, height: 640 }, tile, joint: 0, layout: { origin: 'corner', rowOffset: 0.3333 } }))
+    // Notes wrap across text lines, so they are read as the words a person sees.
+    const words = svg.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+    expect(words).toMatch(/the bottom-left corner of cut piece [A-Z]+\./)
+    expect(words).not.toContain('the corner of a full tile')
   })
 })

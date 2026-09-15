@@ -4,10 +4,11 @@ import * as THREE from 'three'
 import type { PieceSpec, Placement } from '@/core/types'
 import type { PieceAssets } from './geometry'
 import { LOOK } from './look'
-import type { FinishMaterialSet } from './materials'
+import type { TileMaterialSet } from './materials'
 import { hatchDirection, type Stage } from './stage'
+import { ensureTint, layInstances } from './instanceLayout'
 import { useSceneServices } from './sceneServices'
-import { waveLift, writeWavePose, type WaveClock } from './wave'
+import { waveAnimates, waveLift, writeWavePose, type WaveClock } from './wave'
 
 export type HighlightState = 'none' | 'on' | 'off'
 
@@ -25,7 +26,7 @@ interface PieceInstancesProps {
   piece: PieceSpec
   /** Bottom-left corners of every placement of this piece, as x, y pairs in surface mm. */
   positions: Float32Array
-  materials: FinishMaterialSet
+  materials: TileMaterialSet
   wave: WaveClock
   highlight: HighlightState
   /** Wash every cut piece in red pencil: the view is being pointed at or is focused. */
@@ -39,8 +40,16 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
   const count = positions.length / 2
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const tintRef = useRef<THREE.InstancedBufferAttribute | null>(null)
-  // `written` is the tint the GPU already holds; -1 means nothing has been uploaded yet.
-  const stateRef = useRef({ wash: 0, dim: 0, cut: 0, written: { red: -1, hatch: -1, dim: -1 }, waveDone: false })
+  // `written` is the tint the GPU already holds; -1 means nothing has been uploaded yet. `laidOn` is the
+  // mesh object the resting translations were written to.
+  const stateRef = useRef<{
+    wash: number
+    dim: number
+    cut: number
+    written: { red: number; hatch: number; dim: number }
+    waveDone: boolean
+    laidOn: THREE.InstancedMesh | null
+  }>({ wash: 0, dim: 0, cut: 0, written: { red: -1, hatch: -1, dim: -1 }, waveDone: false, laidOn: null })
   const invalidate = useThree((state) => state.invalidate)
   const services = useSceneServices()
 
@@ -66,18 +75,10 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
   useLayoutEffect(() => {
     const mesh = meshRef.current
     if (!mesh) return
-    const tint = new THREE.InstancedBufferAttribute(new Float32Array(count * 4), 4)
-    tint.setUsage(THREE.DynamicDrawUsage)
-    mesh.geometry.setAttribute('tsTint', tint)
-    tintRef.current = tint
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    for (let i = 0; i < count; i++) {
-      mesh.setMatrixAt(i, _matrix.makeTranslation(positions[i * 2], positions[i * 2 + 1], 0))
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    mesh.computeBoundingSphere()
+    tintRef.current = ensureTint(mesh.geometry, count)
+    layInstances(mesh, positions)
     // The cut wash follows the pointer, not the geometry, so a rebuild must not blink it off.
-    stateRef.current = { wash: 0, dim: 0, cut: stateRef.current.cut, written: { red: -1, hatch: -1, dim: -1 }, waveDone: !animate }
+    stateRef.current = { wash: 0, dim: 0, cut: stateRef.current.cut, written: { red: -1, hatch: -1, dim: -1 }, waveDone: !animate, laidOn: mesh }
     services.shadows.mark(3)
     invalidate()
     return () => {
@@ -96,12 +97,31 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
     invalidate()
   }, [revealCuts, highlight, reduced, invalidate])
 
-  useFrame((_, delta) => {
+  // Materials are a property, not a constructor argument, so a tier change swaps them on the
+  // same mesh; the cached shadow map still re-renders once, since casting can change with the material.
+  useEffect(() => {
+    services.shadows.mark()
+    invalidate()
+  }, [materialList, services, invalidate])
+
+  useFrame((frameState, delta) => {
     const mesh = meshRef.current
-    const tint = tintRef.current
-    if (!mesh || !tint) return
+    if (!mesh) return
     const now = performance.now()
     const state = stateRef.current
+    if (state.laidOn !== mesh) {
+      // A mesh rebuilt without the layout effect running starts with every instance at the origin: lay it
+      // again before it draws, keeping the tint and highlight state as they are.
+      tintRef.current = ensureTint(mesh.geometry, count)
+      layInstances(mesh, positions)
+      state.written = { red: -1, hatch: -1, dim: -1 }
+      state.laidOn = mesh
+      frameState.gl.shadowMap.needsUpdate = true
+      services.shadows.mark(3)
+      invalidate()
+    }
+    const tint = tintRef.current
+    if (!tint) return
     const elapsed = animate ? wave.elapsed(now) : Number.POSITIVE_INFINITY
     const movingTiles = animate && !state.waveDone
 
@@ -170,7 +190,8 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
   return (
     <instancedMesh
       ref={meshRef}
-      args={[asset.geometry, materialList, count]}
+      args={[asset.geometry, undefined, count]}
+      material={materialList}
       castShadow
       receiveShadow
       frustumCulled={false}
@@ -179,7 +200,7 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
 }
 
 /** Keeps the red-pencil hatch at a constant screen pitch, whatever the zoom. */
-function HatchScale({ materials, stage }: { materials: FinishMaterialSet; stage: Stage }) {
+function HatchScale({ materials, stage }: { materials: TileMaterialSet; stage: Stage }) {
   const height = useThree((state) => state.size.height)
   useEffect(() => {
     materials.setHatchDirection(hatchDirection(stage))
@@ -196,7 +217,7 @@ export interface TileFieldProps {
   assets: ReadonlyMap<string, PieceAssets>
   pieces: readonly PieceSpec[]
   placements: readonly Placement[]
-  materials: FinishMaterialSet
+  materials: TileMaterialSet
   wave: WaveClock
   highlightPieceId: string | null
   /** Wash every cut piece in red pencil (the view is pointed at or focused). */
@@ -227,7 +248,7 @@ export const TileField = memo(function TileField({ assets, pieces, placements, m
     return arrays
   }, [placements])
 
-  const animate = wave.enabled && placements.length <= LOOK.wave.maxInstances
+  const animate = waveAnimates(wave, placements.length)
 
   return (
     <>

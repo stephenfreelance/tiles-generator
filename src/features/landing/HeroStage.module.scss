@@ -45,16 +45,17 @@
   opacity: 0.4;
 }
 
-// What is on the stage right now, named where the eye already is.
+// What is on the stage right now, named where the eye already is. It starts the board's radius in
+// (less the 1px border it is placed inside), on the same line as the sample keys under the board.
 .pill {
   position: absolute;
   bottom: var(--s-3);
-  left: var(--s-3);
+  left: calc(var(--radius-lg) - 1px);
   z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--s-3);
-  max-width: calc(100% - var(--s-6));
+  max-width: calc(100% - var(--radius-lg) - var(--s-3));
   padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
@@ -90,13 +91,15 @@
   font-size: var(--text-xs);
 }
 
+// Held in by the board's corner radius, so the keys start where its straight edge does.
 .picker {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-2);
+  padding-inline-start: var(--radius-lg);
 }
 
-// Sample keys: the relief's name on a chip of its filament, filled in when it is the one on stage.
+// Sample keys: the relief's name beside a chip of its color, filled in when it is the one on stage.
 .pick {
   display: inline-flex;
   align-items: center;
@@ -141,7 +144,7 @@
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
 }
 
-// The spool colour is the content of these keys, so it survives a forced palette; the chosen one
+// The tile color is the content of these keys, so it survives a forced palette; the chosen one
 // keeps a visible edge because a soft fill is exactly what such a palette erases.
 @media (forced-colors: active) {
   .pick[aria-pressed='true'] {

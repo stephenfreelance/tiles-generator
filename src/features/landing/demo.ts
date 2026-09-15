@@ -1,4 +1,5 @@
 // The designs the front page draws with. Every one is a real config the studio could load.
+import { COLOR_PRESETS } from '@/core/colors'
 import { DEFAULT_CONFIG, normalizeConfig } from '@/core/config'
 import { computeLayout } from '@/core/layout'
 import { textureById } from '@/core/textures/registry'
@@ -6,16 +7,24 @@ import type { DesignConfig, LayoutPlan } from '@/core/types'
 
 export interface HeroSpecimen {
   textureId: string
-  colorId: string
+  /** '#RRGGBB', always one of the studio's presets. */
+  color: string
 }
 
-/** Five pairings, cycled on the board: a relief and a filament that suit each other. */
+/** A preset's hex by name, so a renamed or retuned preset fails loudly here instead of drifting. */
+function preset(name: string): string {
+  const found = COLOR_PRESETS.find((entry) => entry.name === name)
+  if (!found) throw new Error(`No color preset named ${name}`)
+  return found.hex
+}
+
+/** Five pairings, cycled on the board: a relief and one of the studio's preset colors that suit each other. */
 export const HERO_SPECIMENS: HeroSpecimen[] = [
-  { textureId: 'zellige', colorId: 'pla-matte-terracotta' },
-  { textureId: 'wavy', colorId: 'pla-matte-bone-white' },
-  { textureId: 'fluted', colorId: 'pla-basic-blue-grey' },
-  { textureId: 'fish-scale', colorId: 'pla-matte-ice-blue' },
-  { textureId: 'moroccan-star', colorId: 'pla-marble-white-marble' },
+  { textureId: 'zellige', color: preset('Terracotta') },
+  { textureId: 'wavy', color: preset('Green') },
+  { textureId: 'fluted', color: preset('Blue') },
+  { textureId: 'fish-scale', color: preset('Charcoal') },
+  { textureId: 'moroccan-star', color: preset('Orange') },
 ]
 
 /** Six by four full tiles: no cuts on the board, and quick to mesh between specimens. */
@@ -37,7 +46,8 @@ export const CUT_DEMO: DesignConfig = normalizeConfig({
   tile: { width: 150, height: 150, thickness: 4 },
   layout: { origin: 'corner', rowOffset: 0 },
   texture: { ...DEFAULT_CONFIG.texture, id: 'herringbone', depth: 2.2, scale: 26, params: {} },
-  colorId: 'pla-matte-latte-brown',
+  // Not a red-family color: the cut marks drawn over these pieces are red, and must stand apart.
+  color: preset('Yellow'),
 })
 
 /** A kitchen-sized wall, used to show the file list the download hands over. */
@@ -58,12 +68,12 @@ export function demoPlan(config: DesignConfig): LayoutPlan {
   })
 }
 
-/** The hero design for one specimen: the board's sizes, the specimen's relief and filament. */
+/** The hero design for one specimen: the board's sizes, the specimen's relief and color. */
 export function heroConfig(specimen: HeroSpecimen): DesignConfig {
   const texture = textureById(specimen.textureId)
   return normalizeConfig({
     ...HERO_BASE,
-    colorId: specimen.colorId,
+    color: specimen.color,
     texture: {
       ...HERO_BASE.texture,
       id: texture.id,

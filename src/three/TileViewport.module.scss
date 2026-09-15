@@ -30,6 +30,11 @@
   pointer-events: none;
 }
 
+// A notice on a static view still has a button to press.
+.static .notice {
+  pointer-events: auto;
+}
+
 .notice {
   position: absolute;
   inset: 0;

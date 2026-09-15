@@ -6,7 +6,7 @@ import styles from './Tabs.module.scss'
 export interface TabItem {
   value: string
   label: string
-  /** Shown after the label, e.g. how many colors a line holds. */
+  /** Shown after the label, e.g. how many items the tab holds. */
   count?: number
   disabled?: boolean
 }
@@ -15,7 +15,7 @@ export interface TabsProps {
   value: string
   onValueChange: (value: string) => void
   items: readonly TabItem[]
-  /** Names the tab list, e.g. "Filament lines". */
+  /** Names the tab list, e.g. "Saved designs". */
   'aria-label': string
   /** TabPanel elements (at least the active one). */
   children: ReactNode
@@ -26,7 +26,7 @@ export interface TabsProps {
 export function Tabs({ value, onValueChange, items, children, className, 'aria-label': ariaLabel }: TabsProps) {
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Thirteen filament lines overflow a narrow column: keep the chosen tab in view.
+  // Many tabs overflow a narrow column: keep the chosen tab in view.
   useEffect(() => {
     const active = listRef.current?.querySelector<HTMLElement>('[data-state="active"]')
     active?.scrollIntoView({ block: 'nearest', inline: 'nearest' })

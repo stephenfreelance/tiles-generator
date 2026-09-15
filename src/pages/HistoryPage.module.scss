@@ -72,7 +72,9 @@
   list-style: none;
 }
 
+// Inset by the register's corner radius, so the note clears the curve it hangs under.
 .footnote {
+  padding-inline-start: var(--radius-lg);
   color: var(--ink-3);
   font-size: var(--text-xs);
   line-height: 1.5;

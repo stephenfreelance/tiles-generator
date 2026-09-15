@@ -1,4 +1,5 @@
-import { DEFAULT_FILAMENT_ID, filamentById } from './filaments'
+import { DEFAULT_COLOR, parseHex } from './colors'
+import { LEGACY_COLOR_HEX } from './legacyColors'
 import { DEFAULT_PRINTER_ID, printerById } from './printers'
 import type { DesignConfig, LayoutOrigin, LengthUnit, RowOffset } from './types'
 
@@ -31,7 +32,7 @@ export const DEFAULT_CONFIG: DesignConfig = {
   // Depth and scale are the default texture's OWN recommended values: picking a texture adopts its
   // defaults, so starting anywhere else would show the design as already modified before a first click.
   texture: { id: 'wavy', depth: 2.6, scale: 22, params: {}, seed: 1, invert: false, rotate: false },
-  colorId: DEFAULT_FILAMENT_ID,
+  color: DEFAULT_COLOR,
   printerId: DEFAULT_PRINTER_ID,
 }
 
@@ -50,6 +51,12 @@ const clamp = (v: unknown, min: number, max: number, fallback: number): number =
 const ORIGINS: LayoutOrigin[] = ['corner', 'center', 'balanced']
 const OFFSETS: RowOffset[] = [0, 0.5, 0.3333]
 const UNITS: LengthUnit[] = ['mm', 'cm', 'm']
+
+/** The hex of a retired filament id, for designs and links saved before colors were plain hexes. */
+function legacyColor(input: unknown): string | undefined {
+  const id = input && typeof input === 'object' ? (input as { colorId?: unknown }).colorId : undefined
+  return typeof id === 'string' && Object.hasOwn(LEGACY_COLOR_HEX, id) ? LEGACY_COLOR_HEX[id] : undefined
+}
 
 /**
  * Returns a complete, valid config from anything that looks like one (localStorage, URL, history).
@@ -92,7 +99,7 @@ export function normalizeConfig(input: unknown): DesignConfig {
       invert: typeof c.texture?.invert === 'boolean' ? c.texture.invert : d.texture.invert,
       rotate: typeof c.texture?.rotate === 'boolean' ? c.texture.rotate : d.texture.rotate,
     },
-    colorId: filamentById(typeof c.colorId === 'string' ? c.colorId : d.colorId).id,
+    color: (typeof c.color === 'string' ? parseHex(c.color) : null) ?? legacyColor(input) ?? d.color,
     printerId: printerById(typeof c.printerId === 'string' ? c.printerId : d.printerId).id,
   }
 }

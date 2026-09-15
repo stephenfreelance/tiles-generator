@@ -1,7 +1,7 @@
 import { Canvas, type RootState } from '@react-three/fiber'
 import { Component, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { filamentById } from '@/core/filaments'
+import { presetByHex } from '@/core/colors'
 import type { DesignConfig, LayoutPlan, PieceSpec } from '@/core/types'
 import { formatSize } from '@/core/units'
 import { heroPiece } from '@/hooks/previewLod'
@@ -11,7 +11,7 @@ import { meshMatchesPiece } from './geometry'
 import { LOOK, type Tier } from './look'
 import { Scene, SceneBackground, type Shown } from './Scene'
 import { SceneServices, ServicesContext, usePrefersReducedMotion } from './sceneServices'
-import { settingOutPoint, WaveDirector } from './wave'
+import { settingOutPoint, waveAnimates, WaveDirector, waveSettleDelay, type WaveClock } from './wave'
 import styles from './TileViewport.module.scss'
 
 export interface TileViewportProps {
@@ -30,8 +30,11 @@ export interface TileViewportProps {
 }
 
 export interface TileViewportHandle {
-  /** WebP data URL of the current view (PNG where WebP is unavailable), for history thumbnails. */
-  capture(widthPx: number): Promise<string | null>
+  /**
+   * WebP data URL of the current view (PNG where WebP is unavailable), for history thumbnails. It waits
+   * for the re-lay wave to settle; with `maxWaitMs` it gives up after that long and returns null.
+   */
+  capture(widthPx: number, options?: { maxWaitMs?: number }): Promise<string | null>
   resetView(): void
 }
 
@@ -165,13 +168,14 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   const [canvasKey, setCanvasKey] = useState(0)
   const [paused, setPaused] = useState(false)
   const rootRef = useRef<RootState | null>(null)
+  // Detaches the context-loss listeners from the canvas they were added to.
+  const detachRef = useRef<(() => void) | null>(null)
   const rigRef = useRef<CameraRigHandle>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   // Pointing at the wall, or tabbing to it, asks "which of these are cut?"; the answer washes in.
   const [pointerOver, setPointerOver] = useState(false)
   const [focusWithin, setFocusWithin] = useState(false)
 
-  const filament = useMemo(() => filamentById(config.colorId), [config.colorId])
   // The same piece the worker builds for the tile view, so the view never waits on a piece nobody asked for.
   const hero = useMemo(() => heroPiece(plan) ?? null, [plan])
 
@@ -190,9 +194,12 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   const showsThisDesign = ready && preview.current
 
   const [shown, setShown] = useState<Shown | null>(null)
-  if (ready && (shown === null || shown.pieces !== preview.pieces || shown.plan !== plan)) {
+  // The mode is committed with its meshes: switching to the whole wall keeps the tile on screen until
+  // every piece of the wall is in hand, instead of drawing the tile-view hero at every placement.
+  if (ready && (shown === null || shown.pieces !== preview.pieces || shown.plan !== plan || shown.mode !== mode)) {
     setShown({
       commitId: (shown?.commitId ?? 0) + 1,
+      mode,
       plan,
       pieces: preview.pieces,
       version: preview.version,
@@ -206,9 +213,10 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
 
   const waveInput = useMemo(() => {
     if (!shown) return null
-    if (mode === 'tile') {
-      const w = hero?.width ?? shown.tile.width
-      const h = hero?.height ?? shown.tile.height
+    if (shown.mode === 'tile') {
+      const shownHero = heroPiece(shown.plan)
+      const w = shownHero?.width ?? shown.tile.width
+      const h = shownHero?.height ?? shown.tile.height
       return { origin: { x: w / 2, y: h / 2 }, maxDistance: 1 }
     }
     const origin = settingOutPoint(shown.origin, shown.surface.width, shown.surface.height)
@@ -221,14 +229,29 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
       if (distance > maxDistance) maxDistance = distance
     }
     return { origin, maxDistance }
-  }, [shown, mode, hero])
+  }, [shown])
 
   const wave = director.clockFor(
-    `${shown?.commitId ?? 0}:${mode}:${reduced ? 'still' : 'lay'}`,
+    `${shown?.commitId ?? 0}:${shown?.mode ?? mode}:${reduced ? 'still' : 'lay'}`,
     waveInput?.origin ?? { x: 0, y: 0 },
     waveInput?.maxDistance ?? 1,
     !reduced,
   )
+
+  // What a capture waits on: the wave on screen, whether its tiles move at all, and whether cuts flash.
+  const settleRef = useRef<{ wave: WaveClock; animating: boolean; flashes: boolean } | null>(null)
+  useEffect(() => {
+    if (!shown) {
+      settleRef.current = null
+      return
+    }
+    const onScreen = shown.mode === 'tile' ? [heroPiece(shown.plan)] : shown.plan.pieces
+    settleRef.current = {
+      wave,
+      animating: waveAnimates(wave, shown.mode === 'tile' ? 1 : shown.plan.placements.length),
+      flashes: onScreen.some((piece) => piece !== undefined && piece.kind !== 'full'),
+    }
+  })
 
   useEffect(() => {
     onPendingChange?.(preview.pending)
@@ -243,18 +266,34 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     return () => observer.disconnect()
   }, [])
 
-  const handleContextLost = useCallback((event: Event) => {
-    event.preventDefault()
-    setGlState('lost')
+  // R3F force-loses a replaced canvas 500 ms after unmounting it: only the live canvas speaks for the view.
+  const isLiveCanvas = (event: Event) => event.target !== null && event.target === rootRef.current?.gl.domElement
+
+  const detachCanvas = useCallback(() => {
+    detachRef.current?.()
+    detachRef.current = null
   }, [])
 
-  const handleContextRestored = useCallback(() => {
-    setGlState('ok')
-    setCanvasKey((key) => key + 1)
+  const handleContextLost = useCallback((event: Event) => {
+    if (!isLiveCanvas(event)) return
+    event.preventDefault()
+    // A failed canvas is force-lost after the error boundary caught it: the error is the truer notice.
+    setGlState((state) => (state === 'error' ? state : 'lost'))
   }, [])
+
+  const handleContextRestored = useCallback(
+    (event: Event) => {
+      if (!isLiveCanvas(event)) return
+      detachCanvas()
+      setGlState('ok')
+      setCanvasKey((key) => key + 1)
+    },
+    [detachCanvas],
+  )
 
   const handleCreated = useCallback(
     (state: RootState) => {
+      detachCanvas()
       rootRef.current = state
       // The composer forces NoToneMapping while mounted; this is the tier-0 path.
       state.gl.toneMapping = THREE.NeutralToneMapping
@@ -262,25 +301,61 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
       const canvas = state.gl.domElement
       canvas.addEventListener('webglcontextlost', handleContextLost)
       canvas.addEventListener('webglcontextrestored', handleContextRestored)
+      detachRef.current = () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost)
+        canvas.removeEventListener('webglcontextrestored', handleContextRestored)
+      }
     },
-    [handleContextLost, handleContextRestored],
+    [detachCanvas, handleContextLost, handleContextRestored],
   )
 
+  useEffect(() => detachCanvas, [detachCanvas])
+
   const retry = useCallback(() => {
+    detachCanvas()
     rootRef.current = null
     setGlState(isWebGLAvailable(true) ? 'ok' : 'unsupported')
     setCanvasKey((key) => key + 1)
-  }, [])
+  }, [detachCanvas])
 
-  const capture = useCallback(async (widthPx: number): Promise<string | null> => {
+  const capture = useCallback(async (widthPx: number, options?: { maxWaitMs?: number }): Promise<string | null> => {
+    // A thumbnail of the wall mid-wave would keep lifted and missing tiles in the history for good. Timers,
+    // not animation frames, pace the wait: a hidden tab gets no frames.
+    const unstarted = () => {
+      const settle = settleRef.current
+      return !!settle && settle.animating && settle.wave.startedAt(performance.now()) === null
+    }
+    // The wave clock starts on its first drawn frame, so without frames the wait would never shrink: draw one.
+    if (unstarted() && rootRef.current) {
+      rootRef.current.advance(performance.now(), true)
+      // advance() spends the frames the wave asked for, so the on-demand loop is asked to carry on.
+      rootRef.current.invalidate()
+    }
+    const deadline = performance.now() + (options?.maxWaitMs ?? LOOK.wave.captureWaitMaxMs)
+    let settled: boolean
+    for (;;) {
+      const settle = settleRef.current
+      const now = performance.now()
+      const wait = settle ? waveSettleDelay(settle.wave, now, settle) : 0
+      settled = wait <= 0
+      if (settled || now >= deadline) break
+      await new Promise((resolve) => window.setTimeout(resolve, Math.min(wait, deadline - now)))
+    }
+    // A caller with its own budget takes no thumbnail over a moving one, and a wave that never started drew nothing.
+    if (!settled && (options?.maxWaitMs !== undefined || unstarted())) return null
     const root = rootRef.current
     if (!root) return null
-    // Render one frame and read it back before the browser clears the drawing buffer.
-    root.advance(performance.now(), true)
-    const scaled = downscale(root.gl.domElement, widthPx)
-    if (!scaled) return null
-    const webp = scaled.toDataURL('image/webp', 0.82)
-    return webp.startsWith('data:image/webp') ? webp : scaled.toDataURL('image/png')
+    try {
+      // Render one frame and read it back before the browser clears the drawing buffer.
+      root.advance(performance.now(), true)
+      const scaled = downscale(root.gl.domElement, widthPx)
+      if (!scaled) return null
+      const webp = scaled.toDataURL('image/webp', 0.82)
+      return webp.startsWith('data:image/webp') ? webp : scaled.toDataURL('image/png')
+    } finally {
+      // advance() spends the frames useFrame callbacks asked for, which lets the on-demand loop stop for good.
+      root.invalidate()
+    }
   }, [])
 
   const resetView = useCallback(() => {
@@ -325,12 +400,12 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
 
   // The legend counts what is on screen rather than what is being built, so it agrees with the wash.
   const shownCuts = shown?.plan.partialCount ?? 0
-  const canRevealCuts = interactive && mode === 'surface' && shownCuts > 0
+  const canRevealCuts = interactive && (shown?.mode ?? mode) === 'surface' && shownCuts > 0
   const revealCuts = canRevealCuts && (pointerOver || focusWithin)
 
   const description =
     mode === 'tile'
-      ? `3D view of one ${formatSize(config.tile.width, config.tile.height)} tile in ${filament.name}`
+      ? `3D view of one ${formatSize(config.tile.width, config.tile.height)} tile in ${presetByHex(config.color)?.name ?? `color ${config.color}`}`
       : `3D elevation of a ${formatSize(config.surface.width, config.surface.height, config.surfaceUnit)} surface: ${plan.fullCount} full tiles and ${plan.partialCount} cut pieces`
 
   const classes = [styles.viewport, interactive ? styles.interactive : styles.static, className].filter(Boolean).join(' ')
@@ -359,7 +434,6 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
             frameloop="demand"
             dpr={[1, LOOK.quality.dprMax[tier]]}
             shadows="percentage"
-            performance={{ min: LOOK.quality.performanceMin }}
             camera={{ fov: LOOK.camera.fovDeg, near: 1, far: 100000, position: [0, 0, 2000] }}
             gl={(defaults) =>
               new THREE.WebGLRenderer({
@@ -377,7 +451,6 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
               {shown && (
                 <Scene
                   shown={shown}
-                  mode={mode}
                   lightAngle={lightAngle}
                   showDimensions={showDimensions}
                   showLayerLines={showLayerLines}
@@ -387,7 +460,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
                   paused={paused}
                   reduced={reduced}
                   tier={tier}
-                  filament={filament}
+                  color={config.color}
                   unit={config.surfaceUnit}
                   wave={wave}
                   rigRef={rigRef}

@@ -50,14 +50,14 @@ export function sheetBackground(toneMappedByComposer: boolean): THREE.Color {
 export const linearLuminance = (c: THREE.Color): number => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
 
 /**
- * Filament albedo in linear space with the extremes pulled in: published pure white would clip under
- * the key light and pure black would render as a flat silhouette.
+ * Tile albedo in linear space with the extremes pulled in: pure white would clip under the key light
+ * and pure black would render as a flat silhouette.
  */
-export function clampAlbedo(hex: string, glossy: boolean): THREE.Color {
+export function clampAlbedo(hex: string): THREE.Color {
   const color = new THREE.Color(hex)
   const srgb = { r: 0, g: 0, b: 0 }
   color.getRGB(srgb, THREE.SRGBColorSpace)
-  const ceiling = new THREE.Color(glossy ? LOOK.materials.whiteGlossy : LOOK.materials.whiteMatte)
+  const ceiling = new THREE.Color(LOOK.materials.whiteClamp)
   if (Math.min(srgb.r, srgb.g, srgb.b) >= 0.97) return ceiling
 
   const ceilingSrgb = { r: 0, g: 0, b: 0 }
@@ -69,7 +69,7 @@ export function clampAlbedo(hex: string, glossy: boolean): THREE.Color {
     color.setRGB(srgb.r * k, srgb.g * k, srgb.b * k, THREE.SRGBColorSpace)
   }
 
-  const floor = new THREE.Color(glossy ? LOOK.materials.blackGlossy : LOOK.materials.blackMatte)
+  const floor = new THREE.Color(LOOK.materials.blackClamp)
   const floorLum = linearLuminance(floor)
   const lum = linearLuminance(color)
   // Lift dark colours to the floor luminance by scaling, which keeps the hue; true black has none to keep.
@@ -81,13 +81,4 @@ export function clampAlbedo(hex: string, glossy: boolean): THREE.Color {
 /** Linear colour moved `amount` of the way toward white. */
 export function lighten(color: THREE.Color, amount: number): THREE.Color {
   return color.clone().lerp(new THREE.Color(1, 1, 1), amount)
-}
-
-/** Linear colour darkened by `amount` and desaturated by `desaturate` (both 0..1). */
-export function darken(color: THREE.Color, amount: number, desaturate = 0): THREE.Color {
-  const lum = linearLuminance(color)
-  return color
-    .clone()
-    .lerp(new THREE.Color(lum, lum, lum), desaturate)
-    .multiplyScalar(1 - amount)
 }

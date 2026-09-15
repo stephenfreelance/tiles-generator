@@ -1,6 +1,6 @@
 # Tessera
 
-Tessera turns a wall size, a tile size, a relief texture and a filament colour into a ready-to-print set of 3D tiles. It computes how many full tiles fit, generates the cut pieces needed to cover the rest, previews the whole surface and a single tile in 3D, and exports every unique piece as STL or STEP.
+Tessera turns a wall size, a tile size, a relief texture and a tile color into a ready-to-print set of 3D-printable tiles. It computes how many full tiles fit, generates the cut pieces needed to cover the rest, previews the whole surface and a single tile in 3D, and exports every unique piece as STL or STEP.
 
 Everything runs in the browser: no account, no backend, no upload. Designs live in localStorage.
 
@@ -24,7 +24,7 @@ Node 22.22 or newer (react-router 8 requires it). `.nvmrc` and the `engines` fie
 
 - **Fit.** `computeLayout` places the tile grid from a corner, centred, or balanced (the tiler's rule that avoids slivers), with an optional joint width and a running bond of a half or a third. Every piece that is not a full tile is a cut of one, carrying the exact slice of pattern it replaces, so the relief runs on across every joint.
 - **Relief.** 24 seamless textures (plane, wavy, stripes, coral, herringbone, fluted, zellige, and 17 more). Each is a height field that repeats a whole number of times across a tile, so tiles meet themselves at every edge. Printed face up, so nothing needs supports.
-- **Preview.** react-three-fiber: a raking key light that reveals the relief, a studio environment built from light cards (no downloaded assets), ambient occlusion, real filament finishes (matte, silk, carbon fibre, metallic, sparkle, marble, wood, translucent, glow) and optional FDM layer lines. Tiles re-lay from the setting-out corner when the layout changes.
+- **Preview.** react-three-fiber: a raking key light that reveals the relief, a studio environment built from light cards (no downloaded assets), ambient occlusion, one matte PLA look in any color (11 presets, a color wheel or a hex code) and optional FDM layer lines. Tiles re-lay from the setting-out corner when the layout changes.
 - **Files.** Binary STL, or STEP written directly as an AP214 solid (validated in OpenCascade), one model per unique piece, zipped with the setting-out plan as SVG and a README of print settings.
 
 ## Layout
@@ -37,7 +37,7 @@ src/three     the 3D preview (look.ts holds every tuning constant)
 src/ui        the design system
 src/pages     landing, studio, download, history
 src/features  page-specific composition
-src/state     zustand stores persisted to localStorage
+src/state     zustand stores: the design, prefs and history persisted to localStorage, and the unpersisted accent override
 ```
 
 `docs/architecture.md` carries the contracts, units and conventions. `PRODUCT.md` carries product truth, and `.impeccable/surfaces/` the visual direction.
@@ -77,6 +77,6 @@ npm run shots                              # every route, desktop and mobile, in
 
 ## Notes
 
-- Filament names and hex values are Bambu Lab's published values. Tessera is not affiliated with Bambu Lab.
-- Filament weights are estimates from solid volume and a fill range; your slicer knows better.
+- Color presets are Tessera's own names and hex values, not any manufacturer's catalog: print them in whatever PLA comes closest.
+- Filament weights are estimates from solid volume, a fill range and one PLA density (1.24 g/cm3); your slicer knows better.
 - A saved design keeps a WebP thumbnail of the preview. When localStorage is full, the newest save is kept and the store sheds the oldest thumbnails first, then the oldest designs, rather than reporting a save that did not land.

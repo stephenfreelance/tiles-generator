@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { parseHex, presetByHex } from './colors'
 import { DEFAULT_CONFIG, THICKNESS_PRESETS } from './config'
-import { filamentById } from './filaments'
 import { SLIVER_MM } from './layout'
 import { printerById } from './printers'
 import { DEFAULT_TEXTURE_ID, textureById } from './textures/registry'
@@ -25,8 +25,10 @@ describe('DEFAULT_CONFIG', () => {
     expect(THICKNESS_PRESETS.map((preset) => preset.value)).toContain(DEFAULT_CONFIG.tile.thickness)
   })
 
-  it('starts on a real filament and a real printer, and tiles from the top-left corner', () => {
-    expect(filamentById(DEFAULT_CONFIG.colorId).id).toBe(DEFAULT_CONFIG.colorId)
+  it('starts on a normalized color and a real printer, and tiles from the top-left corner', () => {
+    expect(parseHex(DEFAULT_CONFIG.color)).toBe(DEFAULT_CONFIG.color)
+    // The old default filament's hex, so a design nobody touched looks the same after the change.
+    expect(presetByHex(DEFAULT_CONFIG.color)?.name).toBe('Green')
     expect(printerById(DEFAULT_CONFIG.printerId).id).toBe(DEFAULT_CONFIG.printerId)
     expect(DEFAULT_CONFIG.layout.origin).toBe('corner')
     expect(DEFAULT_CONFIG.layout.rowOffset).toBe(0)

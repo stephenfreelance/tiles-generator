@@ -1,50 +1,28 @@
 // The stage: one wall under a warm lamp, turning, with a new sample laid on it every few seconds.
-import { useEffect, useMemo, useState } from 'react'
-import { filamentById } from '@/core/filaments'
+import { useMemo, useState } from 'react'
+import { colorName } from '@/core/colors'
 import { textureById } from '@/core/textures/registry'
 import { useLayout } from '@/hooks'
 import { TileViewport } from '@/three/TileViewport'
 import { heroConfig, HERO_SPECIMENS } from './demo'
+import { isSampleShown } from './heroShow'
 import styles from './HeroStage.module.scss'
 
-/** Long enough to look at the relief, short enough that the stage never feels stuck. */
-const CYCLE_MS = 7000
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() =>
-    typeof window === 'undefined' ? false : (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false),
-  )
-  useEffect(() => {
-    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)')
-    if (!query) return
-    const listen = () => setReduced(query.matches)
-    query.addEventListener('change', listen)
-    return () => query.removeEventListener('change', listen)
-  }, [])
-  return reduced
+export interface HeroStageProps {
+  /** Which of HERO_SPECIMENS is on the board. */
+  index: number
+  /** '#RRGGBB' the board shows the relief in: the sample's own, or a color picked further down the page. */
+  color: string
+  onPickSample: (index: number) => void
 }
 
-export function HeroStage() {
-  const reduced = usePrefersReducedMotion()
-  const [index, setIndex] = useState(0)
-  const [held, setHeld] = useState(false)
+export function HeroStage({ index, color, onPickSample }: HeroStageProps) {
   const [pending, setPending] = useState(true)
 
-  // The stage turns itself over unless the viewer asked for less motion or picked a sample.
-  useEffect(() => {
-    if (reduced || held) return
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      setIndex((current) => (current + 1) % HERO_SPECIMENS.length)
-    }, CYCLE_MS)
-    return () => window.clearInterval(timer)
-  }, [reduced, held])
-
-  const specimen = HERO_SPECIMENS[index]
-  const config = useMemo(() => heroConfig(specimen), [specimen])
+  const { textureId } = HERO_SPECIMENS[index]
+  const config = useMemo(() => heroConfig({ textureId, color }), [textureId, color])
   const plan = useLayout(config)
   const texture = textureById(config.texture.id)
-  const filament = filamentById(config.colorId)
 
   return (
     <div className={styles.stage}>
@@ -53,30 +31,27 @@ export function HeroStage() {
           <TileViewport config={config} plan={plan} mode="surface" interactive={false} onPendingChange={setPending} />
         </div>
         <p className={styles.pill}>
-          <span className={styles.pillDot} style={{ background: filament.hex }} aria-hidden="true" />
+          <span className={styles.pillDot} style={{ background: config.color }} aria-hidden="true" />
           <span className={styles.pillText}>
             <span className={styles.pillName}>{texture.name}</span>
-            <span className={styles.pillNote}>in {filament.name}</span>
+            <span className={styles.pillNote}>in {colorName(config.color)}</span>
           </span>
         </p>
       </div>
       <div className={styles.picker} role="group" aria-label="Choose a sample">
         {HERO_SPECIMENS.map((entry, entryIndex) => {
           const entryTexture = textureById(entry.textureId)
-          const entryFilament = filamentById(entry.colorId)
           return (
             <button
               key={entry.textureId}
               type="button"
               className={styles.pick}
-              aria-pressed={entryIndex === index}
-              aria-label={`Show ${entryTexture.name} in ${entryFilament.name}`}
-              onClick={() => {
-                setIndex(entryIndex)
-                setHeld(true)
-              }}
+              // A color picked further down puts a pairing on the board that no key offers, so none reads as pressed.
+              aria-pressed={isSampleShown(entryIndex, index, color)}
+              aria-label={`Show ${entryTexture.name} in ${colorName(entry.color)}`}
+              onClick={() => onPickSample(entryIndex)}
             >
-              <span className={styles.pickSwatch} style={{ background: entryFilament.hex }} aria-hidden="true" />
+              <span className={styles.pickSwatch} style={{ background: entry.color }} aria-hidden="true" />
               {entryTexture.name}
             </button>
           )

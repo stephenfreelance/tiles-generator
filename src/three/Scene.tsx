@@ -1,7 +1,6 @@
-import { AdaptiveDpr, ContactShadows, PerformanceMonitor } from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type Ref } from 'react'
-import type { Filament } from '@/core/filaments'
+import { ContactShadows } from '@react-three/drei'
+import { addTail, useFrame, useThree } from '@react-three/fiber'
+import { lazy, Suspense, useEffect, useMemo, type Ref } from 'react'
 import { heroPiece } from '@/hooks/previewLod'
 import type { LayoutOrigin, LayoutPlan, LengthUnit, Placement } from '@/core/types'
 import type { PreviewPiece } from '@/workers/protocol'
@@ -10,12 +9,12 @@ import { CameraRig, type CameraRigHandle } from './CameraRig'
 import { sheetBackground } from './colorMath'
 import { Dimensions } from './Dimensions'
 import { LOOK, type Tier } from './look'
-import type { FinishMaterialSet } from './materials'
+import type { TileMaterialSet } from './materials'
 import { useSceneServices } from './sceneServices'
 import { annotationMarginMm, BACKDROP_LAYER, computeFraming, OVERLAY_LAYER, stageFor, stageRotationX, type ViewMode } from './stage'
 import { StudioLights } from './StudioLights'
 import { TileField } from './TileField'
-import { useFinishMaterials, usePieceAssets } from './useSceneAssets'
+import { usePieceAssets, useTileMaterials } from './useSceneAssets'
 import type { WaveClock } from './wave'
 
 // The composer is as heavy as three.js itself and the lowest tier drops it, so it arrives on its own
@@ -25,6 +24,8 @@ const PostFx = lazy(async () => ({ default: (await import('./PostFx')).PostFx })
 /** The geometry currently on screen: it only changes once the worker's meshes match the plan. */
 export interface Shown {
   commitId: number
+  /** The view these meshes were built for: a mode switch shows once the new mode's meshes are in hand. */
+  mode: ViewMode
   plan: LayoutPlan
   pieces: ReadonlyMap<string, PreviewPiece>
   version: number
@@ -60,38 +61,37 @@ function SceneDrivers() {
   return null
 }
 
-function MaterialDriver({ set }: { set: FinishMaterialSet }) {
+function MaterialDriver({ set }: { set: TileMaterialSet }) {
   const invalidate = useThree((state) => state.invalidate)
-  const services = useSceneServices()
   useFrame((_, delta) => {
-    if (!set.step(delta)) return
-    services.motion.bump(performance.now())
+    // The loop sleeps between edits, so the first frame of a fade carries a delta of seconds: clamped,
+    // or the new colour would land in one step instead of fading in.
+    if (!set.step(Math.min(delta, 1 / 30))) return
+    // No motion bump: a colour fade is a few frames right behind a React commit and a page-wide
+    // recolour, which measures the main thread rather than the GPU the governor is judging.
     invalidate()
   })
   return null
 }
 
 /**
- * Quality tiers. The frameloop is on demand, so frames-per-second only means something while something
- * moves; the monitor is mounted for those stretches only.
+ * Quality tiers, chosen by the app's own governor from frames rendered while something moves. Its
+ * verdicts live in SceneServices, so a remounted scene keeps them.
  */
-function QualityMonitor({ onTierChange }: { onTierChange: (update: (tier: Tier) => Tier) => void }) {
+function QualityMonitor({ tier, onTierChange }: { tier: Tier; onTierChange: (update: (tier: Tier) => Tier) => void }) {
   const services = useSceneServices()
-  const [sampling, setSampling] = useState(false)
+  // The loop going to sleep is the one gap no frame interval can be trusted across.
+  useEffect(() => addTail(() => services.quality.idle()), [services])
   useFrame(() => {
-    const active = services.motion.isActive(performance.now(), LOOK.quality.sampleWhileMovingMs)
-    if (active !== sampling) setSampling(active)
+    const now = performance.now()
+    const next = services.quality.frame(now, services.motion.isActive(now, LOOK.quality.sampleWhileMovingMs), tier)
+    if (next !== null) onTierChange(() => next)
   })
-  const decline = useCallback(() => onTierChange((tier) => (tier > 0 ? ((tier - 1) as Tier) : tier)), [onTierChange])
-  const incline = useCallback(() => onTierChange((tier) => (tier < 2 ? ((tier + 1) as Tier) : tier)), [onTierChange])
-  const fallback = useCallback(() => onTierChange(() => 0), [onTierChange])
-  if (!sampling) return null
-  return <PerformanceMonitor flipflops={LOOK.quality.flipflops} onDecline={decline} onIncline={incline} onFallback={fallback} />
+  return null
 }
 
 export interface SceneProps {
   shown: Shown
-  mode: ViewMode
   lightAngle: number
   showDimensions: boolean
   showLayerLines: boolean
@@ -102,7 +102,8 @@ export interface SceneProps {
   paused: boolean
   reduced: boolean
   tier: Tier
-  filament: Filament
+  /** Tile color as '#RRGGBB'. */
+  color: string
   unit: LengthUnit
   wave: WaveClock
   rigRef: Ref<CameraRigHandle>
@@ -111,7 +112,6 @@ export interface SceneProps {
 
 export function Scene({
   shown,
-  mode,
   lightAngle,
   showDimensions,
   showLayerLines,
@@ -121,12 +121,14 @@ export function Scene({
   paused,
   reduced,
   tier,
-  filament,
+  color,
   unit,
   wave,
   rigRef,
   onTierChange,
 }: SceneProps) {
+  // The mode that was built, not the one just asked for: the meshes on screen belong to it.
+  const mode = shown.mode
   const stage = stageFor(mode)
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
@@ -149,7 +151,7 @@ export function Scene({
   const width = mode === 'tile' ? (hero?.width ?? shown.tile.width) : shown.surface.width
   const height = mode === 'tile' ? (hero?.height ?? shown.tile.height) : shown.surface.height
 
-  const materials = useFinishMaterials(filament, tier, shown.tile.thickness + shown.depth / 2, showLayerLines, activeNormalMaps)
+  const materials = useTileMaterials(color, tier, showLayerLines, activeNormalMaps)
 
   // Quantised so a one-pixel resize does not re-frame the view.
   const aspect = Math.round((size.width / Math.max(1, size.height)) * 20) / 20
@@ -232,12 +234,11 @@ export function Scene({
       />
       {tier > 0 && (
         <Suspense fallback={null}>
-          <PostFx tier={tier} reliefMm={shown.depth} bloomIntensity={materials.recipe.bloom} />
+          <PostFx tier={tier} reliefMm={shown.depth} />
         </Suspense>
       )}
       <MaterialDriver set={materials} />
-      <QualityMonitor onTierChange={onTierChange} />
-      <AdaptiveDpr />
+      <QualityMonitor tier={tier} onTierChange={onTierChange} />
     </>
   )
 }

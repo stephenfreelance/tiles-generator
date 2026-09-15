@@ -2,15 +2,17 @@
 import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { studioIntent } from '@/app/prefetchStudio'
+import { COLOR_PRESETS } from '@/core/colors'
 import { buildPlanModel } from '@/core/plan/planModel'
 import { TEXTURES, textureById } from '@/core/textures/registry'
 import { formatSize } from '@/core/units'
+import { ColorStrip } from '@/features/landing/ColorStrip'
 import { CUT_DEMO, demoPlan, WALL_DEMO } from '@/features/landing/demo'
-import { FilamentStrip } from '@/features/landing/FilamentStrip'
 import { HeroStage } from '@/features/landing/HeroStage'
 import { JointProof } from '@/features/landing/JointProof'
 import { PlanFragment } from '@/features/landing/PlanFragment'
 import { SpecimenStrip } from '@/features/landing/SpecimenStrip'
+import { useHeroShow } from '@/features/landing/useHeroShow'
 import { useDesign } from '@/state/designStore'
 import { buttonClassName } from '@/ui'
 import styles from './LandingPage.module.scss'
@@ -19,6 +21,9 @@ export function LandingPage() {
   const navigate = useNavigate()
   const config = useDesign((state) => state.config)
   const loadDesign = useDesign((state) => state.load)
+  const show = useHeroShow()
+  // The samples wear the color on show; only the color changes as the board turns, so a cached shade is re-tinted.
+  const specimenBase = useMemo(() => ({ ...config, color: show.color }), [config, show.color])
 
   const cutPlan = useMemo(() => demoPlan(CUT_DEMO), [])
   const cutModel = useMemo(() => buildPlanModel(CUT_DEMO, cutPlan), [cutPlan])
@@ -28,8 +33,10 @@ export function LandingPage() {
 
   function startWithTexture(textureId: string) {
     const texture = textureById(textureId)
+    // The studio opens in the color the page was showing, so it matches the sample that was picked.
     loadDesign({
       ...config,
+      color: show.color,
       texture: {
         ...config.texture,
         id: texture.id,
@@ -45,16 +52,16 @@ export function LandingPage() {
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroText}>
-          <h1 className={styles.headline}>Tiles that fit your wall exactly and join without a seam</h1>
+          <h1 className={styles.headline}>Design 3D-printed tiles that fit your wall exactly</h1>
           <p className={styles.support}>
-            Give Tessera the wall and the tile size. It lays out the grid, cuts the edge pieces from the same relief so
-            the pattern runs on across every joint, and hands you a printable model for each unique piece.
+            Enter your wall and tile size, pick a relief and a color, and download print-ready STL or STEP files for
+            your slicer: one per unique piece, edge cuts included, with the pattern running on across every joint.
           </p>
           <div className={styles.heroActions}>
             <Link to="/studio" className={buttonClassName('primary', 'lg')} {...studioIntent}>
               Start designing
             </Link>
-            <Link to="/history" className={buttonClassName('secondary', 'md')}>
+            <Link to="/history" className={buttonClassName('secondary', 'lg')}>
               See your saved designs
             </Link>
           </div>
@@ -62,7 +69,7 @@ export function LandingPage() {
             No account, nothing uploaded: the layout, the 3D view and the files are all made in this browser.
           </p>
         </div>
-        <HeroStage />
+        <HeroStage index={show.index} color={show.color} onPickSample={show.pickSample} />
       </section>
 
       <section className={styles.section}>
@@ -117,23 +124,20 @@ export function LandingPage() {
           <h2 className={styles.heading}>{TEXTURES.length} patterns, all seamless</h2>
           <p className={styles.lede}>
             Every pattern repeats a whole number of times across a tile, so it meets itself at each joint whatever size
-            you print. Pick one and the studio opens with it.
+            you print. Pick one and the studio opens with it, in the color shown here.
           </p>
         </header>
-        <SpecimenStrip base={config} onPick={startWithTexture} />
+        <SpecimenStrip base={specimenBase} onPick={startWithTexture} />
 
         <div>
-          <h3 className={styles.subheading}>Filament</h3>
+          <h3 className={styles.subheading}>Color</h3>
           <p className={styles.note}>
-            The preview renders in a real spool colour and finish, from matte through silk to marble and wood, so what
-            you choose here is what you can buy.
+            Start from one of these {COLOR_PRESETS.length} colors: pick one and the wall, the patterns and this page take
+            it on, and the studio opens in it. In the studio you can pick any other on the color wheel or with a hex code,
+            and the 3D preview shows your wall in it before you print a single tile.
           </p>
         </div>
-        <FilamentStrip />
-        <p className={styles.fineprint}>
-          Colour names and hex values are the manufacturer&rsquo;s published values. Tessera is not affiliated with
-          Bambu Lab.
-        </p>
+        <ColorStrip color={show.color} onPick={show.pickColor} />
       </section>
 
       <section className={styles.section}>

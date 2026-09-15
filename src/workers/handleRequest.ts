@@ -8,7 +8,7 @@ import { meshVolume } from '@/core/geometry/meshChecks'
 import { bakeNormalMap } from '@/core/geometry/normalMap'
 import { buildPieceMesh, QUALITY_CELL_MM, STEP_QUALITY, type PieceMeshOptions } from '@/core/geometry/tileMesh'
 import { planSvg } from '@/core/plan/planSvg'
-import { renderReliefChip } from '@/core/textures/hillshade'
+import { CHIP_SHADE_BUDGET_BYTES, reliefShadeKey, shadeReliefChip, tintReliefChip, type ReliefShade } from '@/core/textures/hillshade'
 import { createHeightField } from '@/core/textures/registry'
 import type { DesignConfig, ExportFormat, MeshData, PieceSpec } from '@/core/types'
 import type {
@@ -180,11 +180,83 @@ async function handleVolumes(req: VolumeRequest, ctx: HandlerContext): Promise<H
   return { result: { volumes }, transfer: [] }
 }
 
+/** Least recently used values under a byte budget; a value larger than the whole budget is not kept. */
+export class ByteLru<V> {
+  /** Map order is recency order: the first entry is the least recently used. */
+  private readonly entries = new Map<string, V>()
+  private used = 0
+  hits = 0
+  misses = 0
+
+  constructor(
+    readonly maxBytes: number,
+    private readonly sizeOf: (value: V) => number,
+  ) {}
+
+  get size(): number {
+    return this.entries.size
+  }
+
+  get bytes(): number {
+    return this.used
+  }
+
+  get(key: string): V | undefined {
+    const value = this.entries.get(key)
+    if (value === undefined) {
+      this.misses++
+      return undefined
+    }
+    this.hits++
+    this.entries.delete(key)
+    this.entries.set(key, value)
+    return value
+  }
+
+  set(key: string, value: V): void {
+    const previous = this.entries.get(key)
+    if (previous !== undefined) {
+      this.used -= this.sizeOf(previous)
+      this.entries.delete(key)
+    }
+    const bytes = this.sizeOf(value)
+    if (bytes > this.maxBytes) return
+    this.entries.set(key, value)
+    this.used += bytes
+    for (const [oldest, old] of this.entries) {
+      if (this.used <= this.maxBytes) break
+      this.entries.delete(oldest)
+      this.used -= this.sizeOf(old)
+    }
+  }
+
+  clear(): void {
+    this.entries.clear()
+    this.used = 0
+    this.hits = 0
+    this.misses = 0
+  }
+}
+
+/**
+ * Colour-independent chip shading, kept per worker so a colour change only re-tints. A 160 px shade
+ * is about 614 KB: the picker's 23 reliefs, a schedule's pieces and part of the last shape fit.
+ */
+export const chipShades = new ByteLru<ReliefShade>(CHIP_SHADE_BUDGET_BYTES, (shade) => shade.sums.byteLength)
+
 async function handleChips(req: ChipRequest, ctx: HandlerContext): Promise<HandlerOutput<'chips'>> {
   const chips: ChipImage[] = []
   for (const item of req.items) {
     await checkpoint(ctx)
-    const image = renderReliefChip(item.config, { sizePx: req.sizePx, crop: item.crop })
+    const opts = { sizePx: req.sizePx, crop: item.crop }
+    const key = reliefShadeKey(item.config, opts)
+    let shade = chipShades.get(key)
+    if (!shade) {
+      shade = shadeReliefChip(item.config, opts)
+      // Stored at once, so a batch cancelled part way still leaves its finished shades for the next one.
+      chipShades.set(key, shade)
+    }
+    const image = tintReliefChip(shade, item.config.color)
     chips.push({ key: item.key, width: image.width, height: image.height, data: image.data })
   }
   return { result: { chips }, transfer: transferables(chips.map((c) => c.data.buffer)) }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '../config'
 import { computeLayout } from '../layout'
 import type { DesignConfig } from '../types'
-import { buildPlanModel, chainLabels, type DimensionChain } from './planModel'
+import { buildPlanModel, chainLabels, tileAtPoint, type DimensionChain } from './planModel'
 
 const design = (over: Partial<DesignConfig> = {}): DesignConfig => ({ ...structuredClone(DEFAULT_CONFIG), ...over })
 
@@ -107,7 +107,8 @@ describe('buildPlanModel', () => {
     // The SO marker lands on the corner of a real whole tile.
     expect(model.tiles.some((t) => !t.cut && t.x === 0 && t.y === 50)).toBe(true)
     const notes = model.settingOut.notes.join(' ')
-    expect(notes).toContain('top-left corner')
+    // The notes must agree with the SO point, which sits above the bottom cut, not at the top.
+    expect(notes).not.toContain('top-left')
     expect(notes).toContain('50 mm up from the bottom edge')
     expect(notes).not.toContain('bottom-left corner')
   })
@@ -117,6 +118,40 @@ describe('buildPlanModel', () => {
     const model = buildPlanModel(config, planFor(config))
     expect(model.settingOut.point).toEqual({ x: 0, y: 0 })
     expect(model.settingOut.notes[0]).toContain('bottom-left corner')
+    expect(model.settingOut.notes.join(' ')).not.toContain('cuts at the edges')
+  })
+
+  it('sets a centred running bond out from the tile or joint that really sits on the upright line', () => {
+    // Half bond, 1250 x 640 of 100 mm: the row the level line runs through has a joint at 625 mm.
+    const half = design({ surface: { width: 1250, height: 640 }, tile: { width: 100, height: 100, thickness: 4 }, joint: 0, layout: { origin: 'center', rowOffset: 0.5 } })
+    const halfModel = buildPlanModel(half, planFor(half))
+    expect(halfModel.settingOut).toMatchObject({ modeX: 'joint-centred', modeY: 'tile-centred', centreLines: { x: 625, y: 320 }, point: { x: 625, y: 270 } })
+    expect(halfModel.settingOut.notes[0]).not.toContain('centre a tile')
+
+    for (const origin of ['center', 'balanced'] as const) {
+      for (const rowOffset of [0.5, 0.3333] as const) {
+        for (const joint of [0, 2]) {
+          for (const width of [1000, 1237, 1250]) {
+            for (const height of [600, 633, 640]) {
+              const config = design({ surface: { width, height }, tile: { width: 100, height: 100, thickness: 4 }, joint, layout: { origin, rowOffset } })
+              const { settingOut: so, tiles } = buildPlanModel(config, planFor(config))
+              const first = tileAtPoint(tiles, so.point)
+              const at = `${origin} ${rowOffset} j${joint} ${width}x${height}`
+              expect(first, at).not.toBeNull()
+              const x = so.modeX === 'tile-centred' ? first!.x + 50 : first!.x - joint / 2
+              expect({ at, x: Math.round(x * 100) / 100 }).toEqual({ at, x: so.centreLines.x })
+            }
+          }
+        }
+      }
+    }
+  })
+
+  it('names the piece on the corner when a running bond starts on a cut', () => {
+    const config = design({ surface: { width: 1250, height: 640 }, tile: { width: 100, height: 100, thickness: 4 }, joint: 0, layout: { origin: 'corner', rowOffset: 0.3333 } })
+    const notes = buildPlanModel(config, planFor(config)).settingOut.notes.join(' ')
+    expect(notes).not.toContain('Fix the full tiles first')
+    expect(notes).toContain('fitting the cut pieces as you reach them')
   })
 
   it('tells the installer about the row shift of a running bond', () => {

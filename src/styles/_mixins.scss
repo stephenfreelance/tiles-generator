@@ -14,7 +14,7 @@ $warn-ink-fallback: #8a4216;
   line-height: 1.25;
 }
 
-/// The focus ring: the accent green, drawn outside the element so a rounded corner keeps its shape.
+/// The focus ring: the accent, drawn outside the element so a rounded corner keeps its shape.
 @mixin focus-ring($offset: 2px) {
   outline: 3px solid var(--accent);
   outline-offset: $offset;
@@ -135,4 +135,10 @@ $warn-ink-fallback: #8a4216;
 /// Entrance for portaled surfaces: a short settle toward the trigger, from an already-legible start.
 @mixin slip-entrance($name) {
   animation: #{$name} var(--t-fast) var(--ease-out);
+
+  // No animation at all rather than a 0ms one: Radix Presence can miss a 0ms animation's end and keep
+  // a closed tooltip or popover mounted, which left the custom color popover deaf to Escape.
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }

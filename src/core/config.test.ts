@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_COLOR } from './colors'
 import { DEFAULT_CONFIG, LIMITS, normalizeConfig, sameConfig } from './config'
-import { DEFAULT_FILAMENT_ID } from './filaments'
 import { DEFAULT_PRINTER_ID } from './printers'
 
 // normalizeConfig is the only door into the app for untrusted data (localStorage, history entries,
@@ -49,17 +49,37 @@ describe('normalizeConfig', () => {
     expect(params).toEqual({ ribs: 4, rise: -2 })
   })
 
-  it('resolves unknown filament and printer ids, and leaves an unknown texture id to the registry', () => {
+  it('resolves an unreadable color and an unknown printer id, and leaves an unknown texture id to the registry', () => {
     const config = normalizeConfig({
-      colorId: 'pla-matte-none-such',
+      color: 'not-a-color',
       printerId: 'anycubic-imaginary',
       texture: { id: 'not-a-texture' },
     })
-    expect(config.colorId).toBe(DEFAULT_FILAMENT_ID)
+    expect(config.color).toBe(DEFAULT_COLOR)
     expect(config.printerId).toBe(DEFAULT_PRINTER_ID)
     // Deliberate asymmetry: the texture registry owns that fallback, so the id passes through here.
     expect(config.texture.id).toBe('not-a-texture')
     expect(normalizeConfig({ texture: { id: 42 } }).texture.id).toBe(DEFAULT_CONFIG.texture.id)
+  })
+
+  it('stores any readable hex as uppercase #RRGGBB', () => {
+    expect(normalizeConfig({ color: '#c0582f' }).color).toBe('#C0582F')
+    expect(normalizeConfig({ color: ' 12ab34 ' }).color).toBe('#12AB34')
+    expect(normalizeConfig({ color: '#abc' }).color).toBe('#AABBCC')
+    for (const color of ['#12345', '#GGGGGG', '', 42, null, ['#FFFFFF']]) {
+      expect(normalizeConfig({ color }).color).toBe(DEFAULT_COLOR)
+    }
+  })
+
+  it('keeps the color of a design saved with a retired filament id', () => {
+    expect(normalizeConfig({ colorId: 'pla-matte-terracotta' }).color).toBe('#B15533')
+    expect(normalizeConfig({ colorId: 'pla-cf-matcha-green' }).color).toBe(DEFAULT_COLOR)
+    // A readable hex wins over a stale id, and ids that are not in the retired catalog fall back.
+    expect(normalizeConfig({ color: '#1E63C4', colorId: 'pla-matte-terracotta' }).color).toBe('#1E63C4')
+    for (const colorId of ['pla-matte-none-such', 'constructor', '__proto__', 42]) {
+      expect(normalizeConfig({ colorId }).color).toBe(DEFAULT_COLOR)
+    }
+    expect(normalizeConfig({ colorId: 'pla-matte-terracotta' })).not.toHaveProperty('colorId')
   })
 
   it('keeps a known enum value and replaces an unknown one', () => {

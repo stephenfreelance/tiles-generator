@@ -49,7 +49,7 @@ export function buildGeometry(mesh: MeshData, piece: Pick<PieceSpec, 'crop'>, ti
   if (mesh.uvs && mesh.uvs.length === vertexCount * 2) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(mesh.uvs, 2))
   } else {
-    // Pattern-space UVs over the full tile, as the contract specifies (anisotropy and the normal map need them).
+    // Pattern-space UVs over the full tile, as the contract specifies (the normal map needs them).
     const uvs = new Float32Array(vertexCount * 2)
     for (let i = 0; i < vertexCount; i++) {
       uvs[i * 2] = (piece.crop.x0 + mesh.positions[i * 3]) / tile.width

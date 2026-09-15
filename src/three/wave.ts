@@ -31,13 +31,19 @@ export class WaveClock {
   /** Milliseconds since the wave started; the clock starts on the first rendered frame. */
   elapsed(now: number): number {
     if (this.startAt === null) {
-      const prev = this.previous
-      // A rebuild landing mid-wave continues that wave instead of restarting it (slider drags).
-      const prevStart = prev?.startAt ?? null
-      this.startAt = prev && prevStart !== null && now - prevStart < prev.totalMs ? prevStart : now
+      this.startAt = this.startedAt(now) ?? now
       this.previous = null
     }
     return now - this.startAt
+  }
+
+  /** When this wave started, or the running wave it will continue; null before its first frame. Starts nothing. */
+  startedAt(now: number): number | null {
+    if (this.startAt !== null) return this.startAt
+    const prev = this.previous
+    // A rebuild landing mid-wave continues that wave instead of restarting it (slider drags).
+    const prevStart = prev?.startAt ?? null
+    return prev && prevStart !== null && now - prevStart < prev.totalMs ? prevStart : null
   }
 
   delayFor(cx: number, cy: number): number {
@@ -60,6 +66,22 @@ export class WaveClock {
   done(elapsed: number): boolean {
     return elapsed >= this.totalMs + LOOK.wave.holdMs + LOOK.wave.fadeMs
   }
+}
+
+/** Whether the tiles play the wave at all: reduced motion and very large walls appear at rest. */
+export function waveAnimates(clock: WaveClock, placements: number): boolean {
+  return clock.enabled && placements <= LOOK.wave.maxInstances
+}
+
+/**
+ * Milliseconds until the wave on screen has settled, without starting its clock: every tile at rest,
+ * plus the hatch hold and fade when cut pieces flash. A clock that has not started counts from `now`.
+ */
+export function waveSettleDelay(clock: WaveClock, now: number, options: { animating: boolean; flashes: boolean }): number {
+  if (!options.animating) return 0
+  const start = clock.startedAt(now) ?? now
+  const span = clock.totalMs + (options.flashes ? LOOK.wave.holdMs + LOOK.wave.fadeMs : 0)
+  return Math.max(0, start + span - now)
 }
 
 /** Hands out the clock for the current geometry, so a re-lay starts once and every piece shares it. */

@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '@/core/config'
 import { pieceFileName } from '@/core/export/filenames'
 import { computeLayout } from '@/core/layout'
+import { CHIP_SHADE_BUDGET_BYTES, renderReliefChip } from '@/core/textures/hillshade'
 import type { DesignConfig } from '@/core/types'
-import { CancelledError, handleRequest, type HandlerContext } from './handleRequest'
+import { ByteLru, CancelledError, chipShades, handleRequest, type HandlerContext } from './handleRequest'
 import type { Progress } from './protocol'
 
 // A small wall with one right-edge cut: 4 full columns of 100 mm and a 50 mm cut.
@@ -99,6 +100,72 @@ describe('handleRequest', () => {
     expect(result.chips.map((c) => c.key)).toEqual(['a', 'b'])
     for (const chip of result.chips) expect(chip.data.length).toBe(chip.width * chip.height * 4)
     expect(transfer).toHaveLength(2)
+  })
+
+  it('re-tints a cached shade when only the colour changes, with the same bytes as a full render', async () => {
+    chipShades.clear()
+    const crop = plan.pieces[1].crop
+    const red = { ...config, color: '#D7263D' }
+    const gold = { ...config, color: '#F6C343' }
+    const request = (design: DesignConfig) =>
+      handleRequest({ kind: 'chips', sizePx: 40, items: [{ key: 'full', config: design }, { key: 'cut', config: design, crop }] }, context())
+
+    const first = await request(red)
+    expect(chipShades).toMatchObject({ size: 2, hits: 0, misses: 2 })
+    const second = await request(gold)
+    expect(chipShades).toMatchObject({ size: 2, hits: 2, misses: 2 })
+
+    for (const [design, { result }] of [[red, first], [gold, second]] as const) {
+      expect(result.chips[0].data).toEqual(renderReliefChip(design, { sizePx: 40 }).data)
+      expect(result.chips[1].data).toEqual(renderReliefChip(design, { sizePx: 40, crop }).data)
+    }
+    expect(second.result.chips[0].data).not.toEqual(first.result.chips[0].data)
+  })
+
+  it('renders a new shade when anything but the colour changes', async () => {
+    chipShades.clear()
+    await handleRequest({ kind: 'chips', sizePx: 32, items: [{ key: 'a', config }] }, context())
+    const deeper = { ...config, texture: { ...config.texture, depth: config.texture.depth + 0.5 } }
+    await handleRequest({ kind: 'chips', sizePx: 32, items: [{ key: 'a', config: deeper }] }, context())
+    await handleRequest({ kind: 'chips', sizePx: 36, items: [{ key: 'a', config }] }, context())
+    // A picker chip of another texture, the Scale slider and the Invert toggle each need their own relief.
+    const arches = { ...config, texture: { ...config.texture, id: 'arches' } }
+    const scaled = { ...config, texture: { ...config.texture, scale: config.texture.scale + 10 } }
+    const inverted = { ...config, texture: { ...config.texture, invert: !config.texture.invert } }
+    for (const variant of [arches, scaled, inverted]) {
+      await handleRequest({ kind: 'chips', sizePx: 32, items: [{ key: 'a', config: variant }] }, context())
+    }
+    expect(chipShades).toMatchObject({ size: 6, hits: 0, misses: 6 })
+  })
+
+  it('keeps the shade cache inside its byte budget, dropping the least recently used first', () => {
+    const lru = new ByteLru<Uint8Array>(10, (value) => value.byteLength)
+    lru.set('a', new Uint8Array(4))
+    lru.set('b', new Uint8Array(4))
+    lru.get('a')
+    lru.set('c', new Uint8Array(4))
+    expect([lru.get('a') !== undefined, lru.get('b') !== undefined, lru.get('c') !== undefined]).toEqual([true, false, true])
+    expect(lru.bytes).toBe(8)
+    // Too big to ever fit: not stored, and nothing else is pushed out for it.
+    lru.set('huge', new Uint8Array(11))
+    expect(lru.size).toBe(2)
+    // Replacing a key counts only the new value.
+    lru.set('a', new Uint8Array(6))
+    expect(lru.bytes).toBe(10)
+    expect(lru.size).toBe(2)
+  })
+
+  it('never lets the worker shade cache grow past its budget', async () => {
+    chipShades.clear()
+    // 600 px shades are about 8.6 MB each, so the third one has to push the first out.
+    const items = [1, 2, 3].map((seed) => ({ key: `s${seed}`, config: { ...config, texture: { ...config.texture, seed } } }))
+    for (const item of items) await handleRequest({ kind: 'chips', sizePx: 600, items: [item] }, context())
+    expect(chipShades.maxBytes).toBe(CHIP_SHADE_BUDGET_BYTES)
+    expect(chipShades.size).toBe(2)
+    expect(chipShades.bytes).toBeLessThanOrEqual(CHIP_SHADE_BUDGET_BYTES)
+    await handleRequest({ kind: 'chips', sizePx: 600, items: [items[2]] }, context())
+    expect(chipShades.hits).toBe(1)
+    chipShades.clear()
   })
 
   it('stops between pieces once cancelled', async () => {

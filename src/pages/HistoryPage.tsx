@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router'
 import { Trash2 } from 'lucide-react'
 import { studioIntent } from '@/app/prefetchStudio'
 import { RegisterHeader, RegisterRow } from '@/features/history/RegisterRow'
+import registerStyles from '@/features/history/RegisterRow.module.scss'
 import { useDesign } from '@/state/designStore'
 import { useHistory, type HistoryEntry } from '@/state/historyStore'
 import { announce, Button, buttonClassName, EmptyState, toast } from '@/ui'
@@ -137,9 +138,9 @@ export function HistoryPage() {
         </EmptyState>
       ) : (
         <>
-          <div className={styles.register}>
+          <div className={`${styles.register} ${registerStyles.table}`}>
             <RegisterHeader />
-            <ol className={styles.rows}>
+            <ol className={`${styles.rows} ${registerStyles.body}`}>
               {sorted.map((entry) => (
                 <RegisterRow
                   key={entry.id}

@@ -2,10 +2,10 @@
 // both, and everything that is needed only sometimes folded away below.
 
 .page {
-  // ExportPage sets --filament inline, so the wash it feeds has to be re-derived here beside it.
-  // 8 % is the ceiling the token file names: at that strength a pure black spool still leaves
+  // ExportPage sets --tile-color inline, so the wash it feeds has to be re-derived here beside it.
+  // 8 % is the ceiling the token file names: at that strength a pure black tile still leaves
   // --ink-3 at 5.25:1 on the wash.
-  --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
+  --tile-wash: color-mix(in srgb, var(--tile-color) 8%, var(--panel));
   display: grid;
   align-content: start;
   gap: var(--s-5);
@@ -62,6 +62,9 @@
     'design get'
     'design more'
     'facts more';
+  // `more` spans into the last row, so that row takes its extra height: a tall test tile well must not
+  // push the facts strip away from the render.
+  grid-template-rows: auto auto 1fr;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   align-content: start;
   gap: var(--s-4) var(--s-5);
@@ -103,7 +106,7 @@
   opacity: 0.4;
 }
 
-// The filament is the most colourful thing on the page, so it gets a real chip on a floating slip.
+// The tile color is the most colourful thing on the page, so it gets a real chip on a floating slip.
 .identity {
   position: absolute;
   bottom: var(--s-3);
@@ -125,7 +128,7 @@
   width: 2rem;
   height: 2rem;
   border-radius: var(--radius-sm);
-  background: var(--filament, var(--panel-2));
+  background: var(--tile-color, var(--panel-2));
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.16),
     inset 0 7px 11px -7px rgb(255 255 255 / 0.7);
@@ -142,9 +145,12 @@
   font-weight: 650;
 }
 
+// The hex is a value the maker may retype, so it reads as figures rather than as a caption.
 .identityLine {
   color: var(--ink-3);
   font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 // The one action, and nothing beside it: its own card so the eye lands there first.
@@ -217,15 +223,16 @@
   stroke-width: 1.75;
 }
 
-// Three plain facts on one recessed strip, washed in the filament's own colour.
+// Three plain facts on one recessed strip, washed in the tile's own colour.
 .facts {
   display: grid;
   grid-area: facts;
+  align-self: start; // the flexible last row can outgrow the strip
   grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  background: var(--filament-wash);
+  background: var(--tile-wash);
 }
 
 .fact {
@@ -300,14 +307,24 @@
 .secondary {
   display: grid;
   justify-items: start;
-  gap: var(--s-2);
+  gap: var(--s-3);
 }
 
-.secondaryRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-2) var(--s-4);
+// The test tile is advice with a file attached: a recessed well holding the why, then the download.
+.testTile {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-2);
+  width: 100%;
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+}
+
+.testTileLabel {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
 }
 
 .secondaryNote {
@@ -340,6 +357,7 @@
 @media (max-width: 60rem) {
   .top {
     grid-template-areas: none;
+    grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--s-4);
   }

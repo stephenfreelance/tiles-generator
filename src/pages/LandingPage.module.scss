@@ -98,13 +98,6 @@
   line-height: 1.55;
 }
 
-.fineprint {
-  max-width: 70ch;
-  color: var(--ink-3);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-}
-
 // The proof: the plan beside the printed pieces, each on its own soft panel.
 .proof {
   display: grid;
@@ -143,12 +136,13 @@
   background: var(--panel-2);
 }
 
+// Under the two panels, so the rows are held in by their corner radius on both sides.
 .legend {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0 var(--s-5);
   margin: 0;
-  padding: 0;
+  padding: 0 var(--radius-lg);
   list-style: none;
 }
 
@@ -311,7 +305,7 @@
   }
 }
 
-// A cut piece is a fact, not a colour: in a forced palette the mark keeps a visible edge.
+// A cut piece is a fact, not a color: in a forced palette the mark keeps a visible edge.
 @media (forced-colors: active) {
   .legendRow[data-cut] .legendMark {
     border-width: 2px;

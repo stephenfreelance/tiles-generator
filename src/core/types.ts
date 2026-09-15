@@ -51,8 +51,8 @@ export interface DesignConfig {
   bevel: number
   layout: { origin: LayoutOrigin; rowOffset: RowOffset }
   texture: TextureSettings
-  /** Filament preset id from the color catalog. */
-  colorId: string
+  /** Tile color as '#RRGGBB', uppercase: a preset from `core/colors.ts` or any custom pick. */
+  color: string
   printerId: string
 }
 

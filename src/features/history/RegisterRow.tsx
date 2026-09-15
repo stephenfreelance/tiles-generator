@@ -1,7 +1,7 @@
 // One ruled line of saved designs: what the design is, and what you can do with it.
 import { useMemo, useState } from 'react'
 import { Copy, Download, Pencil, Trash2 } from 'lucide-react'
-import { filamentById } from '@/core/filaments'
+import { colorName } from '@/core/colors'
 import { computeLayout } from '@/core/layout'
 import { textureById } from '@/core/textures/registry'
 import { formatLength, formatSize } from '@/core/units'
@@ -28,7 +28,7 @@ export function RegisterHeader() {
       <span>Wall</span>
       <span>Tile</span>
       <span>Pattern</span>
-      <span>Filament</span>
+      <span>Color</span>
       <span className={styles.numeric}>Tiles</span>
       <span />
     </div>
@@ -50,7 +50,6 @@ export function RegisterRow({ entry, onOpen, onFiles, onDuplicate, onDelete, onR
     [config],
   )
   const texture = textureById(config.texture.id)
-  const filament = filamentById(config.colorId)
 
   function commit() {
     setEditing(false)
@@ -134,14 +133,14 @@ export function RegisterRow({ entry, onOpen, onFiles, onDuplicate, onDelete, onR
       </div>
       <div className={styles.fact}>
         <span className={styles.factLabel} aria-hidden="true">
-          Filament
+          Color
         </span>
         <span className={styles.factValue}>
-          <span className={styles.filamentName}>
-            <span className={styles.swatch} style={{ background: filament.hex }} aria-hidden="true" />
-            {filament.name}
+          <span className={styles.colorName}>
+            <span className={styles.swatch} style={{ background: config.color }} aria-hidden="true" />
+            {colorName(config.color)}
           </span>
-          <span className={styles.subFact}>{filament.line}</span>
+          <span className={`${styles.subFact} ${styles.hex}`}>{config.color}</span>
         </span>
       </div>
       <div className={`${styles.fact} ${styles.numeric}`}>
@@ -171,6 +170,7 @@ export function RegisterRow({ entry, onOpen, onFiles, onDuplicate, onDelete, onR
         <Button
           variant="ghost"
           size="sm"
+          className={styles.rowGhost}
           leadingIcon={<Copy />}
           onClick={() => onDuplicate(entry)}
           aria-label={`Duplicate ${config.name}`}

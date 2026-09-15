@@ -1,7 +1,7 @@
 // Tessera design tokens, direction A: a well-lit maker's workbench.
 // A dark espresso bar anchors the page, the ground is a warm off-white, panels are soft rounded
-// surfaces with gentle depth, one green carries the primary action, and the chosen filament tints
-// the interface. Every ratio quoted below was computed against that exact pair, not estimated.
+// surfaces with gentle depth, and one accent, drawn from the chosen tile color, carries the primary
+// action. Every ratio quoted below was computed against that exact pair, not estimated.
 
 :root {
   // Chrome: the espresso bar is the only dark surface in the app.
@@ -20,12 +20,18 @@
 
   --hairline: #e4d8c4;
 
-  // The one green. It carries the primary action, selection and focus, and it is FIXED: a maker who
-  // picks a white or a yellow spool must not be able to drag the interface under its contrast floor,
-  // so the filament tints (below) and the accent decides.
-  --accent: #35682a;
-  --accent-ink: #fffdf8; // 6.53:1 on --accent
-  --accent-soft: #edf3e6; // --accent on it is 5.87:1, so the soft chip can carry green lettering
+  // The one accent. It carries the primary action, selection and focus, and it follows the tile
+  // color: src/app/useAccentTheme.ts writes accentPalette() (src/core/accent.ts) on the root element.
+  // The contrast floor that once kept it fixed now lives in accentPalette: a white or a yellow tile
+  // keeps its hue but darkens until --accent reaches 6.5:1 on --panel (4.5:1 on --ground), and
+  // --accent-soft keeps --accent and --ink-3 at 4.5:1 or better. These defaults are that palette for
+  // DEFAULT_COLOR (src/styles/tokens.test.ts holds them equal), so a default design paints the same
+  // before and after the script runs. The ratios below are for these defaults.
+  --accent: #306918; // 6.54:1 on --panel, 5.56:1 on --ground
+  --accent-hover: #265f09;
+  --accent-press: #1d5300;
+  --accent-ink: #fffdf8; // 6.54:1 on --accent
+  --accent-soft: #eaf4e7; // --accent on it is 5.88:1 and --ink-3 5.64:1, so the soft chip can carry lettering
 
   // Status. The plain tone is for fills, ticks and marks; the -ink variant is what carries text.
   --ok: #2c6b3a;
@@ -35,17 +41,17 @@
 
   // Cut pieces and warnings, and nothing else. Dark enough to be read as text as well as drawn
   // as a stroke, so a cut note and a cut tile are the same colour.
-  --cut: #a3321a; // 7.14:1 on --panel, 5.87:1 on --panel-2
+  --cut: #a3321a; // 6.82:1 on --panel, 5.64:1 on --panel-2
   --cut-soft: #fbeae4;
 
-  // The chosen filament. StudioPage sets --filament inline from the design; the value here is the
-  // default spool so the name always resolves.
+  // The chosen tile color (the token keeps its old name). useAccentTheme writes it on the root element
+  // beside the accent, and StudioPage also sets it inline from the design; the value here is
+  // DEFAULT_COLOR so the name resolves before the script runs.
   //
-  // --filament-wash cannot be derived once, here, for the whole app: a custom property holding a
-  // var() resolves against the element it is DECLARED on, so this :root copy would always mix the
-  // default green no matter what a descendant sets. Any element that sets --filament inline must
-  // re-derive --filament-wash beside it (see StudioPage.module.scss). 8% is the ceiling: at that
-  // strength a pure black spool still leaves --ink-3 at 5.25:1 on the wash.
+  // A custom property holding a var() resolves against the element it is DECLARED on, so this :root
+  // --filament-wash follows only the root's --filament. Any element that sets --filament inline to
+  // something else must re-derive --filament-wash beside it (see StudioPage.module.scss). 8% is the
+  // ceiling: at that strength a pure black tile still leaves --ink-3 at 5.25:1 on the wash.
   --filament: #5c9748;
   --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
 
@@ -130,8 +136,6 @@
   --red-hatch: rgb(163 50 26 / 0.55);
   --ok-wash: var(--accent-soft);
   --warn-wash: #fbeeda;
-  --accent-hover: #2f5e24;
-  --accent-press: #295220;
   --accent-wash: var(--accent-soft);
   --shadow-sheet: var(--shadow-md);
   --shadow-float: var(--shadow-md);

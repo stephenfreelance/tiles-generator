@@ -111,3 +111,89 @@ describe('coalescing one gesture into one undo step', () => {
     expect(store.getState().past).toHaveLength(2)
   })
 })
+
+describe('a Recommended tile following the wall', () => {
+  async function editor() {
+    const store = await loadStore()
+    const { studioEditor } = await import('@/features/studio/useStudioUpdate')
+    const { tileChoiceKind } = await import('@/features/studio/tileOptions')
+    type Memo = Parameters<typeof tileChoiceKind>[0]
+    let memo: Memo = null
+    const edit = studioEditor(store, { get: () => memo, set: (next) => void (memo = next) })
+    const setWall = (surface: { width?: number; height?: number }, coalesce?: string) =>
+      edit.update((draft) => ({ ...draft, surface: { ...draft.surface, ...surface } }), coalesce ? { coalesce } : undefined)
+    const choice = () => tileChoiceKind(memo, store.getState().config)
+    return { store, ...edit, setWall, choice }
+  }
+
+  it('is one undo step with the wall edit, and one for a whole stepper session', async () => {
+    const { store, setWall } = await editor()
+    const start = store.getState().config
+    setWall({ width: 1000 })
+    expect(store.getState().config.tile).toMatchObject({ width: 200, height: 200 })
+    expect(store.getState().past).toHaveLength(1)
+    store.getState().undo()
+    expect(store.getState().config).toEqual(start)
+
+    for (let width = 1210; width <= 1300; width += 10) {
+      clock += 50
+      setWall({ width }, 'surface.width')
+    }
+    expect(store.getState().past).toHaveLength(1)
+    expect(store.getState().config.tile.width).not.toBe(start.tile.width)
+    store.getState().undo()
+    expect(store.getState().config).toEqual(start)
+  })
+
+  it('never rewrites a tile pinned on Custom', async () => {
+    const { store, chooseTile, setWall } = await editor()
+    const start = store.getState().config
+    chooseTile('custom')
+    setWall({ width: 1000 })
+    expect(store.getState().config.surface.width).toBe(1000)
+    expect(store.getState().config.tile).toEqual(start.tile)
+  })
+
+  it('keeps a familiar size through wall edits that make it, then unmake it, the recommendation', async () => {
+    const { store, chooseTile, setWall, choice } = await editor()
+    chooseTile('size', { width: 100, height: 100 })
+    setWall({ width: 1300 })
+    setWall({ height: 750 })
+    expect(store.getState().config.tile).toMatchObject({ width: 100, height: 100 })
+    expect(choice()).toBe('size')
+  })
+
+  it('follows again once an undo leaves the design back on its recommendation', async () => {
+    const { store, chooseTile, setWall, choice } = await editor()
+    setWall({ width: 1400 })
+    chooseTile('custom', { width: 161, height: 150 })
+    store.getState().undo()
+    expect(choice()).toBe('recommended')
+    setWall({ height: 700 })
+    expect(store.getState().config.tile).toMatchObject({ width: 175, height: 175 })
+  })
+
+  it('reads a design loaded over a Custom pin as the design shows it', async () => {
+    const { store, chooseTile, setWall, choice } = await editor()
+    chooseTile('custom', { width: 163, height: 150 })
+    const shared = { ...store.getState().config, surface: { width: 1000, height: 600 }, tile: { ...store.getState().config.tile, width: 200, height: 200 } }
+    store.getState().load(shared)
+    expect(choice()).toBe('recommended')
+    setWall({ width: 1200 })
+    expect(store.getState().config.tile).toMatchObject({ width: 150, height: 150 })
+  })
+})
+
+describe('rehydrating a design saved before colors were hexes', () => {
+  it('keeps the color its retired filament id stood for, under the same store version', async () => {
+    const { DEFAULT_CONFIG } = await import('@/core/config')
+    // The shape a version 1 store really holds: a filament id and no color field.
+    const legacy: Record<string, unknown> = { ...DEFAULT_CONFIG, colorId: 'pla-matte-terracotta', joint: 2 }
+    delete legacy.color
+    window.localStorage.setItem('tessera.design.v1', JSON.stringify({ state: { config: legacy }, version: 1 }))
+    const store = await loadStore()
+    expect(store.getState().config.color).toBe('#B15533')
+    expect(store.getState().config.joint).toBe(2)
+    expect(store.getState().config).not.toHaveProperty('colorId')
+  })
+})

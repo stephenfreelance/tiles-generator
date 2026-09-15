@@ -3,7 +3,17 @@
 // the same path recommendedTile and squareTile are verified with, so a chip never promises a fit the
 // layout would not lay.
 
-import { computeLayout, squareTile, tilePresets, type PrinterBed, type TileFit, type TileSuggestOptions } from '@/core/layout'
+import { LIMITS } from '@/core/config'
+import {
+  computeLayout,
+  recommendedTile,
+  squareTile,
+  tilePresets,
+  type PrinterBed,
+  type TileFit,
+  type TileSuggestOptions,
+} from '@/core/layout'
+import { printerById } from '@/core/printers'
 import type { DesignConfig } from '@/core/types'
 import { formatLength, formatSize } from '@/core/units'
 
@@ -73,11 +83,16 @@ const worthOffering = (fit: TileFit | null): fit is TileFit => fit !== null && f
  * it differs, then familiar sizes. No size appears twice, and the row is never longer than
  * MAX_TILE_CHIPS. When it has to be trimmed the rectangle stays: it is the only chip offering a
  * different shape, so dropping it would cost the row more than dropping one more square.
+ *
+ * `picked` is a size the maker chose by name: its familiar chip stays beside a recommendation of the
+ * same size, so the group can keep showing what they picked rather than Recommended, which follows
+ * the wall where their pick does not.
  */
 export function tileChoices(
   surface: DesignConfig['surface'],
   joint: number,
   options: TileSuggestOptions = {},
+  picked?: { width: number; height: number },
 ): TileChoice[] {
   const { recommended, square } = tilePresets(surface, joint, options)
   const chips: TileChoice[] = []
@@ -93,7 +108,8 @@ export function tileChoices(
     chips.push({ value: SQUARE, name: 'Square tile', figure: formatSize(square.width, square.height), fit: square })
   }
 
-  const alreadyOffered = (fit: TileFit) => chips.some((chip) => sameTileSize(chip.fit, fit))
+  const alreadyOffered = (fit: TileFit) =>
+    chips.some((chip) => sameTileSize(chip.fit, fit) && !(picked && chip.value === RECOMMENDED && sameTileSize(fit, picked)))
 
   const squares: TileFit[] = []
   for (const size of FAMILIAR_SQUARES_MM) {
@@ -124,4 +140,80 @@ export function tileChoices(
     })
   }
   return chips
+}
+
+/** What the group costs every chip against: the tile limits, this design's bed and its own layout. */
+export const tileSuggestOptions = (config: DesignConfig): TileSuggestOptions => ({
+  min: LIMITS.tile.min,
+  max: LIMITS.tile.max,
+  bed: printerById(config.printerId),
+  // The layout matters to the promise: a size that leaves no cuts from the corner can still cut every
+  // edge once the grid is centred or the rows are shifted.
+  layout: config.layout,
+})
+
+/** The chips the Tile size group shows for this design; `picked` as in tileChoices. */
+export const tileChoicesFor = (config: DesignConfig, picked?: { width: number; height: number }): TileChoice[] =>
+  tileChoices(config.surface, config.joint, tileSuggestOptions(config), picked)
+
+/** The recommendation the Tile size group shows for this design, or null when it offers none. */
+export const recommendationFor = (config: DesignConfig): TileFit | null =>
+  recommendedTile(config.surface, config.joint, tileSuggestOptions(config))
+
+/** Everything the recommendation is computed from, so an edit that touches none of it costs nothing. */
+const recommendationInputs = (config: DesignConfig): string =>
+  JSON.stringify([config.surface, config.joint, config.layout, config.printerId])
+
+/**
+ * What the maker chose in the Tile size group. `size` is any number they picked (a familiar chip, a
+ * typed size, a plan fix) and never moves; `custom` is the same, with the fields pinned open.
+ */
+export type TileChoiceKind = 'recommended' | 'size' | 'custom'
+
+/** A choice and the tile it left the design on: it holds only while the design still has that tile. */
+export interface TileChoiceMemo {
+  kind: TileChoiceKind
+  width: number
+  height: number
+}
+
+/**
+ * The choice the design is on. The memo answers while the tile is still the size it recorded, so a
+ * load, an undo or a share link that changes the tile falls back to what the design itself shows:
+ * Recommended when the tile is the recommendation, Custom when no chip offers it, a size otherwise.
+ */
+export function tileChoiceKind(memo: TileChoiceMemo | null, config: DesignConfig): TileChoiceKind {
+  if (memo && sameTileSize(memo, config.tile)) return memo.kind
+  const recommended = recommendationFor(config)
+  if (recommended && sameTileSize(recommended, config.tile)) return 'recommended'
+  return tileChoicesFor(config).some((choice) => sameTileSize(choice.fit, config.tile)) ? 'size' : 'custom'
+}
+
+/**
+ * Recommended with nothing to recommend (a running bond, or a wall no size fits without cuts): the
+ * design keeps its tile and follows again once a recommendation exists, so the group must say that
+ * rather than check whichever chip happens to share the size.
+ */
+export const holdsRecommendation = (choices: readonly TileChoice[], kind: TileChoiceKind): boolean =>
+  kind === 'recommended' && !choices.some((choice) => choice.value === RECOMMENDED)
+
+/** Why the held Recommended card has no size of its own, in the maker's terms. */
+export const heldRecommendationNote = (config: DesignConfig): string =>
+  config.layout.rowOffset !== 0
+    ? 'Shifted rows always cut the row ends: this size stays until the rows line up.'
+    : 'No size fits this wall without cuts: this size stays until one does.'
+
+/**
+ * Carries a design that is on Recommended through an edit to what the recommendation is computed
+ * from. Only call it for that choice: a size the maker picked never moves, even one that happens to
+ * equal the recommendation. Returns `after` untouched whenever it does not apply.
+ */
+export function followRecommendation(before: DesignConfig, after: DesignConfig): DesignConfig {
+  // A preset, a typed size or a plan fix chose the tile in this very edit: that choice wins.
+  if (!sameTileSize(after.tile, before.tile)) return after
+  if (recommendationInputs(after) === recommendationInputs(before)) return after
+  const now = recommendationFor(after)
+  // A running bond has no cut-free size: the tile stays, and takes the next recommendation offered.
+  if (!now || sameTileSize(now, after.tile)) return after
+  return { ...after, tile: { ...after.tile, width: now.width, height: now.height } }
 }

@@ -8,6 +8,7 @@ import { DrawingTitle } from './DrawingTitle'
 import { isTypingTarget, MOD_KEY } from './keyboard'
 import { prefetchStudio } from './prefetchStudio'
 import { ShortcutsHelp } from './ShortcutsHelp'
+import { useAccentTheme } from './useAccentTheme'
 import { useDocumentTitle } from './useDocumentTitle'
 
 // The studio carries the renderer, so pointing at its tab is enough to start fetching it.
@@ -17,7 +18,7 @@ const NAV: { to: string; label: string; prefetch?: () => void }[] = [
 ]
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Tessera · printable relief tiles',
+  '/': 'Tessera · 3D-printable relief tiles',
   '/download': 'Download files · Tessera',
   '/history': 'Saved designs · Tessera',
 }
@@ -37,6 +38,8 @@ export function AppShell() {
 
   const isStudio = pathname === '/studio'
   useDocumentTitle(isStudio ? `${designName} · Studio · Tessera` : (PAGE_TITLES[pathname] ?? 'Not found · Tessera'))
+  // Every screen, and every portal under body, takes its accent from the tile color.
+  useAccentTheme()
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

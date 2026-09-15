@@ -34,21 +34,20 @@ describe('neutral tone mapping', () => {
 
 describe('clampAlbedo', () => {
   it('pulls pure white in to the warm clamp colour', () => {
-    expect(clampAlbedo('#FFFFFF', false).getHexString()).toBe(LOOK.materials.whiteMatte.slice(1).toLowerCase())
-    expect(clampAlbedo('#FFFFFF', true).getHexString()).toBe(LOOK.materials.whiteGlossy.slice(1).toLowerCase())
+    expect(clampAlbedo('#FFFFFF').getHexString()).toBe(LOOK.materials.whiteClamp.slice(1).toLowerCase())
   })
 
   it('lifts pure black to the floor colour', () => {
-    expect(clampAlbedo('#000000', false).getHexString()).toBe(LOOK.materials.blackMatte.slice(1).toLowerCase())
+    expect(clampAlbedo('#000000').getHexString()).toBe(LOOK.materials.blackClamp.slice(1).toLowerCase())
   })
 
-  it('keeps ordinary colours as published', () => {
-    expect(clampAlbedo('#5C9748', false).getHexString()).toBe('5c9748')
+  it('keeps ordinary colours as picked', () => {
+    expect(clampAlbedo('#5C9748').getHexString()).toBe('5c9748')
   })
 
   it('keeps the hue of dark saturated colours while lifting them', () => {
-    const navy = clampAlbedo('#0A0A40', true)
-    expect(linearLuminance(navy)).toBeGreaterThanOrEqual(linearLuminance(new THREE.Color(LOOK.materials.blackGlossy)) - 1e-6)
+    const navy = clampAlbedo('#0A0A40')
+    expect(linearLuminance(navy)).toBeGreaterThanOrEqual(linearLuminance(new THREE.Color(LOOK.materials.blackClamp)) - 1e-6)
     expect(navy.b).toBeGreaterThan(navy.r)
   })
 })

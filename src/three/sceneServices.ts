@@ -1,10 +1,12 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 import { LOOK } from './look'
+import { QualityGovernor } from './qualityGovernor'
 
 /**
- * Two pieces of per-scene state that several components share: what is currently moving (the quality
- * monitor can only measure real frames, and the frameloop is on demand) and whether the cached shadow
- * map needs a re-render (camera moves reuse it, scene changes do not).
+ * Per-viewport state that several components share and that outlives a remount of the scene: what is
+ * currently moving (the quality governor can only measure real frames, and the frameloop is on demand),
+ * the governor's own verdicts, and whether the cached shadow map needs a re-render (camera moves reuse
+ * it, scene changes do not).
  */
 export class MotionTracker {
   private lastActiveAt = Number.NEGATIVE_INFINITY
@@ -41,6 +43,7 @@ export class ShadowController {
 export class SceneServices {
   readonly motion = new MotionTracker()
   readonly shadows = new ShadowController()
+  readonly quality = new QualityGovernor(LOOK.quality.governor)
 }
 
 export const ServicesContext = createContext<SceneServices | null>(null)

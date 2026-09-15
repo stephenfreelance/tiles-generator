@@ -1,5 +1,143 @@
 import { describe, expect, it } from 'vitest'
-import { ChipCache } from './chipCache'
+import { ChipCache, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
+
+/** Two texture chips in one colour, as the picker keys them. */
+const inColour = (colour: string) => [
+  { key: 'arches', cacheKey: `arches|${colour}` },
+  { key: 'wavy', cacheKey: `wavy|${colour}` },
+]
+const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+describe('nextShown', () => {
+  it('records the current images once cached, and keeps the old fallback for the rest', () => {
+    const cached = new Set(['arches|red', 'wavy|red', 'arches|blue'])
+    const red = nextShown({}, inColour('red'), (k) => cached.has(k))
+    expect(red).toEqual({ arches: 'arches|red', wavy: 'wavy|red' })
+    expect(nextShown(red, inColour('blue'), (k) => cached.has(k))).toEqual({ arches: 'arches|blue', wavy: 'wavy|red' })
+  })
+
+  it('returns the same object when nothing changed', () => {
+    const cached = new Set(['arches|red', 'wavy|red'])
+    const red = nextShown({}, inColour('red'), (k) => cached.has(k))
+    expect(nextShown(red, inColour('red'), (k) => cached.has(k))).toBe(red)
+  })
+
+  it('moves to a fully cached colour, so a cold pick after it falls back one step, never two', () => {
+    const cached = new Set(['arches|red', 'wavy|red', 'arches|blue', 'wavy|blue'])
+    const has = (k: string) => cached.has(k)
+    // Red rendered, then blue rendered: blue is the fallback.
+    let shown = nextShown(nextShown({}, inColour('red'), has), inColour('blue'), has)
+    // Back to red, all cached: nothing lands, but the hook records it when the change starts.
+    shown = nextShown(shown, inColour('red'), has)
+    expect(shown).toEqual({ arches: 'arches|red', wavy: 'wavy|red' })
+    // Grey is new: while it renders the chips show red, the colour just before, not blue.
+    shown = nextShown(shown, inColour('grey'), has)
+    expect(shown).toEqual({ arches: 'arches|red', wavy: 'wavy|red' })
+  })
+
+  it('drops items that left the strip', () => {
+    const shown = nextShown({ arches: 'arches|red', gone: 'gone|red' }, inColour('red').slice(0, 1), () => true)
+    expect(shown).toEqual({ arches: 'arches|red' })
+  })
+})
+
+describe('planBatches', () => {
+  it('sends shaded chips in one request, before the rest in small batches', () => {
+    const chips = [1, 2, 3, 4, 5, 6, 7, 8]
+    expect(planBatches(chips, (n) => n % 2 === 0, 3)).toEqual([[2, 4, 6, 8], [1, 3, 5], [7]])
+    expect(planBatches(chips, () => true, 3)).toEqual([chips])
+    expect(planBatches(chips, () => false, 6)).toEqual([[1, 2, 3, 4, 5, 6], [7, 8]])
+    expect(planBatches([], () => true, 6)).toEqual([])
+  })
+})
+
+describe('ShadeLedger', () => {
+  it('forgets the least recently rendered shade past its budget', () => {
+    const ledger = new ShadeLedger(10)
+    ledger.add('a', 4)
+    ledger.add('b', 4)
+    ledger.add('a', 4)
+    ledger.add('c', 4)
+    expect(['a', 'b', 'c'].map((k) => ledger.has(k))).toEqual([true, false, true])
+    ledger.add('huge', 11)
+    expect(ledger.has('huge')).toBe(false)
+    expect(ledger.has('a') && ledger.has('c')).toBe(true)
+  })
+})
+
+describe('SharedRender', () => {
+  const pending = () => {
+    let resolve!: () => void
+    const promise = new Promise<void>((r) => (resolve = r))
+    return { promise, resolve }
+  }
+
+  it('cancels once its only holder aborts', async () => {
+    const { promise } = pending()
+    let cancels = 0
+    const render = new SharedRender(promise, () => cancels++)
+    const holder = new AbortController()
+    render.hold(holder.signal)
+    holder.abort()
+    await tick()
+    expect(cancels).toBe(1)
+    expect(render.cancelled).toBe(true)
+  })
+
+  it('keeps running while a second strip still holds it', async () => {
+    const { promise } = pending()
+    let cancels = 0
+    const render = new SharedRender(promise, () => cancels++)
+    const studio = new AbortController()
+    const schedule = new AbortController()
+    render.hold(studio.signal)
+    render.hold(schedule.signal)
+    studio.abort()
+    await tick()
+    expect(cancels).toBe(0)
+    schedule.abort()
+    await tick()
+    expect(cancels).toBe(1)
+  })
+
+  it('survives a holder that lets go and is replaced in the same commit', async () => {
+    const { promise } = pending()
+    let cancels = 0
+    const render = new SharedRender(promise, () => cancels++)
+    const first = new AbortController()
+    render.hold(first.signal)
+    // StrictMode, or a strip remounting: the cleanup and the next effect run back to back.
+    first.abort()
+    render.hold(new AbortController().signal)
+    await tick()
+    expect(cancels).toBe(0)
+    expect(render.cancelled).toBe(false)
+  })
+
+  it('never cancels a render that already finished', async () => {
+    const { promise, resolve } = pending()
+    let cancels = 0
+    const render = new SharedRender(promise, () => cancels++)
+    const holder = new AbortController()
+    render.hold(holder.signal)
+    resolve()
+    await tick()
+    holder.abort()
+    await tick()
+    expect(cancels).toBe(0)
+  })
+
+  it('ignores an already aborted holder', async () => {
+    const { promise } = pending()
+    let cancels = 0
+    const render = new SharedRender(promise, () => cancels++)
+    const gone = new AbortController()
+    gone.abort()
+    render.hold(gone.signal)
+    await tick()
+    expect(cancels).toBe(0)
+  })
+})
 
 describe('ChipCache', () => {
   it('evicts the least recently used entry and revokes its URL', () => {

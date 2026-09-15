@@ -21,7 +21,7 @@ Frontend-only app (no backend). The browser computes the layout, generates tile 
 
 Do not add dependencies. If one is truly required, say so in your report instead.
 
-Rendering gotchas (verified against the installed versions): use `shadows="percentage"` (PCFSoftShadowMap is gone in r186), never drei `<SoftShadows>` (fails to compile on r182+), never `<Environment preset>` (downloads HDRIs; use `<Lightformer>` children), `EffectComposer multisampling={0}` + `<SMAA/>` (MSAA breaks N8AO) and end the chain with `<ToneMapping mode={NEUTRAL}>` because the composer forces `NoToneMapping`. DataTextures need explicit `colorSpace`, filters and `needsUpdate`.
+Rendering gotchas (verified against the installed versions): use `shadows="percentage"` (PCFSoftShadowMap is gone in r186), never drei `<SoftShadows>` (fails to compile on r182+), never `<Environment preset>` (downloads HDRIs; use `<Lightformer>` children), `EffectComposer multisampling={0}` + `<SMAA/>` (MSAA breaks N8AO) and end the chain with `<ToneMapping mode={NEUTRAL}>` because the composer forces `NoToneMapping` (the chain is N8AO, ToneMapping, SMAA; there is no Bloom pass). DataTextures need explicit `colorSpace`, filters and `needsUpdate`.
 
 ## Units and coordinates
 
@@ -37,13 +37,15 @@ Rendering gotchas (verified against the installed versions): use `shadows="perce
 src/
   core/                 pure TypeScript, no DOM, no three: runs in the worker and in vitest
     types.ts            domain model (DesignConfig, PieceSpec, LayoutPlan, MeshData)      [lead]
-    units.ts config.ts layout.ts printers.ts filaments.ts                               [lead]
+    units.ts config.ts layout.ts printers.ts colors.ts                                  [lead]
+    legacyColors.ts     retired filament id -> hex, read only by normalizeConfig          [lead]
+    accent.ts           accent palette from the tile color, with its contrast floors
     textures/           height-field patterns                                            [textures]
       types.ts          TextureDef / ParamDef / HeightField contract                     [lead]
       noise.ts          seeded PRNG + periodic noise
       patterns/*.ts     one file per texture (or small groups)
       registry.ts       TEXTURES, textureById, resolveParams, createHeightField
-      hillshade.ts      CPU relief swatch renderer (chips)
+      hillshade.ts      CPU relief swatch renderer (chips), tinted with the tile color
     geometry/           watertight tile meshes                                            [mesh]
       heightfield.ts    top-surface sampling with bevel, per piece
       tileMesh.ts       buildPieceMesh (uniform grid) + adaptive variant for export
@@ -53,18 +55,19 @@ src/
       stl.ts step.ts zip.ts readme.ts filenames.ts
     plan/               setting-out drawing model + SVG string                           [worker]
       planModel.ts planSvg.ts
-    estimate.ts         filament weight / spools / plates                                [worker]
+    estimate.ts         filament weight (one PLA density) / spools / plates              [worker]
   workers/                                                                                [worker]
     protocol.ts         message contract                                                 [lead]
     geometry.worker.ts  handler (handleRequest is a pure, testable function)
     geometryClient.ts   promise API with cancellation and progress
   hooks/                usePreviewMeshes, useTextureChips, useVolumes, useExport, useLayout [worker]
+  state/                useDesign, useHistory, usePrefs (persisted), useThemeColor (not)
   three/                3D preview                                                        [viewport]
     TileViewport.tsx    public component + imperative handle
     ...                 environment, lights, materials, instancing, camera, dims, post
   ui/                   design-system components, CSS modules                             [ui]
   styles/               tokens, base                                                     [lead, ui may add partials]
-  app/                  router, shell                                                    [studio]
+  app/                  router, shell, useAccentTheme (the accent on the root element)   [studio]
   pages/                StudioPage, LandingPage, ExportPage, HistoryPage, NotFoundPage   [studio | pages]
   features/             page-specific components (studio/*, plan/*, export/*, history/*, landing/*)
 ```
@@ -73,12 +76,15 @@ Only edit files you own. Files marked [lead] are read-only contracts; if one blo
 
 ## Contracts
 
-- `src/core/types.ts`: the domain model. `DesignConfig` is the persisted design.
+- `src/core/types.ts`: the domain model. `DesignConfig` is the persisted design; its `color` is the tile color as uppercase `'#RRGGBB'`.
+- `src/core/colors.ts`: `COLOR_PRESETS` (11 named swatches), `DEFAULT_COLOR` (`'#5C9748'`, Green), `parseHex`, `presetByHex`, `colorName` (preset name or `'Custom'`), `hexToHsv`, `hsvToHex`. There are no materials or finishes: every color prints and renders as one matte PLA look.
+- `src/core/legacyColors.ts`: `LEGACY_COLOR_HEX`, every retired filament id mapped to its hex, so designs, history entries and version 1 share links saved with a `colorId` keep their color.
+- `src/core/accent.ts`: the one interface accent (primary action, selection, focus) follows the tile color. `accentPalette(hex)` returns `{ accent, hover, press, soft, ink }`, each an uppercase `'#RRGGBB'`, keeping the tile's OKLCH hue: `accent` is the tile color itself when it reaches 6.5:1 on `--panel` (`#FFFDF8`), otherwise the lightest color of that hue that does (chroma reduced only as far as sRGB needs); `hover` and `press` are darker steps (lighter for a near-black accent, which has no room below); `soft` is a pale tint that keeps `accent` and `--ink-3` at 4.5:1 or better; `ink` is `#FFFDF8`. An unreadable hex gets the palette of `DEFAULT_COLOR`. `accentVariables(palette)` maps it to `--accent`, `--accent-hover`, `--accent-press`, `--accent-soft` and `--accent-ink`, and `contrastRatio(a, b)` is the WCAG 2.x ratio. `src/app/useAccentTheme.ts`, called once in `AppShell`, writes those variables plus `--filament` on `document.documentElement` (the var() aliases in `_tokens.scss` resolve on `:root`, and portals live under `body`), without a transition, from `useThemeColor`'s override or else `config.color`. The `:root` defaults in `_tokens.scss` equal `accentPalette(DEFAULT_COLOR)`, held by `src/styles/tokens.test.ts`, so a default design paints the same before and after the script runs.
 - `src/core/layout.ts`: `computeLayout({surface, tile, joint, layout, bed}) -> LayoutPlan` (pieces with marks A, B, C..., placements, warnings) and `perfectFitSizes`. Tested.
-- `src/core/config.ts`: `DEFAULT_CONFIG`, `LIMITS`, `SURFACE_PRESETS`, `normalizeConfig` (clamps anything into a valid config).
+- `src/core/config.ts`: `DEFAULT_CONFIG`, `LIMITS`, `THICKNESS_PRESETS`, `normalizeConfig` (clamps anything into a valid config; the color resolves as `parseHex(color)`, then the hex of a legacy `colorId`, then `DEFAULT_COLOR`).
 - `src/core/textures/types.ts`: pattern samplers are periodic with period 1 over one period, heights in [0,1]. `createHeightField(config)` (registry) returns heights in mm above the base plate, periodic over `(tile.width / rowShiftCycle, tile.height)` so running bonds stay seamless.
 - `src/workers/protocol.ts`: preview / export / volumes / chips requests and results.
-- Stores (`src/state`): `useDesign` (config + undo/redo; `update(recipe, {coalesce})`, `load`, `undo`, `redo`, `reset`), `useHistory` (saved designs with WebP thumbnails, max 40), `usePrefs` (view mode, mounting, light angle, toggles, export format/quality, open title-block section).
+- Stores (`src/state`): `useDesign` (config + undo/redo; `update(recipe, {coalesce})`, `load`, `undo`, `redo`, `reset`), `useHistory` (saved designs with WebP thumbnails, max 40), `usePrefs` (view mode, light angle, toggles, export format/quality), all persisted, and `useThemeColor` (`src/state/themeStore.ts`, not persisted: `override`, a color a page shows instead of the design's, such as the home page's sample board, or `null` to follow the design; `setOverride`).
 
 ## Function contracts (exact exports; code against these in parallel)
 
@@ -92,8 +98,9 @@ export function createHeightField(config: DesignConfig): HeightField
 ```
 `src/core/textures/hillshade.ts` [textures]
 ```ts
-export function renderReliefChip(config: DesignConfig, opts: { sizePx: number; crop?: CropRect }):
-  { width: number; height: number; data: Uint8ClampedArray } // lit relief in the filament color, piece shape and bevel included
+export function shadeReliefChip(config: DesignConfig, opts: ReliefChipOptions): ReliefShade   // color-free lighting, cached by reliefShadeKey
+export function tintReliefChip(shade: ReliefShade, hex: string): ReliefChip                  // one matte gloss for every color; bad hex -> DEFAULT_COLOR
+export function renderReliefChip(config: DesignConfig, opts: ReliefChipOptions): ReliefChip // lit relief in config.color, piece shape and bevel included
 ```
 `src/core/geometry/heightfield.ts` [mesh]
 ```ts
@@ -125,7 +132,7 @@ export function zipFiles(files: { name: string; data: Uint8Array }[]): Uint8Arra
 export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanModel  // drawing primitives (tiles, cuts, dimension chains, marks)
 export function planSvg(config: DesignConfig, plan: LayoutPlan, opts?: { title?: string }): string
 export function estimateFilament(config: DesignConfig, plan: LayoutPlan, volumes: Record<string, number>): FilamentEstimate
-  // grams (low/high range), spools of 1 kg, plates per piece for the chosen printer
+  // grams (low/high range, PLA_DENSITY_G_PER_CM3 = 1.24 for every color), spools of 1 kg, plates per piece for the chosen printer
 ```
 `src/workers/geometryClient.ts` and `src/hooks/*` [worker]
 ```ts
@@ -144,10 +151,9 @@ export function downloadBlob(data: Uint8Array, name: string, mime: string): void
 `src/three/TileViewport.tsx` [viewport]
 ```ts
 export interface TileViewportProps {
-  config: DesignConfig
+  config: DesignConfig         // tiles render in config.color with the single matte look (LOOK.materials)
   plan: LayoutPlan
   mode: 'surface' | 'tile'
-  mounting?: 'wall' | 'floor'
   lightAngle?: number          // degrees of key-light azimuth
   showDimensions?: boolean
   showLayerLines?: boolean
@@ -156,7 +162,7 @@ export interface TileViewportProps {
   className?: string
   onPendingChange?: (pending: boolean) => void
 }
-export interface TileViewportHandle { capture(widthPx: number): Promise<string | null> } // WebP data URL for history thumbnails
+export interface TileViewportHandle { capture(widthPx: number, options?: { maxWaitMs?: number }): Promise<string | null> } // WebP data URL for history thumbnails
 export const TileViewport: React.ForwardRefExoticComponent<TileViewportProps & React.RefAttributes<TileViewportHandle>>
 ```
 
@@ -179,7 +185,7 @@ Direction: the tiler's setting-out drawing come alive. Read `.impeccable/surface
 - Square corners (paper), 1px hairlines, 2px ink frame on sheets and views, hatching (`--hatch-red`) as the only fill texture. Views carry drawing titles under them ("1  ELEVATION", "2  PLAN").
 - No cards-as-structure, no eyebrow/kicker labels above headings, no gradient text, no glass, no colored side stripes, no hard offset shadows, no emoji or unicode icons (use lucide-react), no monospace costume.
 - Theme browser surfaces (selection, focus, scrollbars) from tokens (done in `_base.scss`); every interactive element needs hover, focus-visible, active, disabled states; honour `prefers-reduced-motion`.
-- Motion: one authored moment (the re-lay wave in 3D plus the plan's dimension chains redrawing); UI transitions use `--ease-out` and `--t-*` tokens, from an already-visible default.
+- Motion: one authored moment (the re-lay wave in 3D); UI transitions use `--ease-out` and `--t-*` tokens, from an already-visible default.
 - Copy: plain, spatial, the product's own words ("Your wall takes 40 full tiles and 8 cuts."). Controls name their action. Errors say what is wrong and how to fix it, with a one-click fix when possible. No em-dashes anywhere (use a colon, parentheses or a hyphen). English.
 - Component styles: CSS modules (`Component.module.scss`) using the tokens; `@use '@/styles/mixins'` if you need shared mixins (the ui owner creates `src/styles/_mixins.scss`).
 

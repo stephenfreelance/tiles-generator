@@ -1,7 +1,7 @@
 # Tessera
 
-Frontend-only React + Vite app that turns a wall size, a tile size, a relief texture and a filament
-colour into printable 3D tiles (STL / STEP / zip). The browser does all the work: no backend, no
+Frontend-only React + Vite app that turns a wall size, a tile size, a relief texture and a tile
+color into printable 3D tiles (STL / STEP / zip). The browser does all the work: no backend, no
 account, and no network calls at runtime. Designs persist in localStorage.
 
 Live at https://stephenfreelance.github.io/tiles-generator/, deployed by CI from `main` of
@@ -18,9 +18,15 @@ Read before working, in this order:
 The "Visual world" section of `docs/architecture.md` predates that brief and still describes the
 retired drafting sheet: square corners, a 2px ink frame, expanded uppercase labels, red for the primary
 action and chalk blue for focus. The brief replaced it with the maker workshop (espresso bar, rounded
-warm panels, one green action, green focus), and wherever the two disagree the brief and the tokens
-win. The old token names (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) survive in
-`_tokens.scss` only as aliases onto the new palette; new code uses the contract names above them.
+warm panels, one accent for the primary action, selection and focus), and wherever the two disagree
+the brief and the tokens win. That accent follows the tile color with an enforced contrast floor:
+`accentPalette` in `src/core/accent.ts` keeps the color's hue and darkens it only as far as 6.5:1 on
+`--panel` needs, and `src/app/useAccentTheme.ts` (called once in `AppShell`) writes it on the root
+element from `config.color`, or from `useThemeColor`'s override while the home page's sample board
+sets one. The `:root` defaults in `_tokens.scss` are that palette for `DEFAULT_COLOR`
+(`src/styles/tokens.test.ts` holds them equal). The old token names (`--sheet`, `--desk`, `--chalk`,
+`--pencil`, `--red` and friends) survive in `_tokens.scss` only as aliases onto the new palette; new
+code uses the contract names above them.
 
 ## Gates
 
@@ -71,12 +77,12 @@ Verified against the installed versions. Each of these fails loudly or silently 
   studio from `<Lightformer>` children instead.
 - `<EffectComposer multisampling={0}>` plus `<SMAA/>`: MSAA breaks N8AO.
 - Tone mapping is Khronos Neutral on every tier. The composer forces `NoToneMapping` on the renderer
-  while it is mounted, so `PostFx.tsx` runs `<ToneMapping mode={NEUTRAL}>` after N8AO and Bloom, with
-  only `<SMAA/>` after it. Tier 0 drops the composer and gets `NeutralToneMapping` on the renderer
+  while it is mounted, so `PostFx.tsx` runs `<ToneMapping mode={NEUTRAL}>` after N8AO (there is no Bloom
+  pass), with only `<SMAA/>` after it. Tier 0 drops the composer and gets `NeutralToneMapping` on the renderer
   from `onCreated` in `TileViewport.tsx`. Change one side and the tiers stop matching.
 - `DataTexture` needs an explicit `colorSpace`, explicit filters and `needsUpdate = true`.
-- Every tuning constant of the preview (lights, environment, quality tiers 0 to 2, AO, bloom, camera)
-  lives in `src/three/look.ts`.
+- Every tuning constant of the preview (lights, environment, quality tiers 0 to 2, AO, camera, and
+  the one matte material every tile color renders with) lives in `src/three/look.ts`.
 
 ## Known console output (all benign)
 
@@ -85,10 +91,15 @@ The console is otherwise clean, so treat anything else as a real regression.
 1. `THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.` on every route
    with a 3D view. Emitted by `@react-three/fiber`'s own store (`dist/events-*.esm.js`), not by app
    code. Silencing it means moving off the three / postprocessing pins above, so leave it.
-2. `GL Driver Message (OpenGL, Performance, ...): GPU stall due to ReadPixels` on the landing page in
-   headless Chromium, which is what the capture harness runs. Chromium's GL backend logs it, not app
-   code, and the design review saw it too.
-3. Dev server only: Vite's `[vite] connecting...` / `connected.` and React's DevTools prompt.
+2. `GL Driver Message (OpenGL, Performance, ...): GPU stall due to ReadPixels` on the first route with
+   a 3D view (`/`, `/studio` or `/download`) that a headless Chromium opens, which is what the capture
+   harness runs. Chromium's software GL backend logs it a few times per browser process, not app code,
+   and the design review saw it too.
+3. `THREE.WebGLRenderer: Context Lost.` once each time a route with a 3D view unmounts during
+   client-side navigation (leaving `/`, `/studio` or `/download`), never on a full page load.
+   `@react-three/fiber` calls `forceContextLoss()` when its Canvas unmounts, to hand the GPU context
+   back, and three logs the loss. It is the cleanup working, so do not try to silence it.
+4. Dev server only: Vite's `[vite] connecting...` / `connected.` and React's DevTools prompt.
 
 ## Deploy (GitHub Pages)
 
@@ -140,9 +151,15 @@ silently drops it.
 - Removing or renaming a persisted key needs a `version` bump and a `migrate`, as prefs v2 did. zustand
   5 discards stored state whose version differs when there is no `migrate`, so a bare bump loses every
   maker's saved state.
+- The tile color is `config.color`, an uppercase `'#RRGGBB'` (presets and helpers in
+  `src/core/colors.ts`). Designs saved before it held a filament id as `colorId`: `normalizeConfig`
+  resolves `parseHex(color)`, then `LEGACY_COLOR_HEX[colorId]` (`src/core/legacyColors.ts`), then
+  `DEFAULT_COLOR`, which is why that rename needed no store version bump. Keep the legacy read.
 - A share link carries the whole design as `?d=`, a base64url positional tuple written by
   `src/app/designLink.ts`. Any change to that tuple needs a `VERSION` bump there (older links are then
-  refused rather than misread) and a case in `designLink.test.ts`.
+  refused rather than misread) and a case in `designLink.test.ts`. `VERSION` is `'2'` (slot 18 holds
+  the hex); version `'1'` links are still read, their slot 18 passed to `normalizeConfig` as the legacy
+  `colorId`, and any other version is refused.
 
 ## Testing policy
 
@@ -151,8 +168,9 @@ Unit tests cover pure logic only, and that is deliberate. `vite.config.ts` sets
 no DOM or WebGL context. `src/core`, `src/workers` and `src/state` hold most of them (the layout,
 textures, meshing, the exporters and the data boundaries), and pure helpers elsewhere have their own:
 link encoding in `src/app`, LOD and chip caching in `src/hooks`, colour, shader and wave maths in
-`src/three`, field parsing in `src/ui`, sizing and plan fixes in `src/features`. Component behaviour is
-verified in a real browser instead of jsdom, which would need a new devDependency.
+`src/three`, field parsing and color-wheel maths in `src/ui`, sizing, plan fixes and the landing
+samples in `src/features`, and the accent defaults in `src/styles`. Component behaviour is verified in a real browser instead of jsdom, which
+would need a new devDependency.
 
 Note the `.ts`-only glob: a `*.test.tsx` file is silently ignored rather than failing.
 

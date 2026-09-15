@@ -1,6 +1,6 @@
 // Renders a PlanModel as a print-ready A3 drafting sheet (SVG string, units = paper mm).
 // Kept free of the texture registry so it stays testable on its own; planSvg adds the lookups.
-import { chainLabels, dimText, type ChainLabel, type DimensionChain, type PlanModel } from './planModel'
+import { chainLabels, dimText, tileAtPoint, type ChainLabel, type DimensionChain, type PlanModel } from './planModel'
 
 /** Title-block values, already formatted by the caller. */
 export interface SheetInfo {
@@ -9,7 +9,7 @@ export interface SheetInfo {
   tile: string
   joint: string
   texture: string
-  filament: string
+  color: string
   date: string
 }
 
@@ -66,6 +66,15 @@ function wrap(text: string, size: number, width: number): string[] {
 function ellipsize(text: string, size: number, width: number): string {
   const maxChars = Math.floor(width / (size * CHAR_EM))
   return text.length <= maxChars ? text : `${text.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`
+}
+
+/** Names the piece that really sits on the SO point: in a running bond that is often a cut. */
+function soNote(model: PlanModel): string {
+  const { point } = model.settingOut
+  const at = `${dimText(point.x)} across and ${dimText(point.y)} up`
+  const first = tileAtPoint(model.tiles, point)
+  if (!first) return `SO marks the setting-out point, at ${at}.`
+  return `SO marks the setting-out point, at ${at}: the bottom-left corner of ${first.cut ? 'cut piece' : 'whole tile'} ${first.mark}.`
 }
 
 /** Title-block field label: wide, uppercase, small caps feel. */
@@ -375,7 +384,7 @@ function rightColumn(model: PlanModel, info: SheetInfo, denom: number): string {
   y += 4.6
   const notes = [
     ...model.settingOut.notes,
-    `SO marks the setting-out point, the corner of a full tile at ${dimText(model.settingOut.point.x)} across and ${dimText(model.settingOut.point.y)} up.`,
+    soNote(model),
     model.joint > 0 ? `Joints ${dimText(model.joint)} mm throughout.` : 'Butt joints: tiles touch.',
     'Hatched pieces are printed cuts: the letter matches the file name. No cutting on site.',
   ]
@@ -418,7 +427,7 @@ function rightColumn(model: PlanModel, info: SheetInfo, denom: number): string {
     cell(x0, r1, 'Surface', info.surface, COLUMN_W / 2),
     cell(half, r1, 'Tile', info.tile, COLUMN_W / 2),
     cell(x0, r2, 'Texture', info.texture, COLUMN_W / 2),
-    cell(half, r2, 'Filament', info.filament, COLUMN_W / 2),
+    cell(half, r2, 'Color', info.color, COLUMN_W / 2),
     cell(x0, r3, 'Joint', info.joint, COLUMN_W / 2),
     cell(half, r3, 'Scale', `1:${dimText(denom)} on A3`, COLUMN_W / 2),
     cell(x0, r4, 'Date', info.date, COLUMN_W / 2),

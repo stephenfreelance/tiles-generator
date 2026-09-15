@@ -27,9 +27,10 @@ body {
   caret-color: var(--accent);
 }
 
-// Selection takes the accent, like every other "this one is picked" in the app.
+// Selection takes the accent, like every other "this one is picked" in the app. At 18% even the
+// darkest accent, over the darkest panel, leaves --ink at 9:1.
 ::selection {
-  background: rgb(53 104 42 / 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--ink);
 }
 

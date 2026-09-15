@@ -26,6 +26,9 @@ export {
   type TitleBlockRowProps,
 } from './TitleBlock'
 export { Swatch, SwatchGrid, type SwatchGridProps, type SwatchItem, type SwatchProps } from './SwatchGrid'
+export { ColorWheel, type ColorWheelProps } from './ColorWheel'
+export { ColorPicker, type ColorChangeHint, type ColorPickerProps } from './ColorPicker'
+export { hueSatText, hueSatToPoint, pointToHueSat, stepHueSat, syncHsv, type HueSat, type Hsv, type WheelPoint } from './wheelMath'
 export {
   TextureChip,
   TextureChipGrid,

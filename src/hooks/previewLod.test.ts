@@ -53,7 +53,7 @@ describe('previewPasses', () => {
 describe('geometryKey', () => {
   it('ignores fields that do not shape the mesh', () => {
     const a = design()
-    expect(geometryKey({ ...a, name: 'Other', colorId: 'pla-basic-red', printerId: 'bambu-a1', surface: { width: 900, height: 900 } })).toBe(
+    expect(geometryKey({ ...a, name: 'Other', color: '#D7263D', printerId: 'bambu-a1', surface: { width: 900, height: 900 } })).toBe(
       geometryKey(a),
     )
   })

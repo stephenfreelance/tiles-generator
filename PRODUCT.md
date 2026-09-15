@@ -16,22 +16,22 @@ Hobbyist makers who own an FDM printer (mostly Bambu Lab, also Prusa and others)
 
 ## Product Purpose
 
-Tessera turns a surface size, a tile size, a relief texture and a filament color into a ready-to-print set of tile models. It computes how many full tiles fit, generates the partial tiles needed to cover the remainder, previews the whole surface and a single tile in 3D, and exports every unique tile as STL or STEP. Success: the user leaves with a zip of printable files and a clear picture of what the finished wall will look like.
+Tessera turns a surface size, a tile size, a relief texture and a tile color into a ready-to-print set of tile models. It computes how many full tiles fit, generates the partial tiles needed to cover the remainder, previews the whole surface and a single tile in 3D, and exports every unique tile as STL or STEP. Success: the user leaves with a zip of printable files and a clear picture of what the finished wall will look like.
 
 ## Positioning
 
-Unlike parametric generators that feel like engineering forms (gridfinitygenerator.com is the explicit anti-reference: right function, too cold), Tessera treats the tile as a design object: textures are seamless across tile joints (a partial tile is a true cut of the full pattern), the preview is a studio-quality 3D render of the whole surface, and colors are real filament references (Bambu Lab lines such as PLA Matte, PLA-CF, Silk+, Metal).
+Unlike parametric generators that feel like engineering forms (gridfinitygenerator.com is the explicit anti-reference: right function, too cold), Tessera treats the tile as a design object: textures are seamless across tile joints (a partial tile is a true cut of the full pattern), the preview is a studio-quality 3D render of the whole surface, and choosing a color is one quick pick: a handful of vivid presets or any color on a wheel or as a hex code, rendered as a matte print.
 
 ## Operating Context
 
 - Planning at home, measuring a surface with a tape, then entering dimensions (surface in mm/cm/m, tile in mm).
 - Printing each tile face-up on a printer bed (typically 180, 256 or 350 mm), so the relief must be a pure heightfield with no overhangs.
 - Opening the exported files in Bambu Studio, OrcaSlicer, PrusaSlicer, or a CAD tool (STEP).
-- Choosing a filament they can buy; the color preset names match the manufacturer's catalog.
+- Choosing a tile color, then matching it with whatever PLA they own or can buy; Tessera names no filament brands, lines or finishes.
 
 ## Capabilities and Constraints
 
-- Inputs: surface width/height, tile width/height (square or rectangle), relief texture, filament color and finish.
+- Inputs: surface width/height, tile width/height (square or rectangle), relief texture, tile color (11 presets, or any color by wheel or hex code).
 - Partial tiles are generated when the tile size does not divide the surface exactly; every unique model is exported once with its quantity.
 - Textures must join seamlessly between adjacent tiles.
 - Views: whole surface and single tile, with zoom, rotation and lighting.
@@ -47,7 +47,7 @@ Unlike parametric generators that feel like engineering forms (gridfinitygenerat
 
 ## Evidence on Hand
 
-No testimonials, users, press, pricing or print photos exist. Do not invent any. Filament color names and hex values come from Bambu Lab's published catalog; anything estimated must be labeled.
+No testimonials, users, press, pricing or print photos exist. Do not invent any. The color presets are Tessera's own names and hex values, not a manufacturer's catalog, so never present them as matching a real spool; anything estimated (such as filament weight) must be labeled.
 
 ## Product Principles
 

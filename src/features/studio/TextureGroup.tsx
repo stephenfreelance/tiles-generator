@@ -17,18 +17,18 @@ const CHIP_PX = 160
  */
 export function TextureGroup({ config, update }: CellProps) {
   const chosen = textureById(config.texture.id)
-  const { colorId } = config
+  const { color } = config
   const { width: tileWidth, height: tileHeight } = config.tile
 
   // Catalogue specimens: each relief at its own depth and scale, so editing the design never
-  // re-renders all the chips. Only the filament and the tile shape, which frame them, carry over.
+  // re-renders all the chips. Only the color and the tile shape, which frame them, carry over.
   const chipItems = useMemo<ChipItem[]>(
     () =>
       TEXTURES.map((candidate) => ({
         key: candidate.id,
         config: {
           ...DEFAULT_CONFIG,
-          colorId,
+          color,
           tile: { ...DEFAULT_CONFIG.tile, width: tileWidth, height: tileHeight },
           texture: {
             ...DEFAULT_CONFIG.texture,
@@ -39,7 +39,7 @@ export function TextureGroup({ config, update }: CellProps) {
           },
         },
       })),
-    [colorId, tileWidth, tileHeight],
+    [color, tileWidth, tileHeight],
   )
   const chips = useTextureChips(config, chipItems, CHIP_PX)
 

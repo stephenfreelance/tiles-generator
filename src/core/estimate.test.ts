@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from './config'
-import { estimateFilament, INFILL_RANGE, pieceMaterialMm3, PRINT_SETTINGS } from './estimate'
+import { estimateFilament, INFILL_RANGE, pieceMaterialMm3, PLA_DENSITY_G_PER_CM3, PRINT_SETTINGS } from './estimate'
 import { computeLayout } from './layout'
 import type { DesignConfig } from './types'
 
@@ -58,12 +58,12 @@ describe('estimateFilament', () => {
   const config = design({
     surface: { width: 900, height: 600 },
     layout: { origin: 'corner', rowOffset: 0 },
-    colorId: 'pla-matte-charcoal',
+    color: '#2F3033',
     printerId: 'bambu-p1s',
   })
   const plan = planFor(config)
 
-  it('weighs mesh volumes with the filament density and the advised settings', () => {
+  it('weighs mesh volumes with the PLA density and the advised settings', () => {
     const volume = 150 * 150 * 5
     const estimate = estimateFilament(config, plan, { full: volume })
     const [full] = estimate.perPiece
@@ -144,17 +144,20 @@ describe('estimateFilament', () => {
     expect(estimate.approximate).toBe(true)
   })
 
-  it('uses the PETG density and sums cut pieces', () => {
-    const petg = design({ surface: { width: 1000, height: 800 }, layout: { origin: 'corner', rowOffset: 0 }, colorId: 'petg-translucent-olive' })
-    const petgPlan = planFor(petg)
-    const volumes = Object.fromEntries(petgPlan.pieces.map((p) => [p.id, p.width * p.height * 5]))
-    const estimate = estimateFilament(petg, petgPlan, volumes)
-    expect(estimate.densityGPerCm3).toBe(1.27)
-    const expected = petgPlan.pieces.reduce(
+  it('uses the PLA density for any color and sums cut pieces', () => {
+    const cut = design({ surface: { width: 1000, height: 800 }, layout: { origin: 'corner', rowOffset: 0 }, color: '#12AB34' })
+    const cutPlan = planFor(cut)
+    const volumes = Object.fromEntries(cutPlan.pieces.map((p) => [p.id, p.width * p.height * 5]))
+    const estimate = estimateFilament(cut, cutPlan, volumes)
+    expect(estimate.densityGPerCm3).toBe(PLA_DENSITY_G_PER_CM3)
+    expect(PLA_DENSITY_G_PER_CM3).toBe(1.24)
+    const expected = cutPlan.pieces.reduce(
       (sum, p) => sum + pieceMaterialMm3(p.width * p.height * 5, p.width, p.height, INFILL_RANGE.high) * p.count,
       0,
     )
-    expect(estimate.totalGramsHigh).toBeCloseTo(expected * 0.00127, 4)
-    expect(estimate.perPiece.map((p) => p.mark)).toEqual(petgPlan.pieces.map((p) => p.mark))
+    expect(estimate.totalGramsHigh).toBeCloseTo(expected * 0.00124, 4)
+    expect(estimate.perPiece.map((p) => p.mark)).toEqual(cutPlan.pieces.map((p) => p.mark))
+    // The color never moves the weight.
+    expect(estimateFilament({ ...cut, color: '#F4F2EC' }, cutPlan, volumes).totalGrams).toBe(estimate.totalGrams)
   })
 })

@@ -1,0 +1,329 @@
+@use '@/styles/mixins' as *;
+
+.map {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+// Held open until the first measurement, so the notes under the drawing do not jump up and back.
+.box {
+  min-width: 0;
+
+  &:not([data-measured]) {
+    min-height: 9rem;
+  }
+}
+
+// The viewBox is the measured width, so one user unit is one CSS pixel at every width.
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.tiles {
+  cursor: pointer;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+// A whole tile is drawn in the color the maker chose. The stroke mixes toward --ink-3 first, so a
+// white or a yellow tile still leaves a visible joint.
+.tile {
+  fill: var(--filament-tint);
+  stroke: color-mix(in srgb, color-mix(in srgb, var(--filament, var(--accent)) 55%, var(--ink-3)) 45%, var(--panel));
+  stroke-width: 1;
+}
+
+.tileCut {
+  stroke: color-mix(in srgb, var(--cut) 70%, var(--panel));
+  stroke-width: 1;
+}
+
+.hatchGround {
+  fill: var(--cut-soft);
+}
+
+.hatchLine {
+  stroke: rgb(163 50 26 / 0.5);
+  stroke-width: 1.2;
+}
+
+.wall {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+// The chosen piece: everything else steps back, and the piece itself is outlined in the accent.
+.svg[data-selected] .tiles {
+  opacity: 0.35;
+}
+
+.overlay {
+  pointer-events: none;
+}
+
+.overlayTile {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.overlayCut {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+// The start marker is ink: the accent is kept for what the maker chose.
+.level,
+.dimension,
+.pillLeader {
+  fill: none;
+  stroke: var(--ink);
+  pointer-events: none;
+}
+
+.level {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.dimension {
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pillLeader {
+  stroke-width: 1;
+}
+
+.guide {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.leader,
+.leaderCut {
+  stroke-width: 1.25;
+  pointer-events: none;
+}
+
+.leader {
+  stroke: var(--ink-3);
+}
+
+.leaderCut {
+  stroke: var(--cut);
+}
+
+.leaderSelected {
+  stroke: var(--accent);
+}
+
+.chips {
+  cursor: pointer;
+}
+
+.chipRect {
+  fill: var(--panel);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  transition: stroke-width var(--t-fast) var(--ease-out);
+}
+
+.chipMark,
+.chipSize {
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.chipMark {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chipSize {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip[data-cut] {
+  .chipRect {
+    fill: var(--cut-soft);
+    stroke: var(--cut);
+  }
+
+  .chipMark {
+    fill: var(--cut);
+  }
+}
+
+.chip[data-selected] {
+  .chipRect {
+    fill: var(--accent);
+    stroke: var(--accent);
+  }
+
+  .chipMark,
+  .chipSize {
+    fill: var(--accent-ink);
+  }
+}
+
+@media (hover: hover) {
+  .chip:hover .chipRect {
+    stroke-width: 2.5;
+  }
+}
+
+.label,
+.labelStrong,
+.pillText {
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+// Lettering over linework carries a halo of the panel, so it reads wherever it lands.
+.label,
+.labelStrong {
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.label {
+  fill: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.labelStrong {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pill {
+  fill: var(--panel);
+  stroke: var(--ink);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.pillText {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dotRing {
+  fill: var(--panel);
+  pointer-events: none;
+}
+
+.dot {
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s-1) var(--s-3);
+}
+
+.captionSize {
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.captionNote {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+// A forced palette drops the tint, the red and the accent: the hatch (translated for us), the
+// outlines and the system's own selected colour carry every state instead.
+@include forced-colors {
+  .tile {
+    fill: Canvas;
+  }
+
+  .tile,
+  .tileCut {
+    stroke: CanvasText;
+  }
+
+  .wall,
+  .level,
+  .dimension,
+  .pillLeader,
+  .guide,
+  .leader,
+  .leaderCut {
+    stroke: CanvasText;
+  }
+
+  .dot {
+    fill: CanvasText;
+  }
+
+  .dotRing,
+  .pill {
+    fill: Canvas;
+  }
+
+  .pill {
+    stroke: CanvasText;
+  }
+
+  .chipRect,
+  .chip[data-cut] .chipRect {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .chipMark,
+  .chipSize,
+  .chip[data-cut] .chipMark,
+  .pillText,
+  .label,
+  .labelStrong {
+    fill: CanvasText;
+  }
+
+  .chip[data-selected] .chipRect,
+  .overlayTile,
+  .overlayCut,
+  .leaderSelected {
+    stroke: Highlight;
+    stroke-width: 3;
+  }
+
+  .overlayTile {
+    fill: Canvas;
+  }
+
+  .svg[data-selected] .tiles {
+    opacity: 1;
+  }
+
+  .label,
+  .labelStrong {
+    stroke: Canvas;
+  }
+}

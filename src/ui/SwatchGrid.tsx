@@ -1,47 +1,60 @@
+import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { RadioGroup } from 'radix-ui'
-import { FINISH_LABEL, type Finish } from '@/core/filaments'
 import { cx, type StyleWithVars } from './cx'
 import styles from './SwatchGrid.module.scss'
 import { Tooltip } from './Tooltip'
 
 export interface SwatchItem {
-  id: string
   name: string
-  line: string
-  finish: Finish
+  /** '#RRGGBB'; also the radio's value. */
   hex: string
-  /** Flakes, speckle, grain or glow color, depending on the finish. */
-  secondaryHex?: string
-  /** The hex is not published by the manufacturer. */
-  estimated?: boolean
 }
 
 export interface SwatchGridProps {
   items: readonly SwatchItem[]
-  /** Id of the chosen filament. */
+  /** Hex of the chosen swatch. A hex that matches none of them (a custom color) leaves every radio unchecked. */
   value: string
-  onChange: (id: string) => void
-  /** Names the group, e.g. "PLA Matte colors". */
+  onChange: (hex: string) => void
+  /** Names the group, e.g. "Preset colors". */
   'aria-label': string
+  /** One control drawn in the cell after the last swatch but outside the radio group, e.g. a custom-color trigger. */
+  trailing?: ReactNode
+  /** Swatches per row; the cells shrink together on a narrow screen rather than wrapping unevenly. */
+  columns?: number
   size?: 'sm' | 'md'
   className?: string
 }
 
-/** Filament picker: paper-chip samples in a radio group with roving focus (arrow keys choose). */
-export function SwatchGrid({ items, value, onChange, size = 'md', className, 'aria-label': ariaLabel }: SwatchGridProps) {
+/** Color picker: lit samples in a radio group with roving focus (arrow keys choose). */
+export function SwatchGrid({
+  items,
+  value,
+  onChange,
+  trailing,
+  columns = 6,
+  size = 'md',
+  className,
+  'aria-label': ariaLabel,
+}: SwatchGridProps) {
+  const cells = items.length + (trailing ? 1 : 0)
+  const layout: StyleWithVars = { '--columns': columns, '--rows': Math.max(1, Math.ceil(cells / columns)) }
+  // The trailing cell shares the swatches' grid, so it sits exactly where one more swatch would.
+  const trailingCell = { gridColumn: (items.length % columns) + 1, gridRow: Math.floor(items.length / columns) + 1 }
+
   return (
-    <RadioGroup.Root
-      value={value}
-      onValueChange={onChange}
-      loop
-      aria-label={ariaLabel}
-      className={cx(styles.grid, styles[size], className)}
-    >
-      {items.map((item) => (
-        <Swatch key={item.id} item={item} />
-      ))}
-    </RadioGroup.Root>
+    <div className={cx(styles.grid, styles[size], className)} style={layout}>
+      <RadioGroup.Root value={value} onValueChange={onChange} loop aria-label={ariaLabel} className={styles.radios}>
+        {items.map((item) => (
+          <Swatch key={item.hex} item={item} />
+        ))}
+      </RadioGroup.Root>
+      {trailing && (
+        <div className={styles.trailing} style={trailingCell}>
+          {trailing}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -49,27 +62,18 @@ export interface SwatchProps {
   item: SwatchItem
 }
 
-/** One filament chip with an honest hint of its finish. Render inside SwatchGrid. */
+/** One color chip, named by its tooltip. Render inside SwatchGrid. */
 export function Swatch({ item }: SwatchProps) {
-  const colors: StyleWithVars = { '--c': item.hex, '--c2': item.secondaryHex ?? item.hex }
+  const color: StyleWithVars = { '--c': item.hex }
   const tip = (
     <span className={styles.tip}>
       <span className={styles.tipName}>{item.name}</span>
-      <span className={styles.tipLine}>
-        {item.line} · {FINISH_LABEL[item.finish]}
-        {item.estimated ? ' · color estimated' : ''}
-      </span>
+      <span className={styles.tipHex}>{item.hex}</span>
     </span>
   )
   return (
     <Tooltip content={tip}>
-      <RadioGroup.Item
-        value={item.id}
-        aria-label={`${item.name}, ${item.line}`}
-        data-finish={item.finish}
-        style={colors}
-        className={styles.swatch}
-      >
+      <RadioGroup.Item value={item.hex} aria-label={item.name} style={color} className={styles.swatch}>
         <RadioGroup.Indicator className={styles.check}>
           <Check aria-hidden="true" />
         </RadioGroup.Indicator>

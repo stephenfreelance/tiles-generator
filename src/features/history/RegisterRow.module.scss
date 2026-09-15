@@ -1,9 +1,24 @@
-// One template shared by the column headings and every row, so the shelf stays aligned.
+// One grid for the headings and every row: with a grid each, the content-sized action column
+// resized the fractional ones per row and slid every fact out from under its heading.
+.table {
+  display: grid;
+  // The row padding sits on the edge tracks of a subgrid, so the thumbnail track carries it.
+  grid-template-columns:
+    calc(4.5rem + var(--s-4)) minmax(13.5rem, 1.9fr) minmax(6rem, 0.85fr) minmax(5.75rem, 0.75fr)
+    minmax(6rem, 0.85fr) minmax(6.5rem, 0.9fr) minmax(4.25rem, 0.45fr) auto;
+  column-gap: var(--s-3);
+}
+
+.body {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
 @mixin register-grid {
   display: grid;
-  grid-template-columns:
-    4.5rem minmax(13.5rem, 1.9fr) minmax(6rem, 0.85fr) minmax(5.75rem, 0.75fr)
-    minmax(6rem, 0.85fr) minmax(6.5rem, 0.9fr) minmax(4.25rem, 0.45fr) auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: var(--s-3);
 }
@@ -28,9 +43,11 @@
     border-bottom: 0;
   }
 
+  // A faint wash of the accent: distinct from the --panel-2 header and the resting --panel, and
+  // --ink-3 still reads at 5.7:1 on it for every tile color.
   &:hover,
   &:focus-within {
-    background: var(--panel-2);
+    background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
   }
 }
 
@@ -124,7 +141,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-// A small badge: green once the files have been taken, plain while it is still a draft.
+// A small badge: in the accent once the files have been taken, plain while it is still a draft.
 .stamp {
   padding: 1px 0.5rem;
   border: 1px solid var(--hairline);
@@ -137,7 +154,7 @@
   &[data-validated] {
     border-color: var(--accent);
     background: var(--accent-soft);
-    color: var(--ok-ink);
+    color: var(--accent);
   }
 }
 
@@ -167,8 +184,13 @@
 }
 
 // The swatch and the colour it stands for are one token, at any width.
-.filamentName {
+.colorName {
   white-space: nowrap;
+}
+
+// A little tracking keeps six hex characters legible at 12 px.
+.hex {
+  letter-spacing: 0.02em;
 }
 
 .swatch {
@@ -189,8 +211,25 @@
   gap: var(--s-2);
 }
 
+// The hovered row is already washed nearly to --accent-soft (1.03:1 from the ghost plate), so a ghost
+// action in it starts a step deeper: 1.12:1 off the row, with its accent lettering still 4.6:1 or better.
+.actions .rowGhost {
+  &:hover:not(:disabled, [aria-busy='true']) {
+    background: color-mix(in srgb, var(--accent) 7%, var(--accent-soft));
+  }
+
+  &:active:not(:disabled, [aria-busy='true']) {
+    background: color-mix(in srgb, var(--accent) 12%, var(--accent-soft));
+  }
+}
+
 // Narrow: the row folds into a block, each fact keeping its own label.
 @media (max-width: 78rem) {
+  .table,
+  .body {
+    display: block;
+  }
+
   .header {
     display: none;
   }
@@ -225,7 +264,7 @@
     display: inline;
   }
 
-  // Names ("Matcha Green", "PLA-CF") wrap whole or not at all, so the column keeps its edge.
+  // Names ("Terracotta", "#C0582F") wrap whole or not at all, so the column keeps its edge.
   .factValue {
     display: flex;
     flex-wrap: wrap;
@@ -258,7 +297,7 @@
   }
 }
 
-// The filament's colour is a fact about the saved design, so it is kept when the palette is forced;
+// The tile's colour is a fact about the saved design, so it is kept when the palette is forced;
 // the badge and the name already say the rest in words.
 @media (forced-colors: active) {
   .swatch {

@@ -141,7 +141,6 @@ const InteractiveRig = forwardRef<CameraRigHandle, CameraRigProps>(function Inte
     <CameraControls
       ref={controlsRef}
       makeDefault
-      regress
       smoothTime={LOOK.camera.smoothTime}
       draggingSmoothTime={LOOK.camera.draggingSmoothTime}
       dollyToCursor={mode === 'surface'}

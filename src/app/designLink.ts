@@ -6,8 +6,12 @@ import type { DesignConfig } from '@/core/types'
 /** The one search parameter that carries a drawing. */
 export const DESIGN_PARAM = 'd'
 
-/** Tuple version; a link written by an older shape is refused rather than half-read. */
-const VERSION = '1'
+/**
+ * Tuple version. Version 1 had the same fields with a retired filament id in the color slot, and is
+ * still read so links already shared keep their color; any other version is refused, not half-read.
+ */
+const VERSION = '2'
+const LEGACY_VERSION = '1'
 const FIELD = '|'
 const PAIR = '~'
 const ITEM = ','
@@ -53,7 +57,7 @@ export function toSearch(config: DesignConfig): string {
     String(config.texture.seed),
     config.texture.invert ? '1' : '0',
     config.texture.rotate ? '1' : '0',
-    encodeURIComponent(config.colorId),
+    encodeURIComponent(config.color),
     encodeURIComponent(config.printerId),
     params,
   ].join(FIELD)
@@ -69,7 +73,8 @@ export function fromSearch(params: URLSearchParams): DesignConfig | null {
   if (!raw) return null
   try {
     const parts = fromBase64Url(raw).split(FIELD)
-    if (parts[0] !== VERSION || parts.length < FIELD_COUNT) return null
+    const legacy = parts[0] === LEGACY_VERSION
+    if ((parts[0] !== VERSION && !legacy) || parts.length < FIELD_COUNT) return null
     const at = (index: number): string => parts[index] ?? ''
     const textureParams: Record<string, number> = {}
     for (const pair of at(FIELD_COUNT).split(ITEM)) {
@@ -78,6 +83,7 @@ export function fromSearch(params: URLSearchParams): DesignConfig | null {
       const parsed = Number(value)
       if (key && Number.isFinite(parsed)) textureParams[decodeURIComponent(key)] = parsed
     }
+    const color = decodeURIComponent(at(18))
     return normalizeConfig({
       version: 1,
       name: decodeURIComponent(at(1)),
@@ -96,7 +102,8 @@ export function fromSearch(params: URLSearchParams): DesignConfig | null {
         invert: at(16) === '1',
         rotate: at(17) === '1',
       },
-      colorId: decodeURIComponent(at(18)),
+      // normalizeConfig maps a version 1 filament id to the hex it stood for.
+      ...(legacy ? { colorId: color } : { color }),
       printerId: decodeURIComponent(at(19)),
     })
   } catch {
