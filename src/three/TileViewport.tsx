@@ -25,6 +25,10 @@ export interface TileViewportProps {
   highlightPieceId?: string | null
   /** false on the landing hero: no controls, a slow cinematic orbit. */
   interactive?: boolean
+  /** OR-ed with the view's own offscreen state: a caller can stop the orbit while it drives the light. */
+  paused?: boolean
+  /** Scene background as '#RRGGBB': the surface the board sits on. Omitted, it is the drafting sheet. */
+  background?: string
   className?: string
   onPendingChange?: (pending: boolean) => void
 }
@@ -154,6 +158,8 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     showLayerLines = false,
     highlightPieceId = null,
     interactive = true,
+    paused = false,
+    background,
     className,
     onPendingChange,
   },
@@ -166,7 +172,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   const [tier, setTier] = useState<Tier>(initialTier)
   const [glState, setGlState] = useState<GlState>(() => (isWebGLAvailable() ? 'ok' : 'unsupported'))
   const [canvasKey, setCanvasKey] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [offscreen, setOffscreen] = useState(false)
   const rootRef = useRef<RootState | null>(null)
   // Detaches the context-loss listeners from the canvas they were added to.
   const detachRef = useRef<(() => void) | null>(null)
@@ -261,7 +267,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   useEffect(() => {
     const element = wrapperRef.current
     if (!element || typeof IntersectionObserver === 'undefined') return
-    const observer = new IntersectionObserver((entries) => setPaused(!entries[entries.length - 1].isIntersecting), { threshold: 0 })
+    const observer = new IntersectionObserver((entries) => setOffscreen(!entries[entries.length - 1].isIntersecting), { threshold: 0 })
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
@@ -446,7 +452,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
             }
             onCreated={handleCreated}
           >
-            <SceneBackground tier={tier} />
+            <SceneBackground tier={tier} color={background} />
             <ServicesContext.Provider value={services}>
               {shown && (
                 <Scene
@@ -457,7 +463,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
                   highlightPieceId={highlightPieceId}
                   revealCuts={revealCuts}
                   interactive={interactive}
-                  paused={paused}
+                  paused={paused || offscreen}
                   reduced={reduced}
                   tier={tier}
                   color={config.color}

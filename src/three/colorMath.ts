@@ -39,9 +39,12 @@ export function inverseNeutralToneMap(target: Rgb, iterations = 48): Rgb {
   return guess
 }
 
-/** Linear-space background colour for the canvas: the sheet, compensated when the composer tone-maps it. */
-export function sheetBackground(toneMappedByComposer: boolean): THREE.Color {
-  const sheet = new THREE.Color(LOOK.palette.sheet)
+/**
+ * Linear-space background colour for the canvas, compensated when the composer tone-maps it. `hex` is
+ * the surface the view sits on: the drafting sheet in the studio, the warm panel on the landing board.
+ */
+export function sheetBackground(toneMappedByComposer: boolean, hex: string = LOOK.palette.sheet): THREE.Color {
+  const sheet = new THREE.Color(hex)
   if (!toneMappedByComposer) return sheet
   const [r, g, b] = inverseNeutralToneMap([sheet.r, sheet.g, sheet.b])
   return new THREE.Color(r, g, b)

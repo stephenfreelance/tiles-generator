@@ -17,14 +17,20 @@ export default defineConfig({
     rollupOptions: {
       output: {
         codeSplitting: {
+          // A group takes only the modules its own test matches. With the default (true) the first
+          // group also swallows everything its members import, so `three` claimed react, `postfx`
+          // claimed @react-three/fiber and react-dom, and the entry had to preload all four groups:
+          // 549 kB gzip of renderer before the router could resolve any route, the landing included.
+          includeDependenciesRecursively: false,
+          // Order is priority: react is claimed first so no renderer group can take it with them.
           groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: 'r3f', test: /node_modules[\\/]@react-three[\\/](fiber|drei)[\\/]/ },
             { name: 'three', test: /node_modules[\\/](three|three-stdlib|camera-controls|@monogrid)[\\/]/ },
             // Nothing but the lazy import in Scene.tsx reaches this group, so a tier-0 machine
             // never downloads the composer. Keep @react-three/fiber out of it or the whole group
             // becomes eager again and deferring PostFx buys nothing.
             { name: 'postfx', test: /node_modules[\\/](postprocessing|n8ao|@react-three[\\/]postprocessing)[\\/]/ },
-            { name: 'r3f', test: /node_modules[\\/]@react-three[\\/](fiber|drei)[\\/]/ },
-            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
           ],
         },
       },

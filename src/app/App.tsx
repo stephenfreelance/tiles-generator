@@ -21,7 +21,7 @@ const router = createBrowserRouter(
       ],
     },
   ],
-  // GitHub Pages serves the app under /tiles-generator/ (the build's --base); everywhere else this is "/".
+  // The build's --base: "/" on the custom domain and locally, "/tiles-generator/" on a bare project site.
   { basename: import.meta.env.BASE_URL },
 )
 

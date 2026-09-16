@@ -1,0 +1,32 @@
+Tessera: third-party notices
+============================
+
+This file covers third-party source ported or adapted into Tessera's own tree. Tessera's npm
+dependencies are not repeated here: each one ships its own license inside the package it comes from.
+
+
+React Bits
+----------
+
+https://github.com/DavidHDev/react-bits
+Copyright (c) 2026 David Haz
+MIT + Commons Clause License Condition v1.0
+
+Permission is granted to use, copy, modify, merge, publish and distribute this software as part of
+an application, provided this notice is kept. Selling, sublicensing or redistributing the components
+themselves, including as a ported version, is not granted.
+
+Ported into Tessera. Each file repeats the notice above and records what was changed:
+
+  Counter  ->  src/features/landing/Odometer.tsx
+  Folder   ->  src/features/landing/ZipFolder.tsx
+
+Two more shaped the front page without any of their code being copied. Only the idea was taken, and
+both files repeat the notice above as well:
+
+  PixelSwap   ->  src/features/landing/layOrder.ts
+                  Ordering tiles by their distance from the corner a tiler sets out from, so a
+                  reveal or a recolor lands the way a wall is laid.
+  GlareHover  ->  src/features/landing/_glaze.scss
+                  A slow sheen crossing a lit sample, rewritten as one ::after and one
+                  background-position transition.

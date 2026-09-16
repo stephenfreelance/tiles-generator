@@ -56,8 +56,9 @@ jobs:
       - id: site
         uses: actions/configure-pages@v6
 
-      # A project site lives under /<repo>/, so the router and every asset URL take that base.
-      # base_path is "/tiles-generator" today and empty if a custom domain is ever set.
+      # The router and every asset URL take the site's base: empty on the custom domain
+      # (tessera.stephenperrin.fr), "/tiles-generator" without one. It is baked into the build, so
+      # re-run this workflow whenever the custom domain setting changes, or the live page goes blank.
       - run: npm run build -- --base "$BASE_PATH/"
         env:
           BASE_PATH: ${{ steps.site.outputs.base_path }}

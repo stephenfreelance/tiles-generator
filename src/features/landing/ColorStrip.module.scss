@@ -1,31 +1,26 @@
 @use '@/styles/mixins' as *;
 
+// The radio group's own box: a roving tab stop has nothing to land on without one, and the wheel
+// takes the twelfth cell by sitting last inside the group rather than beside it.
 .strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
   gap: var(--s-4) var(--s-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 
   @media (max-width: 30rem) {
     grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
   }
 }
 
-.cell {
-  min-width: 0;
-}
-
 .item {
   display: grid;
-  // A neighbour's wrapped hint stretches the row; the chip and labels keep their own height.
+  // A neighbor's wrapped hint stretches the row; the chip and labels keep their own height.
   align-content: start;
   gap: 2px;
   min-width: 0;
 }
 
-// A preset is a key: the whole sample, name and hex included, is the target (far past 44 px).
+// A cell is a key: the whole sample, name and hex included, is the target (far past 44 px).
 .key {
   @include button-reset;
   width: 100%;
@@ -53,7 +48,9 @@
     box-shadow var(--t-fast) var(--ease-out);
 }
 
-.key:hover .chip {
+// The open wheel keeps the lift of a hovered key, so the cell the popover belongs to is never in doubt.
+.key:hover .chip,
+.key[data-state='open'] .chip {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.16),
     inset 0 9px 14px -8px rgb(255 255 255 / 0.75),
@@ -72,8 +69,10 @@
   transform: none;
 }
 
-// The color on show: an accent ring held off the chip by the page's own ground, so it reads on any tone.
-.key[aria-pressed='true'] .chip {
+// The color on show: an accent ring held off the chip by the page's own ground, so it reads on any
+// tone. A hex no preset holds puts that ring on the wheel instead.
+.key[aria-checked='true'] .chip,
+.key[data-custom] .chip {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.16),
     inset 0 9px 14px -8px rgb(255 255 255 / 0.75),
@@ -98,6 +97,11 @@
     );
 }
 
+// Once the color is custom the cell wears it, so the chosen sample is never an empty ring.
+.key[data-custom] .wheel {
+  background: var(--custom);
+}
+
 // The lines under a chip start its corner radius in, where the chip's straight bottom edge begins.
 .name,
 .hex,
@@ -118,8 +122,11 @@
   color: var(--accent);
 }
 
-// Weight, not the accent, marks the pressed name: a grey accent (White, Charcoal) would fade it below its neighbours.
-.key[aria-pressed='true'] .name {
+// Weight, not the accent, marks a name the page is holding (chosen, or its wheel open): a gray accent
+// (White, Charcoal) would fade it below its neighbors, and the hover tint has no business outlasting the hover.
+.key[aria-checked='true'] .name,
+.key[data-custom] .name,
+.key[data-state='open'] .name {
   color: var(--ink);
   font-weight: 750;
 }
@@ -131,13 +138,15 @@
   line-height: 1.3;
 }
 
+// A code reads as a code: even digits, and upper case whatever a stored design carries.
 .hex {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 // A color chip whose color has been taken away is not a color chip: the tone is content here, so
-// it is kept and only its edge is translated. The pressed ring takes the system's emphasis color.
+// it is kept and only its edge is translated. The chosen ring takes the system's emphasis color.
 @include forced-colors {
   .chip {
     forced-color-adjust: none;
@@ -145,14 +154,48 @@
   }
 
   .key:hover .chip,
-  .key:active .chip {
+  .key:active .chip,
+  .key[data-state='open'] .chip {
     box-shadow: inset 0 0 0 1px CanvasText;
   }
 
-  .key[aria-pressed='true'] .chip {
+  .key[aria-checked='true'] .chip,
+  .key[data-custom] .chip {
     box-shadow:
       inset 0 0 0 1px CanvasText,
       0 0 0 2px Canvas,
       0 0 0 4px Highlight;
+  }
+}
+
+// The wheel's own slip, sized like the studio's: never past a screen edge, the wheel giving up the
+// height the popover lacks on its side (15rem is everything else in it, error line included).
+.popover {
+  @include paper-slip;
+  z-index: 30;
+  display: grid;
+  gap: var(--s-3);
+  width: min(17rem, calc(100vw - 1.5rem));
+  --wheel-size: clamp(7.5rem, calc(var(--radix-popover-content-available-height, 100vh) - 15rem), 12.5rem);
+  max-height: var(--radix-popover-content-available-height, none);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-4);
+  @include slip-entrance(any-color-settle);
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.popoverTitle {
+  @include label-caps(var(--text-md));
+  color: var(--ink);
+}
+
+@keyframes any-color-settle {
+  from {
+    opacity: 0.4;
+    transform: translateY(3px);
   }
 }

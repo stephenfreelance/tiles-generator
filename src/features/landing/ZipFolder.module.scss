@@ -1,0 +1,214 @@
+@use '@/styles/mixins' as *;
+
+/// The open fan: the three sheets drawn up out of the folder, and its front split into a V.
+/// It is one mixin because a pointer and the button's own state both reach the same state.
+@mixin folder-open {
+  .stack {
+    @include motion-safe {
+      transform: translateY(-2px);
+    }
+  }
+
+  .paper {
+    opacity: 1;
+  }
+
+  // A name has to be read, not glimpsed, so every sheet carries its whole text block clear of the
+  // open flap: the pair side by side, the third one higher because it stands behind them.
+  .paper[data-slot='1'] {
+    transform: translate(calc(-50% - var(--paper-spread)), calc(var(--paper-lift) * -1)) rotate(-5deg);
+  }
+
+  .paper[data-slot='2'] {
+    transform: translate(calc(-50% + var(--paper-spread)), calc(var(--paper-lift) * -1)) rotate(5deg);
+  }
+
+  .paper[data-slot='3'] {
+    transform: translate(-50%, calc((var(--paper-lift) + var(--paper-step)) * -1)) rotate(-1.5deg);
+  }
+
+  // The front falls a little further than the original's 28deg: it covers 71 % of the body instead of
+  // 88 %, which is what lets the fan clear it without standing a head taller than the folder.
+  .flap {
+    transform: rotateX(-45deg) skewX(14deg);
+  }
+
+  .right {
+    transform: rotateX(-45deg) skewX(-14deg);
+  }
+}
+
+// The fan's geometry, and the folder's, in one place: the button's own reserve is worked out from
+// them below, so the sheets can never rise past the room the control keeps for them. That reserve is
+// what stops the fan reaching a neighbor, and what keeps the pointer inside the control while it
+// reads the names.
+.folder {
+  @include button-reset;
+  @include touch-target;
+
+  --folder-w: 9rem;
+  --folder-h: 6.5rem;
+  // A sheet is long enough that its foot is still in the folder at full lift: they slide out of it,
+  // they never float over it.
+  --paper-h: 5.6rem;
+  --paper-foot: 0.5rem;
+  // The pair rises just clear of the open flap. The third sheet takes a whole name block more,
+  // because it stands behind the pair and would read as a blank edge at the same height: three lines
+  // of it, which is what the longest model name wraps to on the narrowest sheet.
+  --paper-lift: 1.6rem;
+  --paper-step: 3.7rem;
+  --paper-spread: 3.2rem;
+
+  // Where the head of the third sheet lands, and the room the button keeps above the folder for it.
+  // The 0.45rem is the tilt of the sheets and the 2px the whole stack lifts on.
+  --fan-top: calc(var(--paper-foot) + var(--paper-lift) + var(--paper-step) + var(--paper-h));
+  --fan-reserve: calc(var(--fan-top) - var(--folder-h) + 0.45rem);
+
+  display: grid;
+  justify-items: center;
+  gap: var(--s-4);
+  padding: var(--fan-reserve) 3rem var(--s-3);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    @include focus-ring(-3px);
+  }
+
+  @media (max-width: 30rem) {
+    --folder-w: 7.5rem;
+    --folder-h: 5.5rem;
+    // A shorter sheet and a shorter lift, because its foot has to stay in a shorter folder. The pair
+    // steps aside less too, so it does not open a gap for the flap's notch to show through.
+    --paper-h: 5rem;
+    --paper-lift: 1.1rem;
+    --paper-spread: 2.8rem;
+  }
+}
+
+// The body of the folder. It follows the tile color: the accent taken 12 % toward ink, which keeps
+// its hue and stays darker than the flaps in front of it whatever color the wall is wearing.
+.stack {
+  --folder-front: var(--accent);
+  --folder-back: color-mix(in srgb, var(--accent) 88%, var(--ink));
+
+  position: relative;
+  width: var(--folder-w);
+  height: var(--folder-h);
+  border-radius: 2px var(--radius-md) var(--radius-md) var(--radius-md);
+  background: var(--folder-back);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--t-med) var(--ease-out);
+
+  // The tab, cut from the same board as the back.
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 3rem;
+    height: 0.7rem;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: var(--folder-back);
+  }
+}
+
+// Three sheets of the same warm paper, each a step further toward the hairline, so the stack reads
+// as a stack even before it opens. The name sits at the head of the sheet, which is the part the fan
+// lifts clear; the rest of the sheet stays in the folder.
+.paper {
+  position: absolute;
+  z-index: 2;
+  bottom: var(--paper-foot);
+  left: 50%;
+  display: grid;
+  align-content: start;
+  height: var(--paper-h);
+  padding: var(--s-2);
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-2);
+  font-size: var(--text-2xs);
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  transform: translate(-50%, 6%);
+  transition:
+    transform var(--t-med) var(--ease-out),
+    opacity var(--t-med) var(--ease-out);
+}
+
+.paper[data-slot='1'] {
+  width: 76%;
+  background: color-mix(in srgb, var(--panel) 82%, var(--hairline));
+}
+
+.paper[data-slot='2'] {
+  width: 83%;
+  background: color-mix(in srgb, var(--panel) 91%, var(--hairline));
+}
+
+.paper[data-slot='3'] {
+  width: 90%;
+}
+
+// Two halves of the front, overlapping while the folder is shut and splitting apart as it opens.
+.flap {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-radius: 2px var(--radius-md) var(--radius-md) var(--radius-md);
+  background: var(--folder-front);
+  transform-origin: bottom left;
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.right {
+  transform-origin: bottom right;
+}
+
+.label {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}
+
+// Hover previews the state the button carries. Guarded, because a tap leaves :hover stuck on a phone
+// and the fan would never shut again.
+@media (hover: hover) {
+  .folder:hover {
+    @include folder-open;
+  }
+
+  .folder:hover .label {
+    color: var(--ink);
+  }
+}
+
+// Only the pressed state opens the fan from the keyboard: focus alone would show it open while
+// aria-expanded still reads false, and the names it holds are already text beside the button.
+.folder[data-open] {
+  @include folder-open;
+}
+
+// The press: the folder sets back down on the bench under the finger.
+.folder:active .stack {
+  transform: none;
+  box-shadow: none;
+}
+
+// The whole graphic is color, which forced colors replaces: the shapes come back as outlines.
+@include forced-colors {
+  .stack,
+  .stack::before,
+  .flap,
+  .paper {
+    border: 1px solid CanvasText;
+  }
+}

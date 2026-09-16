@@ -1,0 +1,48 @@
+@use '@/styles/mixins' as *;
+
+.odometer {
+  @include tabular;
+
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+// The box is taller than the glyph so the leaving digit has somewhere to fade. The original masked
+// its ends with a black gradient, which only works on a black card; a mask fades whatever is under it.
+.stack {
+  display: inline-flex;
+  height: 1.5em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0) 0, #000 26%, #000 74%, rgb(0 0 0 / 0) 100%);
+}
+
+// One column, ten glyphs deep. Tabular figures make every one of them exactly 1ch wide.
+.digit {
+  position: relative;
+  width: 1ch;
+  height: 100%;
+}
+
+.numeral {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// The stack is ten numbers deep; on paper only the number itself makes sense.
+.plain {
+  display: none;
+}
+
+@media print {
+  .stack {
+    display: none;
+  }
+
+  .plain {
+    display: inline;
+  }
+}

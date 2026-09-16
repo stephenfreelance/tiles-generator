@@ -1,3 +1,5 @@
+@use '@/styles/mixins' as *;
+
 .stage {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
@@ -15,6 +17,9 @@
   border-radius: var(--radius-lg);
   background: var(--panel-2);
   box-shadow: var(--shadow-md);
+  // A sweep across the board steers the light; a swipe up it still scrolls the page, so the gesture
+  // can never steal a scroll from a finger.
+  touch-action: pan-y;
 }
 
 .board::before {
@@ -45,16 +50,34 @@
   opacity: 0.4;
 }
 
-// What is on the stage right now, named where the eye already is. It starts the board's radius in
-// (less the 1px border it is placed inside), on the same line as the sample keys under the board.
+// The board before the render arrives: a capture of this same board, sheen included, which is why it
+// covers the sheen instead of sitting under it. It goes when the first wall is drawn.
+.poster {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  transition: opacity var(--t-med) var(--ease-out);
+}
+
+.poster[data-gone] {
+  opacity: 0;
+}
+
+// What is on the stage right now, named in the corner the wall is emptiest in. A min-height holds
+// its box while the name and the color reflow, so the handover never shifts anything.
 .pill {
   position: absolute;
-  bottom: var(--s-3);
-  left: calc(var(--radius-lg) - 1px);
-  z-index: 2;
+  top: var(--s-3);
+  right: calc(var(--radius-lg) - 1px);
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: var(--s-3);
+  min-height: 2.75rem;
   max-width: calc(100% - var(--radius-lg) - var(--s-3));
   padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2);
   border: 1px solid var(--hairline);
@@ -100,7 +123,9 @@
 }
 
 // Sample keys: the relief's name beside a chip of its color, filled in when it is the one on stage.
+// On a fine pointer, resting on one lays its relief on the board; clicking takes the color with it.
 .pick {
+  @include button-reset;
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
@@ -110,7 +135,6 @@
   border-radius: var(--radius-sm);
   background: var(--panel);
   color: var(--ink-2);
-  font: inherit;
   font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
@@ -131,8 +155,18 @@
     color: var(--ink);
   }
 
-  @media (pointer: coarse) {
+  // Last of the fills, so a press answers even on the sample that is already on stage (its ring stays).
+  &:active {
+    background: var(--panel-2);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  @include coarse-pointer {
     min-height: 2.75rem;
+    padding: 0 var(--s-4);
   }
 }
 
@@ -146,7 +180,7 @@
 
 // The tile color is the content of these keys, so it survives a forced palette; the chosen one
 // keeps a visible edge because a soft fill is exactly what such a palette erases.
-@media (forced-colors: active) {
+@include forced-colors {
   .pick[aria-pressed='true'] {
     border-width: 2px;
   }

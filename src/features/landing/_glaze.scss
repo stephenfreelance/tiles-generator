@@ -1,0 +1,44 @@
+// Ported from React Bits (github.com/DavidHDev/react-bits), component "GlareHover".
+// Copyright (c) 2026 David Haz. MIT + Commons Clause License Condition v1.0: permission is granted to
+// use, copy, modify, merge, publish and distribute this software as part of an application, provided
+// this notice is kept. Selling, sublicensing or redistributing the components themselves, including as
+// a ported version, is not granted.
+//
+// Only the effect travelled: the original ships a React component with inline styles and a pile of
+// props. Here it is one ::after and one background-position transition, so a glazed sample costs no
+// JavaScript, no extra element and nothing at all when nobody is pointing at it.
+
+@use '@/styles/mixins' as *;
+
+/// A slow warm sheen across a lit sample, the way light crosses a glazed tile as you walk past it.
+/// The host needs `position: relative` and, for a rounded corner, `overflow: hidden`: the sweep is
+/// drawn over the whole box and inherits the host's radius.
+@mixin glaze($opacity: 0.34) {
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border-radius: inherit;
+    // --panel's own value: a gradient stop needs an alpha channel, which a hex token cannot carry
+    // into rgb(). The same literal is already how `stage-tool` keeps its surfaces warm.
+    background-image: linear-gradient(115deg, transparent 58%, rgb(255 253 248 / #{$opacity}) 66%, transparent 74%);
+    background-repeat: no-repeat;
+    background-position: -60% -60%;
+    background-size: 240% 240%;
+    pointer-events: none;
+    transition: background-position 620ms var(--ease-out);
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    background-position: 160% 160%;
+  }
+
+  // Not `transition: none`: a sweep with no transition would jump to its lit position and stay there.
+  @include reduced-motion {
+    &::after {
+      display: none;
+    }
+  }
+}

@@ -16,7 +16,7 @@ export interface CopyLinkButtonProps {
 /** Copies a link carrying this whole design, so it can be sent on or opened on another device. */
 export function CopyLinkButton({ config, as = 'text', className }: CopyLinkButtonProps) {
   const { pathname } = useLocation()
-  // The router's pathname has its basename stripped; the href puts /tiles-generator/ back on Pages.
+  // The router's pathname has its basename stripped; the href puts the build's base back on.
   const href = useHref(pathname)
 
   const copy = async () => {

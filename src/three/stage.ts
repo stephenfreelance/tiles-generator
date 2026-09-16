@@ -6,8 +6,8 @@ export const OVERLAY_LAYER = 1
 /** Backdrop and light pool: never captured by the contact shadow. */
 export const BACKDROP_LAYER = 2
 
-// Scene conventions. Scene units are millimetres. The shown rectangle (the whole surface, or the hero
-// tile) is centred at the world origin. Wall stage: the surface stands in the XY plane and print z
+// Scene conventions. Scene units are millimeters. The shown rectangle (the whole surface, or the hero
+// tile) is centered at the world origin. Wall stage: the surface stands in the XY plane and print z
 // faces the viewer (+Z). Floor stage: the surface lies in the XZ plane with print z up (+Y) and the
 // surface's y axis running away from the viewer (-Z).
 
@@ -27,7 +27,7 @@ export function stageRotationX(stage: Stage): number {
   return stage === 'floor' ? -Math.PI / 2 : 0
 }
 
-/** Maps a point of the centred surface frame (x right, y up the surface, z out of the tiles) to world. */
+/** Maps a point of the centered surface frame (x right, y up the surface, z out of the tiles) to world. */
 export function surfaceToWorld(stage: Stage, x: number, y: number, z: number, out = new THREE.Vector3()): THREE.Vector3 {
   return stage === 'floor' ? out.set(x, z, -y) : out.set(x, y, z)
 }
@@ -52,7 +52,7 @@ export function hatchDirection(stage: Stage): THREE.Vector3 {
   return surfaceToWorld(stage, -Math.SQRT1_2, Math.SQRT1_2, 0)
 }
 
-/** World corners of a box centred on the surface frame origin. */
+/** World corners of a box centered on the surface frame origin. */
 export function boxCorners(stage: Stage, width: number, height: number, zMin: number, zMax: number): THREE.Vector3[] {
   const corners: THREE.Vector3[] = []
   for (const x of [-width / 2, width / 2]) {
@@ -163,6 +163,82 @@ export function fitDistance(corners: THREE.Vector3[], target: THREE.Vector3, dir
   return distance
 }
 
+/** Peak swing either side of the framed direction, degrees, in the rig's azimuth/polar convention. */
+export interface CameraSweep {
+  azimuthDeg: number
+  polarDeg: number
+}
+
+/**
+ * Offset along one screen axis that centers the corners the camera sees. `values` are the corner
+ * offsets from the camera along that axis and `depths` their distance in front of it: moving the
+ * target sideways moves the camera with it, so depth never changes and the two extreme corners alone
+ * fix the offset. A few passes settle which pair that is.
+ */
+function centerOffset(values: readonly number[], depths: readonly number[]): number {
+  let offset = 0
+  for (let pass = 0; pass < 8; pass++) {
+    let high = -Infinity
+    let low = Infinity
+    let highValue = 0
+    let highDepth = 1
+    let lowValue = 0
+    let lowDepth = 1
+    for (let i = 0; i < values.length; i++) {
+      const screen = (values[i] - offset) / depths[i]
+      if (screen > high) {
+        high = screen
+        highValue = values[i]
+        highDepth = depths[i]
+      }
+      if (screen < low) {
+        low = screen
+        lowValue = values[i]
+        lowDepth = depths[i]
+      }
+    }
+    // The offset where the two extremes land at equal and opposite screen positions.
+    const next = (highValue * lowDepth + lowValue * highDepth) / (highDepth + lowDepth)
+    if (Math.abs(next - offset) < 1e-6) return next
+    offset = next
+  }
+  return offset
+}
+
+/**
+ * The target that puts `corners` in the middle of the frame, seen from `direction` at `distance`.
+ * Fitting alone only promises they are inside it: a wall seen at an angle has one edge nearer than the
+ * other, so the near edge fills its side of the frame while the far one leaves a gap.
+ */
+function recenterTarget(
+  corners: readonly THREE.Vector3[],
+  target: THREE.Vector3,
+  direction: THREE.Vector3,
+  distance: number,
+): THREE.Vector3 {
+  const forward = direction.clone().negate()
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0))
+  if (right.lengthSq() < 1e-10) right.set(1, 0, 0)
+  right.normalize()
+  const upAxis = new THREE.Vector3().crossVectors(right, forward)
+  const position = target.clone().addScaledVector(direction, distance)
+  const lateral: number[] = []
+  const vertical: number[] = []
+  const depths: number[] = []
+  const rel = new THREE.Vector3()
+  for (const c of corners) {
+    rel.subVectors(c, position)
+    lateral.push(rel.dot(right))
+    vertical.push(rel.dot(upAxis))
+    // A corner level with the camera would divide by zero; the fit never puts one there.
+    depths.push(Math.max(1e-6, rel.dot(forward)))
+  }
+  return target
+    .clone()
+    .addScaledVector(right, centerOffset(lateral, depths))
+    .addScaledVector(upAxis, centerOffset(vertical, depths))
+}
+
 export interface FramingInput {
   stage: Stage
   mode: ViewMode
@@ -178,6 +254,10 @@ export interface FramingInput {
   fovDeg: number
   /** Room to keep for the dimension annotations, mm; 0 when they are hidden. */
   annotationMm?: number
+  /** The cinematic sway this framing will be swung through: the fit then holds at its extremes too. */
+  sweep?: CameraSweep
+  /** Center the subject in the frame instead of only fitting it inside. Off: today's framing, exactly. */
+  recenter?: boolean
 }
 
 export interface Framing {
@@ -201,12 +281,36 @@ export function computeFraming(input: FramingInput): Framing {
   const { stage, mode, width, height, reliefTop } = input
   const preset = mode === 'tile' ? LOOK.camera.tile : LOOK.camera.wall
   const corners = boxCorners(stage, width, height, 0, reliefTop)
-  const target = surfaceToWorld(stage, 0, 0, reliefTop / 2)
+  let target = surfaceToWorld(stage, 0, 0, reliefTop / 2)
   const direction = cameraDirection(preset.azimuthDeg, preset.elevationDeg)
-  // Fit the annotated rectangle, grown on all four sides so the model still sits centred in the frame.
+  // Fit the annotated rectangle, grown on all four sides so the model still sits centered in the frame.
   const annotation = Math.max(0, input.annotationMm ?? 0)
   const fitCorners = annotation > 0 ? boxCorners(stage, width + annotation * 2, height + annotation * 2, 0, reliefTop) : corners
-  const distance = fitDistance(fitCorners, target, direction, input.fovDeg, input.aspect) * preset.margin
+  // The sway swings the camera around the framing, so the fit has to hold at the corners of that swing
+  // as well: polar counts down from +Y where elevation counts up, and both signs are sampled anyway.
+  const directions = [direction]
+  const sweep = input.sweep
+  if (sweep) {
+    for (const azimuthDeg of [-sweep.azimuthDeg, sweep.azimuthDeg]) {
+      for (const polarDeg of [-sweep.polarDeg, sweep.polarDeg]) {
+        directions.push(cameraDirection(preset.azimuthDeg + azimuthDeg, preset.elevationDeg - polarDeg))
+      }
+    }
+  }
+  const fitAll = (from: THREE.Vector3): number => {
+    let fit = 0
+    for (const d of directions) fit = Math.max(fit, fitDistance(fitCorners, from, d, input.fovDeg, input.aspect))
+    return fit * preset.margin
+  }
+  let distance = fitAll(target)
+  if (input.recenter) {
+    // The fit measures the corners against the target and recentering moves it, so the two settle
+    // together; two passes land inside a millimeter of that, and the fit runs last so it still holds.
+    for (let pass = 0; pass < 2; pass++) {
+      target = recenterTarget(fitCorners, target, direction, distance)
+      distance = fitAll(target)
+    }
+  }
   const position = target.clone().addScaledVector(direction, distance)
 
   const tileEdge = Math.max(input.tileWidth, input.tileHeight)

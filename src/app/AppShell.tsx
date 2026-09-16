@@ -129,9 +129,10 @@ export function AppShell() {
         </div>
       </header>
 
-      <div id="main-content" className={styles.main}>
+      {/* The page's one main landmark, and what the skip link lands on: a div gave neither. */}
+      <main id="main-content" className={styles.main}>
         <Outlet />
-      </div>
+      </main>
     </div>
   )
 }

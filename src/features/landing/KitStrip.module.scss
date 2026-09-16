@@ -1,0 +1,191 @@
+@use '@/styles/mixins' as *;
+@use './glaze' as *;
+
+.kit {
+  display: grid;
+  gap: var(--s-5);
+
+  // Wide enough for the folder to stand beside the list it belongs to; below this it sits under it.
+  @media (min-width: 68rem) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
+.files {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One printed model: the chip, its mark, what it is, how big it is and how many to print.
+.model {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+
+  // The chip and the count each stand against both lines of text.
+  .thumb,
+  .count {
+    grid-row: 1 / 3;
+  }
+
+  .what {
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .detail {
+    grid-row: 2;
+    align-self: start;
+  }
+}
+
+.thumb {
+  @include glaze;
+
+  position: relative;
+  display: block;
+  width: 4.5rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+}
+
+.model:hover .thumb::after {
+  background-position: 160% 160%;
+}
+
+// The window the piece is seen through: its real proportions, at the family's scale, so the four
+// windows compare. It is centered by position rather than by grid, so its percentage size always has
+// a definite box to read.
+.piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+
+  // The sample is centered in a square chip, so the image overflows the piece it is cropped to.
+  > img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    max-width: none;
+    max-height: none;
+    object-fit: fill;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.pending {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--panel-2);
+}
+
+// The drawing mark, tabbed into the chip's own corner. Red only where red means cut.
+.mark {
+  position: absolute;
+  z-index: 2;
+  top: var(--s-3);
+  left: var(--s-3);
+  padding: 1px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: calc(var(--radius-md) - 1px) 0 8px 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.mark[data-cut] {
+  border-color: var(--cut);
+  background: var(--cut-soft);
+}
+
+.what {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.detail {
+  @include tabular;
+
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.count {
+  @include tabular;
+
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--s-2);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+// The count while the odometer's chunk is still coming: the same figures, at the same height as the
+// rolling stack, so the row never shifts when it arrives.
+.still {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5em;
+}
+
+// The two documents are text rows, not chips: ruled in, and lighter than the models above them.
+.document {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 1px;
+  padding: var(--s-2) var(--s-3) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.zip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+
+  @media (min-width: 68rem) {
+    flex-direction: column;
+    gap: var(--s-2);
+  }
+}
+
+// Every name in the zip, standing still: the fan shows three of them, this answers the file count.
+.names {
+  @include tabular;
+
+  display: grid;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  list-style: none;
+  overflow-wrap: anywhere;
+}

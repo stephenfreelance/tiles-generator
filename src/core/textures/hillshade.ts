@@ -76,6 +76,9 @@ const fullCrop = (config: DesignConfig): CropRect => ({ x0: 0, y0: 0, x1: config
 /** Shade memory a chips worker keeps; the page mirrors it to know when a colour change is only a tint. */
 export const CHIP_SHADE_BUDGET_BYTES = 24 * 1024 * 1024
 
+/** What that mirror may hold: a quarter of the worker's budget stays as headroom on the main thread. */
+export const PAGE_SHADE_BUDGET_BYTES = CHIP_SHADE_BUDGET_BYTES * 0.75
+
 /** Upper bound of one shade's memory in a sizePx box (a cut piece fills less of it). */
 export const reliefShadeBytes = (sizePx: number): number => chipSize(sizePx) ** 2 * 3 * Float64Array.BYTES_PER_ELEMENT
 

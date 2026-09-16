@@ -1,21 +1,38 @@
-// A hairline of bench between the pieces reads as the joint; the relief still runs across it.
+@use '@/styles/mixins' as *;
+
+// A hairline of bench between the pieces reads as the joint; the relief still runs across it. The
+// wall itself never clips: the pieces rest 5 px outside it before they are laid, and the piece under
+// the hand lifts out of it, so the rounding lives on the four pieces that own an outside corner.
 .wall {
   display: grid;
   gap: 1px;
   width: 100%;
-  overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--hairline);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
 }
 
 .cell {
+  display: grid;
+}
+
+// One printed piece. It clips its own oversized chip and carries every state, because the cell above
+// it is Motion's: an inline transform there would overwrite a lift written here.
+.piece {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+  // A white tile on a warm panel needs an edge, and at a joint the same line reads as the chamfer.
   background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
 
-  // The sample is centred in a square chip; the piece itself is scaled to fill the cell exactly,
-  // which means the image overflows the cell (the base max-width would squeeze it back).
+  // The sample is centered in a square chip; the piece itself is scaled to fill the cell exactly,
+  // which means the image overflows the cell (the base max-width would squeeze it back). Two of them
+  // sit here during a recolor, in the same place, so the crossfade happens where the piece belongs.
   > img {
     position: absolute;
     top: 50%;
@@ -28,11 +45,30 @@
   }
 }
 
-.pending {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--panel-2);
+// Cross-highlight with the legend and the plan: physical, never a hue, so it reads on any tile color.
+// The lift is the only part of it that is motion, so it is the only part reduced motion drops.
+.cell[data-active] {
+  z-index: 1;
+}
+
+.cell[data-active] .piece {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.08),
+    var(--shadow-sm),
+    var(--shadow-md);
+
+  @include motion-safe {
+    // Off the wall and a shade over its joints: a 4 px lift alone is lost between butted pieces.
+    transform: translateY(-4px) scale(1.025);
+  }
+}
+
+// The rest step back where the eye can catch it: at 8 % the piece under the hand read as unchanged.
+// No further than this, because the wash takes each cut mark's halo with it and 0.78 still measures
+// over 3:1 on every preset. State rather than motion, so it is what carries the highlight under
+// reduced motion, where the lift is gone.
+.cell[data-dim] .piece {
+  opacity: 0.78;
 }
 
 // A cut piece is labelled where it sits: red edge, warm wash, and the letter in full-strength ink.
@@ -50,8 +86,39 @@
   line-height: 1.4;
 }
 
-@media (forced-colors: active) {
+// Both reds are mid-value, so over a tile of similar value the mark loses its edge. cutHaloOn()
+// measures ink against panel on the chosen tile color and the winner rings the mark in 1 px.
+.wall[data-halo='ink'] .mark {
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.wall[data-halo='panel'] .mark {
+  box-shadow: 0 0 0 1px var(--panel);
+}
+
+// The assembly is an entrance, not the content: a panel skipped by scroll restoration, find-in-page
+// or a print job never intersects, and would otherwise print as four empty squares 10 px apart.
+@media print {
+  // The image keeps its own transform: that one is the centering, not the lift a pinned legend row left.
+  .cell,
+  .piece {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .piece > img {
+    opacity: 1 !important;
+  }
+}
+
+// Shadows and opacity are both dropped by the system palette, so the highlight is redrawn as a shape.
+@include forced-colors {
   .mark {
     border-width: 2px;
+  }
+
+  .cell[data-active] .piece {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

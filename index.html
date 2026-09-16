@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- The drafting sheet is the only theme Tessera has, so browser surfaces should not guess a dark one. -->
+    <!-- The workshop light is the only theme Tessera has, so browser surfaces should not guess a dark one. -->
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#d6d1c7" />
+    <!-- --bar: the browser chrome continues the espresso bar instead of sitting off it. -->
+    <meta name="theme-color" content="#2E241B" />
 
     <title>Tessera · 3D-printable relief tiles</title>
     <meta
@@ -14,13 +15,11 @@
     />
 
     <!--
-      Relative on purpose: scrapers resolve these against the page URL, so they are correct at whatever
-      origin this ships on. Both follow the build's base: %BASE_URL% is "/tiles-generator/" on GitHub
-      Pages, and Vite rewrites og:image itself. Make them absolute once there is a domain. A canonical
-      cannot be written statically here at all: it needs an absolute URL, and Vite resolves every
-      link[href] as an asset, so a literal "/" fails the build as a directory read.
+      Absolute on the site's own domain: Facebook, LinkedIn and Slack refuse a relative og:image, and
+      scrapers do not run the script below that rewrites og:url for the page actually opened. A
+      canonical cannot be written statically here: /studio, /download and /history serve this same file.
     -->
-    <meta property="og:url" content="%BASE_URL%" />
+    <meta property="og:url" content="https://tessera.stephenperrin.fr/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Tessera" />
     <meta property="og:title" content="Tessera · 3D-printable relief tiles" />
@@ -28,12 +27,12 @@
       property="og:description"
       content="Design 3D-printed tiles that fit your wall exactly. Enter the wall and tile size, pick a relief and a color, and download print-ready STL or STEP files: one per unique piece, edge cuts included, with the pattern running on across every joint."
     />
-    <meta property="og:image" content="/og-cover.png" />
+    <meta property="og:image" content="https://tessera.stephenperrin.fr/og-cover.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Tessera's landing page: the headline &quot;Design 3D-printed tiles that fit your wall exactly&quot; beside a 3D render of a terracotta zellige relief tile wall."
+      content="Tessera's landing page: the headline &quot;Design 3D-printed tiles that fit your wall exactly&quot; and the wall size fields, beside a 3D render of a green wavy relief tile wall."
     />
     <meta name="twitter:card" content="summary_large_image" />
 
@@ -52,6 +51,13 @@
       // Self-referencing canonical, written from the address actually served. Guessing a domain would
       // be worse than having none: it would hand crawlers someone else's canonical. Dropping the query
       // string is the real work here, so /studio?utm_source=... does not read as a second page.
+      //
+      // Then the landing page's LCP element: the hero poster. Vite's env substitution is a plain replace
+      // over the whole file, inline scripts included, so the base token below is rewritten here as well
+      // (and would be inside this comment, which is why it is not written out again). The poster sits on
+      // a stable public/ path because a bundled copy is content-hashed, the same reason the woff2 above
+      // is declared by hand. Only the landing route paints it, hence the path test: /studio, /download
+      // and /history are served this same file and must not fetch 34 kB they never show.
       ;(function () {
         var page = location.origin + location.pathname
         var link = document.createElement('link')
@@ -59,6 +65,17 @@
         link.href = page
         document.head.appendChild(link)
         document.querySelector('meta[property="og:url"]').setAttribute('content', page)
+
+        var base = '%BASE_URL%'
+        if (location.pathname !== base && location.pathname !== base + 'index.html') return
+        var poster = document.createElement('link')
+        poster.rel = 'preload'
+        poster.as = 'image'
+        poster.type = 'image/webp'
+        poster.href = base + 'hero-poster.webp'
+        // An attribute, not the property: Safari reads it long before it exposes link.fetchPriority.
+        poster.setAttribute('fetchpriority', 'high')
+        document.head.appendChild(poster)
       })()
     </script>
   </head>

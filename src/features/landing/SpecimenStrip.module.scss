@@ -1,32 +1,53 @@
+@use '@/styles/mixins' as *;
+@use './glaze' as *;
+
 .strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
   gap: var(--s-4) var(--s-3);
   margin: 0;
-  padding: 3px;
+  // Paint containment (below) clips at this edge, and the focus ring and the hover shadow each reach
+  // 4 px past a sample. One more pixel keeps them whole on a fractional device scale.
+  padding: 5px;
   list-style: none;
+  // 23 lit samples are the page's heaviest restyle; off screen they should cost nothing. `auto` in the
+  // intrinsic size means the guess below is only ever used before the grid has been laid out once.
+  content-visibility: auto;
+  // Height only: the shorthand would also stand in for the grid's min-content width and could blow
+  // out a narrow column while the chips are skipped.
+  contain-intrinsic-height: auto 44rem;
 
+  // Four columns, so all 23 patterns land on one phone screen instead of six. minmax(0, 1fr) rather
+  // than 1fr: the truncated name below must not set the column's minimum width.
   @media (max-width: 30rem) {
-    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-3) var(--s-2);
+    contain-intrinsic-height: auto 43rem;
   }
 }
 
 .specimen {
+  @include button-reset;
+  @include touch-target;
+
   display: grid;
   gap: var(--s-2);
   width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
+// One ring, not two: the button's own outline would trace the caption as well as the sample, so the
+// ring is drawn on the sample alone. Forced colors gets its outline back at the foot of this file.
+.specimen:focus-visible {
+  outline: none;
+}
+
 // The samples are the brightest thing on the page: each lies on the bench and lifts under the hand.
 .sample {
+  @include glaze;
+
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
@@ -46,12 +67,34 @@
   }
 }
 
+// The button owns the states; the glaze lives on the sample, which is the lit thing.
+.specimen:hover .sample::after,
+.specimen:focus-visible .sample::after {
+  background-position: 160% 160%;
+}
+
+// Moment 4: the same PNG laid four times. Every pattern repeats a whole number of times across a
+// tile, so the relief runs straight across the joints. Flipping it costs no worker call and no bytes.
+.joints {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  background-size: 50% 50%;
+  opacity: 0;
+  // --t-med is 0 ms under reduced motion, which turns the crossfade into an instant swap.
+  transition: opacity var(--t-med) var(--ease-out);
+}
+
+.strip[data-joints] .joints {
+  opacity: 1;
+}
+
 .specimen:hover .sample {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.12),
     var(--shadow-md);
 
-  @media (prefers-reduced-motion: no-preference) {
+  @include motion-safe {
     transform: translateY(-2px);
   }
 }
@@ -81,22 +124,38 @@
   gap: 1px;
   min-width: 0;
   padding-inline-start: var(--radius-md);
+
+  // An 81 px column has no room for the indent, and the name is what tells 23 swatches apart.
+  @media (max-width: 30rem) {
+    padding-inline-start: 0;
+  }
 }
 
-// Wraps rather than truncates: held in by the corner radius, a two-word name no longer fits a phone column.
+// What tells 23 swatches apart. A wide column lets a two-word name wrap and balance.
 .name {
   font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.3;
   text-wrap: balance;
+
+  // One line, cut with an ellipsis: wrapping 23 two-word names would ripple the rows out of line.
+  // min-width: 0 is what lets a grid item be narrower than its own nowrap text.
+  @media (max-width: 30rem) {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-2xs);
+    line-height: 1.35;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 .specimen:hover .name {
   color: var(--accent);
 }
 
-// The ring is how a focused sample is found, so it is redrawn in the system's own emphasis colour.
-@media (forced-colors: active) {
+// The ring is how a focused sample is found, so it is redrawn in the system's own emphasis color.
+@include forced-colors {
   .specimen:focus-visible .sample {
     outline: 2px solid Highlight;
     outline-offset: 2px;

@@ -4,8 +4,9 @@ Frontend-only React + Vite app that turns a wall size, a tile size, a relief tex
 color into printable 3D tiles (STL / STEP / zip). The browser does all the work: no backend, no
 account, and no network calls at runtime. Designs persist in localStorage.
 
-Live at https://stephenfreelance.github.io/tiles-generator/, deployed by CI from `main` of
-`git@github.com:stephenfreelance/tiles-generator.git` (see Deploy).
+Live at https://tessera.stephenperrin.fr/ (a custom domain on GitHub Pages; the old
+https://stephenfreelance.github.io/tiles-generator/ address redirects there), deployed by CI from
+`main` of `git@github.com:stephenfreelance/tiles-generator.git` (see Deploy).
 
 Read before working, in this order:
 
@@ -84,6 +85,20 @@ Verified against the installed versions. Each of these fails loudly or silently 
 - Every tuning constant of the preview (lights, environment, quality tiers 0 to 2, AO, camera, and
   the one matte material every tile color renders with) lives in `src/three/look.ts`.
 
+## Motion on the home page
+
+`motion` (13.2) is used on the landing route only, and `src/features/landing/LandingMotion.tsx` mounts it
+there rather than in `AppShell`, so the studio, download and history routes download none of it. It runs
+`LazyMotion strict`, which means **`motion.*` throws: use `m.*`**. Reduced motion is three separate
+layers, and all three are needed: the `--t-*` tokens already collapse to 0 ms, `MotionConfig`'s
+`reducedMotion="user"` only makes positional keys instant (opacity, filter and pathLength still animate,
+so each needs `initial={false}` or its own branch), and style-bound values (`useSpring`, `animate()` on a
+MotionValue) ignore `MotionConfig` entirely and need an explicit `useReducedMotion()` branch. Anything
+gated on entering the viewport also needs a fallback for a jump scroll (a restored position,
+find-in-page, the skip link): `CutPlanPanel` measures a rect on scroll, the odometers roll on a timer
+if they are never seen. An entrance that can never run leaves content invisible, which is worse than
+no animation at all.
+
 ## Known console output (all benign)
 
 The console is otherwise clean, so treat anything else as a real regression.
@@ -108,17 +123,25 @@ a `pages` job builds the site beside it, and `deploy` (`actions/deploy-pages`) p
 succeed. Pull requests never deploy. The repository setting Settings > Pages > Source must be
 "GitHub Actions"; with Pages switched off, `configure-pages` fails the `pages` job.
 
-The site is served from `/tiles-generator/`, not `/`, and that is the easiest thing here to break:
+The site is served at the root of the custom domain `tessera.stephenperrin.fr` (a CNAME record
+to `stephenfreelance.github.io`, set in Settings > Pages > Custom domain). The build still takes its
+base from Pages rather than assuming `/`, so the app keeps working if it ever moves back under a
+sub-path, and that base is the easiest thing here to break:
 
 - The `pages` job builds with `npm run build -- --base "$BASE_PATH/"`, taking the path from
-  `actions/configure-pages`. Only that job sets a base: dev, tests and `npm run preview` run at `/`.
+  `actions/configure-pages`: empty on the custom domain, `/tiles-generator` without one. Only that
+  job sets a base: dev, tests and `npm run preview` run at `/`.
+- The base is baked in at build time, so adding, changing or removing the custom domain leaves the
+  live build pointing at the old one (a blank page whose scripts are refused as `text/html`). Re-run
+  the workflow on `main` (Actions > CI > Run workflow) right after touching that setting.
 - The router's `basename` is `import.meta.env.BASE_URL` (`src/app/App.tsx`). `Link`, `navigate` and
   `useLocation().pathname` are relative to it, so keep writing `/studio`.
 - A URL that leaves the router (the clipboard, `window.open`, `fetch`, a `public/` file referenced
   from TypeScript) must carry the base: use `useHref(path)`, as `CopyLinkButton.tsx` does, or prefix
   `import.meta.env.BASE_URL`. Never `location.origin + pathname` or a literal `/`.
-- In `index.html` and SCSS, asset URLs are safe: Vite rewrites `href`, `src`, `og:image` and the
-  inline `@font-face` `url()`. Any other attribute needs `%BASE_URL%`, as `og:url` has.
+- In `index.html` and SCSS, asset URLs are safe: Vite rewrites root-relative `href`, `src` and the
+  inline `@font-face` `url()`. Any other attribute needs `%BASE_URL%`. The share metadata (`og:url`,
+  `og:image`) is absolute on the domain instead, because scrapers do not resolve relative ones.
 - Pages has no rewrites, so the `pages` job copies `dist/index.html` to `studio.html`, `download.html`
   and `history.html` (a deep link or a shared design answers 200) and to `404.html` for any other
   path, which lets `NotFoundPage` render under a real 404.
@@ -127,7 +150,8 @@ Adding a route touches four places: the children in `src/app/App.tsx`, `PAGE_TIT
 `src/app/AppShell.tsx` (without an entry the tab title reads "Not found · Tessera"), the fallback list
 in the `pages` job, and `ROUTES` in `scripts/shots.mjs`.
 
-Before pushing anything that builds or resolves URLs, run the Pages build locally:
+Before pushing anything that builds or resolves URLs, run the build under a sub-path locally too: the
+domain serves `/`, but a URL that forgets the base only shows itself under one.
 
 ```bash
 npm run build -- --base /tiles-generator/
@@ -180,7 +204,15 @@ a devDependency. Its default base URL is port **5184**, not Vite's 5173:
 ```bash
 npm run dev -- --port 5184 --strictPort   # in another terminal
 npm run shots                              # all four routes, desktop and mobile, to test-output/shots
+npm run shots -- --motion                  # the same eight, animations running, to test-output/shots-motion
 npm run shots -- --og                      # regenerate public/og-cover.png (1200x630 share card)
 npm run shots -- --icons                   # regenerate public/apple-touch-icon.png
+npm run shots -- --hero-poster             # regenerate public/hero-poster.webp (the landing's LCP image)
 npm run shots -- --url http://localhost:4173   # point at `npm run preview` instead
 ```
+
+The default eight shots append `?still=1`, which `LandingMotion` reads to set Motion's `skipAnimations`,
+so a capture lands on the final frame instead of a random one. `--motion` drops the flag, which is the
+only way to photograph the home page's motion at all. Regenerate the hero poster whenever the board's
+look, its wall or its default sample changes: it is the still the landing paints while the 3D chunk
+downloads, so a stale one makes the handover to the live canvas jump.

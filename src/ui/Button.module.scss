@@ -238,7 +238,7 @@
 
 // The primary is the one action on the screen. A forced palette would sink it into every other
 // button, so it takes the system's emphasis pair; every state is restated, because opting out of
-// the forced colours means nothing else is translated for it either.
+// the forced colors means nothing else is translated for it either.
 @include forced-colors {
   .primary {
     forced-color-adjust: none;
@@ -251,6 +251,12 @@
   .primary:active:not(:disabled, [aria-busy='true']) {
     background: Highlight;
     border-color: Canvas;
+  }
+
+  // Opting out of the forced palette also freezes the accent focus ring, which the viewer's colors
+  // never reach. It is the only way the keyboard is followed, so it is restated in system emphasis.
+  .primary:focus-visible {
+    outline-color: Highlight;
   }
 
   .primary .progress {

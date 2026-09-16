@@ -1,3 +1,5 @@
+@use '@/styles/mixins' as *;
+
 .plan {
   display: block;
   width: 100%;
@@ -32,12 +34,130 @@
   fill: var(--ink);
 }
 
+// The mark on a whole tile: the legend names it, so the drawing says it quietly.
+.wholeText {
+  fill: var(--ink-3);
+}
+
 .cutText {
   fill: var(--cut);
 }
 
 .guideText {
   fill: var(--ink-3);
+}
+
+// A tile is answered from anywhere on its face, not only on its 1 px stroke. Nothing drawn on top of
+// a tile may take the pointer from it: a letter that swallowed the hover was a dead spot on the plan.
+.plan [data-piece] {
+  pointer-events: all;
+}
+
+.inkText,
+.wholeText,
+.cutText,
+.guideText {
+  pointer-events: none;
+}
+
+// A dimension text is written across the witness lines of the run it measures, so it strikes its own
+// halo in the surface it sits on first: the drafter's break in the line, and it holds at phone size.
+.chainText {
+  paint-order: stroke;
+  stroke: var(--panel-2);
+  stroke-dasharray: none;
+  stroke-linejoin: round;
+}
+
+// The region the pieces panel beside this drawing is assembled from, and the piece being pointed at.
+// Both are drawn in ink, never the accent: every accent this app can take is a luminance match for
+// --cut, and red has to mean "cut" without argument inside the drawing that defines it.
+.region,
+.active {
+  fill: none;
+  stroke: var(--ink);
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+// The callout differs from the grid in kind, not in weight: it is set out clear of the tiles it names
+// (React pads the box), so the panel color of that gap is what tells the two lines apart.
+.region {
+  stroke-width: 2.5px;
+}
+
+.active {
+  stroke-width: 2px;
+  // The highlight also washes the tile, because the pointed-at piece can be one the callout already rings.
+  fill: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+// The other half of that highlight: a piece covering most of the wall is shown by fading the rest,
+// since lighting two cells in three is not a highlight. One path, so the joints fade with the tiles.
+.fade {
+  fill: color-mix(in srgb, var(--panel-2) 74%, transparent);
+  pointer-events: none;
+}
+
+// The reveal: one shutter per tile, cleared from the setting-out corner so the plan draws itself the
+// way the wall is laid. Pure CSS: --lay (0 at that corner, 1 at the far one) is all React writes, and
+// the parent's [data-drawn] starts the wave. 220 ms of stagger plus a 160 ms fade, cuts done by 400 ms.
+.shutter {
+  fill: var(--panel-2);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease-out);
+  transition-delay: calc(var(--lay, 0) * 220ms);
+}
+
+[data-drawn] .shutter {
+  opacity: 0;
+}
+
+.cutTile {
+  fill-opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition:
+    stroke-dashoffset 240ms var(--ease-out) 100ms,
+    fill-opacity 120ms linear 280ms;
+}
+
+[data-drawn] .cutTile {
+  fill-opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+// Three cases where the wave never runs: the drawing still has to be complete and correct.
+@include reduced-motion {
+  .shutter {
+    display: none;
+  }
+
+  .cutTile {
+    fill-opacity: 1;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+}
+
+@include forced-colors {
+  .shutter {
+    display: none;
+  }
+}
+
+@media print {
+  .shutter {
+    display: none;
+  }
+
+  .cutTile {
+    fill-opacity: 1;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
 }
 
 // The one authored moment on this page: the dimension chain draws itself as the panel scrolls into

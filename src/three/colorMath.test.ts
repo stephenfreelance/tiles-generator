@@ -20,6 +20,19 @@ describe('neutral tone mapping', () => {
     expect(mapped[2]).toBeCloseTo(sheet.b, 3)
   })
 
+  it('defaults to the sheet and compensates any other surface the same way', () => {
+    const panel = '#EFE7D8'
+    expect(sheetBackground(false).getHexString()).toBe(sheetBackground(false, LOOK.palette.sheet).getHexString())
+    // Untone-mapped tiers take the surface straight, so the canvas edge matches the panel exactly.
+    expect(sheetBackground(false, panel).getHexString()).toBe(new THREE.Color(panel).getHexString())
+    const target = new THREE.Color(panel)
+    const compensated = sheetBackground(true, panel)
+    const mapped = neutralToneMap([compensated.r, compensated.g, compensated.b])
+    expect(mapped[0]).toBeCloseTo(target.r, 3)
+    expect(mapped[1]).toBeCloseTo(target.g, 3)
+    expect(mapped[2]).toBeCloseTo(target.b, 3)
+  })
+
   it('round-trips arbitrary colours below the shoulder', () => {
     for (const c of [
       [0.05, 0.1, 0.2],

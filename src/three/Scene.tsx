@@ -37,10 +37,13 @@ export interface Shown {
   origin: LayoutOrigin
 }
 
-/** The render lives on the drafting sheet: the background is the sheet colour, tone mapping included. */
-export function SceneBackground({ tier }: { tier: Tier }) {
-  const color = useMemo(() => sheetBackground(tier > 0), [tier])
-  return <color attach="background" args={[color.r, color.g, color.b]} />
+/**
+ * The render lives on the drafting sheet: the background is the sheet color, tone mapping included.
+ * `color` overrides the sheet for a view that sits on another surface, as '#RRGGBB'.
+ */
+export function SceneBackground({ tier, color }: { tier: Tier; color?: string }) {
+  const background = useMemo(() => sheetBackground(tier > 0, color), [tier, color])
+  return <color attach="background" args={[background.r, background.g, background.b]} />
 }
 
 /** Runs before every other frame callback: toggles the shadow-map cache. */
@@ -65,10 +68,10 @@ function MaterialDriver({ set }: { set: TileMaterialSet }) {
   const invalidate = useThree((state) => state.invalidate)
   useFrame((_, delta) => {
     // The loop sleeps between edits, so the first frame of a fade carries a delta of seconds: clamped,
-    // or the new colour would land in one step instead of fading in.
+    // or the new color would land in one step instead of fading in.
     if (!set.step(Math.min(delta, 1 / 30))) return
-    // No motion bump: a colour fade is a few frames right behind a React commit and a page-wide
-    // recolour, which measures the main thread rather than the GPU the governor is judging.
+    // No motion bump: a color fade is a few frames right behind a React commit and a page-wide
+    // recolor, which measures the main thread rather than the GPU the governor is judging.
     invalidate()
   })
   return null
@@ -153,10 +156,14 @@ export function Scene({
 
   const materials = useTileMaterials(color, tier, showLayerLines, activeNormalMaps)
 
-  // Quantised so a one-pixel resize does not re-frame the view.
+  // Quantized so a one-pixel resize does not re-frame the view.
   const aspect = Math.round((size.width / Math.max(1, size.height)) * 20) / 20
   // Dimension lines and their labels stand outside the tiles, so the camera has to frame them too.
   const annotationMm = showDimensions ? annotationMarginMm(mode, width, height) : 0
+  // The cinematic rig sways a wall rather than holding it still, so that view is fitted over the whole
+  // sway and centered in the frame. Floor stages run a full turntable instead, which no four-corner fit
+  // stands in for, and an interactive view is the visitor's to aim: both keep the plain framing.
+  const swayed = !interactive && stage === 'wall'
   const framing = useMemo(
     () =>
       computeFraming({
@@ -170,8 +177,10 @@ export function Scene({
         aspect,
         fovDeg: LOOK.camera.fovDeg,
         annotationMm,
+        sweep: swayed ? { azimuthDeg: LOOK.camera.cinematic.azimuthAmpDeg, polarDeg: LOOK.camera.cinematic.elevationAmpDeg } : undefined,
+        recenter: swayed,
       }),
-    [stage, mode, width, height, reliefTop, shown.tile.width, shown.tile.height, aspect, annotationMm],
+    [stage, mode, width, height, reliefTop, shown.tile.width, shown.tile.height, aspect, annotationMm, swayed],
   )
   const framingKey = `${stage}:${mode}:${Math.round(width)}x${Math.round(height)}:${reliefTop.toFixed(2)}:${annotationMm.toFixed(1)}`
 
