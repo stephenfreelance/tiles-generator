@@ -2,9 +2,9 @@ import { CameraControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import * as THREE from 'three'
-import { LOOK } from './look'
+import { LOOK, type Presentation } from './look'
 import { useSceneServices } from './sceneServices'
-import type { Framing, Stage, ViewMode } from './stage'
+import { arrivalOffset, type Framing, type Stage, type ViewMode } from './stage'
 
 export interface CameraRigHandle {
   /** Frames the view again, animated. */
@@ -21,8 +21,18 @@ export interface CameraRigProps {
   stage: Stage
   interactive: boolean
   reduced: boolean
-  /** Offscreen or hidden: stop asking for frames. */
+  /** Offscreen, hidden, or a hand on the view: stop asking for frames. */
   paused: boolean
+  /** Offscreen or hidden on its own: nothing at all runs, the arrival included. */
+  offscreen?: boolean
+  /** Presentation preset. Omitted or 'studio': today's cinematic sway, exactly. */
+  presentation?: Presentation
+  /**
+   * The object presentation's arrival holds at frame 0 until this is true. The hero sets it when the
+   * poster has handed over to the live canvas: without it the whole move plays out behind a still
+   * image and the visitor meets a camera that has already landed. Omitted: it plays at once.
+   */
+  arrivalReady?: boolean
 }
 
 function applyCameraClipping(camera: THREE.PerspectiveCamera, framing: Framing) {
@@ -151,12 +161,26 @@ const InteractiveRig = forwardRef<CameraRigHandle, CameraRigProps>(function Inte
   )
 })
 
-/** Landing hero: no controls, a slow cinematic move (a sway across a wall, a turntable around a tile). */
-const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function CinematicRig({ framing, stage, reduced, paused }, ref) {
+/**
+ * Landing hero: no controls, a slow cinematic move (a sway across a wall, a turntable around a tile).
+ * The object presentation opens with an arrival, once: the camera settles in from further back and
+ * further round onto the framing, and afterwards keeps the drift. Under prefers-reduced-motion none
+ * of it runs and the view is placed at its settled framing from the first frame.
+ */
+const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function CinematicRig(
+  { framing, stage, reduced, paused, offscreen = false, presentation = 'studio', arrivalReady = true },
+  ref,
+) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((state) => state.invalidate)
   const services = useSceneServices()
-  const stateRef = useRef({ startedAt: 0 })
+  // How long the drift carries on after the arrival with no hand near the wall. 0: forever, which is
+  // every view but the object's.
+  const idleStopMs = presentation === 'object' && stage === 'wall' ? LOOK.object.driftIdleMs : 0
+  // `played` is per mount, not per framing: the visitor sizes this wall in a field beside it, and an
+  // arrival that replayed on every re-frame would pull the camera back on every keystroke.
+  const stateRef = useRef({ startedAt: 0, progress: 0, lastAt: 0, arriving: false, played: false, idleAt: 0 })
+  const arrival = presentation === 'object' && stage === 'wall' && !reduced ? LOOK.object.arrival : null
 
   const place = useCallback(
     (azimuth: number, polar: number, distance: number) => {
@@ -169,18 +193,62 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
     [camera, framing.target],
   )
 
+  /** The arrival frozen at `progress`, or the settled framing itself at 1. */
+  const placeAt = useCallback(
+    (progress: number) => {
+      if (!arrival) {
+        place(framing.azimuth, framing.polar, framing.distance)
+        return
+      }
+      const offset = arrivalOffset(arrival, progress)
+      place(
+        framing.azimuth + THREE.MathUtils.degToRad(offset.azimuthDeg),
+        THREE.MathUtils.clamp(
+          framing.polar + THREE.MathUtils.degToRad(offset.polarDeg),
+          framing.polarLimits[0],
+          framing.polarLimits[1],
+        ),
+        framing.distance * offset.distanceFactor,
+      )
+    },
+    [arrival, framing, place],
+  )
+
   useEffect(() => {
     applyCameraClipping(camera, framing)
-    stateRef.current.startedAt = performance.now()
-    place(framing.azimuth, framing.polar, framing.distance)
+    const state = stateRef.current
+    state.startedAt = performance.now()
+    if (arrival && !state.played) {
+      // A re-frame mid-arrival (a resize, a wall retyped) keeps the progress it had: only a fresh
+      // mount starts at 0, so the camera never jumps back out to make the same entrance twice.
+      state.arriving = true
+      state.lastAt = state.startedAt
+      placeAt(state.progress)
+    } else {
+      // A new framing is a visitor typing a new wall: the drift is worth running again for them.
+      if (state.idleAt > 0) state.idleAt = state.startedAt
+      placeAt(1)
+    }
     invalidate()
-  }, [camera, framing, place, invalidate])
+  }, [camera, framing, placeAt, arrival, invalidate])
+
+  // The hold ends between frames, so the loop has to be woken for it: nothing else would ask.
+  useEffect(() => {
+    const state = stateRef.current
+    if (!arrivalReady || !state.arriving) return
+    state.lastAt = performance.now()
+    invalidate()
+  }, [arrivalReady, invalidate])
 
   useImperativeHandle(
     ref,
     () => ({
       reset: () => {
-        stateRef.current.startedAt = performance.now()
+        const state = stateRef.current
+        state.startedAt = performance.now()
+        state.arriving = false
+        state.played = true
+        state.progress = 1
         place(framing.azimuth, framing.polar, framing.distance)
         invalidate()
       },
@@ -191,11 +259,52 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
   )
 
   useFrame(() => {
-    if (reduced || paused) return
+    // Off screen nothing runs at all, the arrival included, and nothing asks for another frame.
+    if (offscreen) return
+    const state = stateRef.current
     const now = performance.now()
-    const seconds = (now - stateRef.current.startedAt) / 1000
-    const cinematic = LOOK.camera.cinematic
+    // The arrival runs to its end even while the caller pauses the drift: a hand on the wall is a
+    // reason to stop the loop, never to leave the camera stranded halfway in. Paced by the clock and
+    // not by frames, so it takes the same LOOK.object.arrival.seconds on a machine drawing 12 of them a
+    // second as on one drawing 120, and a view scrolled away and come back to finds it over.
+    if (arrival && state.arriving) {
+      // Held at frame 0 until the hero says the canvas is the thing on screen: the clock is kept level
+      // with now, so the wait costs the arrival none of its length, and no frame is asked for.
+      if (!arrivalReady) {
+        state.lastAt = now
+        return
+      }
+      const elapsed = Math.max(0, now - state.lastAt) / 1000
+      state.lastAt = now
+      state.progress = Math.min(1, state.progress + elapsed / arrival.seconds)
+      placeAt(state.progress)
+      if (state.progress >= 1) {
+        state.arriving = false
+        state.played = true
+        state.startedAt = now
+        state.idleAt = now
+      }
+      services.motion.bump(now)
+      invalidate()
+      return
+    }
+    if (reduced) return
+    if (paused) {
+      // A hand on the wall, or a hero scrolled off screen: the countdown to the idle stop runs from
+      // the moment that ends, so coming back to the object always brings the drift back with it.
+      state.idleAt = now
+      return
+    }
+    // The drift is scenery, not a thing being watched: once the arrival has landed and nothing has
+    // touched the wall for a while it stands down and the loop is allowed to sleep, the way the
+    // studio's turntable holds off until the view has been left alone. It costs a landing page a
+    // frame every 16 ms for as long as the tab is open, and nobody is watching a 7 degree drift.
+    if (idleStopMs > 0 && state.idleAt > 0 && now - state.idleAt > idleStopMs) return
+    const seconds = (now - state.startedAt) / 1000
     const sway = stage === 'wall'
+    // A product photograph drifts rather than sways: the object presentation halves the swing and
+    // stretches the period, so the wall is alive without ever looking like it is being waved about.
+    const cinematic = presentation === 'object' && sway ? { ...LOOK.camera.cinematic, ...LOOK.object.cinematic } : LOOK.camera.cinematic
     const azimuth =
       framing.azimuth +
       (sway

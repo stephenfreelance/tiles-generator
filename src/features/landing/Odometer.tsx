@@ -72,8 +72,9 @@ function NumericDigit({ place, value, rolling }: { place: number; value: number;
 }
 
 /**
- * A count that rolls up to itself once, when it comes into view. The number is read as a number: the
- * ten-deep digit stack is decoration and is hidden from assistive technology and from paper.
+ * A count that rolls up to itself once, when it comes into view. The number is read as a number: it
+ * is written out in the page beside the roll, where find-in-page, a selection and a screen reader all
+ * reach it, and the ten-deep digit stack is decoration hidden from assistive technology and from paper.
  */
 export function Odometer({ value, className }: OdometerProps) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -95,7 +96,8 @@ export function Odometer({ value, className }: OdometerProps) {
   if (reduced) return <span className={cx(styles.odometer, className)}>{label}</span>
 
   return (
-    <span ref={ref} className={cx(styles.odometer, className)} role="img" aria-label={label}>
+    <span ref={ref} className={cx(styles.odometer, className)}>
+      {/* The figure itself: visually hidden, never display: none, so it stays findable and copyable. */}
       <span className={styles.plain}>{label}</span>
       <span className={styles.stack} aria-hidden="true">
         {placesOf(count).map((place) => (

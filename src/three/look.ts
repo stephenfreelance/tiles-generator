@@ -4,6 +4,13 @@
 /** Quality tier: 0 = low (no post, standard materials), 1 = medium, 2 = high. */
 export type Tier = 0 | 1 | 2
 
+/**
+ * How a view is presented. 'studio' is the app's own framing and lighting, and every route keeps it:
+ * nothing reads LOOK.object unless a caller opts in. 'object' is the landing hero's product
+ * photograph: a wider three-quarter view, a harder rake, and the wall standing off its own shadow.
+ */
+export type Presentation = 'studio' | 'object'
+
 export interface LightformerSpec {
   form: 'rect' | 'circle' | 'ring'
   /** Position in the environment's virtual scene (arbitrary units, the cube camera sits at the origin). */
@@ -243,6 +250,146 @@ export const LOOK = {
     washGlow: 0.08,
     /** Luminance multiplier of dimmed pieces (warm grey). */
     dimTint: [0.8, 0.77, 0.73] as const,
+  },
+
+  /**
+   * The 'object' presentation, read only when a caller asks for it (the landing hero does). Every
+   * number here replaces one above for that one view; with presentation 'studio' none of it is read,
+   * which is what keeps /studio, /download and /history byte-for-byte what they were.
+   */
+  object: {
+    /**
+     * Camera preset for the wall stage: further round and lower, so the relief is seen along itself.
+     * The margin is the air a photograph of a thing keeps around it (1 is edge to edge), and it is the
+     * whole of it: the composition no longer buys its off-centre room by pulling back a second time.
+     */
+    wall: { azimuthDeg: -31, elevationDeg: 8, margin: 1.229 },
+    /** Key-light elevation over the wall. With envIntensity below, this is what rakes the relief. */
+    keyElevationDeg: 18,
+    /** Key intensity: the rake is the whole point of this view, so it is pushed past the studio's. */
+    keyIntensity: 6.8,
+    /**
+     * scene.environmentIntensity, pulled down from the studio's 1.7. The key and the environment
+     * together are exposure and their ratio is contrast: less fill under the same key is what turns a
+     * lit swatch into a photograph, and it is what lets every ridge keep the shadow it throws.
+     */
+    envIntensity: 1.2,
+    /** The tile backs stand this far off the shadow catcher, mm: a real drop shadow under the object. */
+    standoffMm: 14,
+    /** The studio's 0.36, softened: this shadow is a photograph's, not a drawing's. */
+    shadowOpacity: 0.24,
+    /** PCF softness in texels. Twice the studio's, because this shadow is thrown much further. */
+    shadowRadius: 9,
+    /**
+     * The warm pool thrown on the page behind the object, over the backdrop's own 0.07. A photograph
+     * of a lit thing has lit air around it: this is the only mark the object leaves on the page it
+     * has no frame on, and it is what keeps the wall from reading as a sticker.
+     */
+    poolIntensity: 0.16,
+    poolScale: 3.2,
+    /**
+     * The arrival, played once when the wall first appears. The camera settles in from further back
+     * and further round while the key rakes down the relief from near the top edge, so the first
+     * thing the visitor sees is every ridge throwing its longest shadow and then coming to rest.
+     * Nothing here is read under prefers-reduced-motion: the view is placed at its settled framing
+     * and the key sits at its resting elevation from the first frame.
+     */
+    arrival: {
+      /** How long the camera takes to settle, seconds, counted from the handover, not from the mount. */
+      seconds: 2.4,
+      /**
+       * Tail of the camera's curve, over an ease that is gentle at both ends (see `remaining` in
+       * stage.ts): 1 is that ease itself, higher lands sooner, lower keeps moving later. The old
+       * curve was a plain (1 - t) to the fifth, which spent seven eighths of the move inside the
+       * first third of its window: behind the poster, where nobody ever saw it.
+       */
+      power: 1,
+      /** Where it starts, relative to the settled framing: back along its own axis, and round. */
+      distanceFactor: 1.13,
+      azimuthDeg: 17,
+      elevationDeg: 10,
+      /** The key starts here and rakes down to keyElevationDeg. Near the top edge of the wall. */
+      keyFromDeg: 58,
+      /** A touch longer than the camera's, so the shadows are still lengthening as it comes to rest. */
+      keySeconds: 2.9,
+      /** Under 1, so the rake lags the camera and is still walking down as the camera lands. */
+      keyPower: 0.8,
+      /** Each degree of rake refits and re-renders the shadow map: a whole rake is 50 of those, not 180. */
+      keyQuantumDeg: 0.8,
+      /** A hand on the wall is driving the light itself, so the rake runs out this much faster. */
+      keyYield: 9,
+    },
+    /**
+     * Device-pixel-ratio ceiling for this view, under the tier's own. The object fills the whole
+     * first screen, which is three to four times the pixels the studio's bench asks for, and it is
+     * a decorative render rather than a thing being inspected: 1.75 keeps it crisp under SMAA and
+     * gives back about a quarter of the fragments a full 2x would cost.
+     */
+    dprMax: 1.75,
+    /**
+     * Where the object is asked to sit, in fractions of the half-frame: right of centre and a touch
+     * high. An intent, not a promise. Where the page lays type over this same screen the wall is held
+     * clear of that column first (`typeColumn` below), and on a wide desk, where it already is, this
+     * is what it keeps.
+     */
+    screenShift: { x: 0.17, y: 0.07 },
+    /**
+     * The column of type the page lays over the left of this same screen, in CSS pixels of frame.
+     * These mirror `.hero` in LandingPage.module.scss, which sets `--pad: clamp(1rem, 0.4rem + 2vw,
+     * 3rem)`, a `--gutter` of `max(--pad, (100% - 88rem) / 2)` and a lede column of `minmax(0, 27rem)`.
+     * The camera reads them so the wall is composed clear of the type at every width rather than at
+     * one breakpoint: this is what the headline was being printed over between 993 and 1300 px. Change
+     * the page's gutter or its column and change these with it, or the type lands on the wall again.
+     */
+    typeColumn: {
+      /** `clamp(1rem, 0.4rem + 2vw, 3rem)`, in px: the page's own --pad. */
+      padMinPx: 16,
+      padBasePx: 6.4,
+      padPerPx: 0.02,
+      padMaxPx: 48,
+      /** 88rem: past this the page stops growing its content and starts growing its gutters. */
+      contentMaxPx: 1408,
+      /** 27rem: `grid-template-columns: minmax(0, 27rem)` on the hero. */
+      columnPx: 432,
+      /**
+       * Air between the last of the type and the first of the wall, in multiples of the page's own
+       * --pad: one gutter of it, so the gap grows with the page rather than staying a fixed hairline.
+       */
+      airPads: 1,
+      /** Never hand the type more than this much of the frame: past it there is no picture left. */
+      maxFraction: 0.52,
+    },
+    /**
+     * How the object is composed once it has the frame to itself. Below `widthPx` CSS pixels of frame
+     * the page stops laying a column of type over the object and stands it on a row of its own (the
+     * hero's own 62rem breakpoint), so there is nothing left for the wall to sit clear of: it is
+     * composed square on, and the fit leaves more air than the desktop's 1.02, because a frame this
+     * narrow has no width to spare and the cut column down its right edge is the point of the
+     * picture. Aspect cannot stand in for the width: the same phone holds the object in a frame
+     * anywhere from 1:1 to 1.9:1, and the wide composition landing on one of those is what pushed the
+     * cut column off the right of the screen.
+     */
+    narrow: {
+      /** The hero's own 62rem breakpoint. A step here is the page's step, not the camera's: at this
+          width the object stops standing behind the type and takes a row of its own. */
+      widthPx: 992,
+      /** Dead center: nothing is laid over this frame, so every fraction of it spent off-center is
+          a fraction the wall itself does not get. */
+      screenShift: { x: 0, y: 0 },
+      /** Tighter than the desktop's, because nothing is laid over this frame and every fraction of it
+          spent on air is a fraction the wall itself does not get. The air that is left is where the
+          shadow the wall stands off falls. */
+      margin: 1.05,
+    },
+    /** The slow drift while the object is on screen: half the studio hero's swing, twice as slow. */
+    cinematic: { azimuthAmpDeg: 7, elevationAmpDeg: 1.6, periodS: 36 },
+    /**
+     * How long the drift carries on after the arrival with nothing touching the object, ms. Half a
+     * drift period: it stands down having travelled one visible arc, and a hand on the wall or a
+     * scroll back onto it starts the count again. A landing page left open otherwise asks for a
+     * frame every 16 ms for as long as the tab lives, to move a wall by a degree a second.
+     */
+    driftIdleMs: 18000,
   },
 
   dims: {

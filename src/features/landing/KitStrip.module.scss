@@ -3,6 +3,9 @@
 
 .kit {
   display: grid;
+  // The plate that holds this only centres what it is given, and a grid is content-wide under that:
+  // without this the whole kit shrinks to one narrow column in the middle of its own plate.
+  width: 100%;
   gap: var(--s-5);
 
   // Wide enough for the folder to stand beside the list it belongs to; below this it sits under it.
@@ -15,13 +18,15 @@
 .files {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--s-3);
+  gap: var(--s-4) var(--s-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-// One printed model: the chip, its mark, what it is, how big it is and how many to print.
+// One printed model, lying on the band as its own plate: the panel's own light and a soft shadow
+// rather than a hairline box, which is what the plan drawing beside it does. On the lit band the
+// panel is 1.07:1 away from what it is lying on, so the shadow is the whole of the edge.
 .model {
   position: relative;
   display: grid;
@@ -30,8 +35,9 @@
   align-items: center;
   gap: 0 var(--s-3);
   padding: var(--s-3);
-  border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
 
   // The chip and the count each stand against both lines of text.
   .thumb,
@@ -153,12 +159,13 @@
   height: 1.5em;
 }
 
-// The two documents are text rows, not chips: ruled in, and lighter than the models above them.
+// The two documents are text rows, not chips: they stay on the band with the plates lifted off it
+// around them, and the rule above them is what says the zip holds these as well.
 .document {
   display: grid;
   grid-column: 1 / -1;
   gap: 1px;
-  padding: var(--s-2) var(--s-3) 0;
+  padding: var(--s-3) var(--s-3) 0;
   border-top: 1px solid var(--hairline);
 }
 
@@ -172,6 +179,13 @@
   @media (min-width: 68rem) {
     flex-direction: column;
     gap: var(--s-2);
+  }
+}
+
+// Shadows are dropped by the system palette, so a plate comes back as the box it was drawn against.
+@include forced-colors {
+  .model {
+    border: 1px solid CanvasText;
   }
 }
 

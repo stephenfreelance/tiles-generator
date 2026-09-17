@@ -5,7 +5,9 @@
 
   display: inline-flex;
   align-items: center;
-  font-weight: 600;
+  // Inherited, not set: the roll stands inside a tally figure at 700 and a kit count at 600, and a
+  // weight of its own would quietly lighten the four figures the page is set around.
+  font-weight: inherit;
 }
 
 // The box is taller than the glyph so the leaving digit has somewhere to fade. The original masked
@@ -14,6 +16,8 @@
   display: inline-flex;
   height: 1.5em;
   overflow: hidden;
+  // Ten glyphs a column: the figure beside it is the one a selection should carry away.
+  user-select: none;
   mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0) 0, #000 26%, #000 74%, rgb(0 0 0 / 0) 100%);
 }
 
@@ -32,17 +36,33 @@
   justify-content: center;
 }
 
-// The stack is ten numbers deep; on paper only the number itself makes sense.
+// The number itself, kept in the page rather than painted twice: display: none took it out of
+// find-in-page, out of a selection and out of the accessible text layer, which left the figure
+// readable only as a stack of ten-deep decoration. The rule is the one in _base.scss.
 .plain {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
+// The stack is ten numbers deep; on paper only the number itself makes sense.
 @media print {
   .stack {
     display: none;
   }
 
   .plain {
-    display: inline;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
   }
 }

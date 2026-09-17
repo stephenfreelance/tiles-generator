@@ -37,21 +37,23 @@ const VIEWPORTS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390,
 // its end state, so this is settling time for the geometry rather than for the animation.
 const SETTLE_MS = 2600
 
-// The hero poster is captured at scale 2 from a board pinned to 640x440 CSS px, which is the board's own
-// 16/11: the render frames on the aspect ratio, not the pixel size, so pinning the width costs nothing
-// and is the only way to land on exactly 1280x880 whatever the hero column happens to be doing.
-// Quality 72 is where a wall of relief still holds its shading and the file clears the budget; at 80
-// the same board weighs 51 kB, which is more than the poster is worth against the render it stands in for.
-const POSTER = { cssWidth: 640, cssHeight: 440, scale: 2, quality: 72, budgetBytes: 45 * 1024 }
+// The hero poster is a crop of the object at the desktop hero's own shape (1.75:1). The render frames
+// on the aspect ratio, not the pixel size, so the capture is pinned to that shape and the browser
+// scales it. The object fills the first screen now, so the poster is wide and soft rather than small
+// and sharp: it stands in front of the canvas for one 260 ms crossfade and nothing else.
+const POSTER = { cssWidth: 1400, cssHeight: 800, scale: 1, quality: 56, budgetBytes: 45 * 1024 }
 // public/, not an import: the landing preloads this from index.html, which can only name a stable path.
 const POSTER_FILE = 'public/hero-poster.webp'
 // LandingMotion skips its animations on this, which is how every deterministic capture here asks for end
 // states. --motion is the one run that leaves it off, so the landing's transitions are visible at all.
 const STILL = '?still=1'
-// CSS modules keep the local name and hash the suffix (`_board_8qg4r_9`), so this is `.board` written as
-// a selector the dev server and the build both answer: the token either starts the list or follows a space.
-const BOARD = '[class^="_board_"], [class*=" _board_"]'
-const PILL = '[class^="_pill_"], [class*=" _pill_"]'
+// CSS modules keep the local name and hash the suffix (`_object_8qg4r_9`), so this is `.object` written
+// as a selector the dev server and the build both answer: the token either starts the list or follows a space.
+const BOARD = '[class^="_object_"], [class*=" _object_"]'
+const PILL = '[class^="_index_"], [class*=" _index_"]'
+// Everything the page paints over the object. An element screenshot photographs the region, not the
+// element, so anything laid on top of the object is baked into the poster unless it is hidden first.
+const OVER_OBJECT = ['_heroLede_', '_heroCaption_'].map((name) => `[class^="${name}"], [class*=" ${name}"]`).join(', ')
 
 async function newPage(context, viewport) {
   const page = await context.newPage()
@@ -105,14 +107,18 @@ async function captureHeroPoster(browser) {
   })
   // Tall and wide enough to hold the whole board at scroll 0: the clip below and boundingBox() only
   // agree while the page has not scrolled, and nothing here scrolls it.
-  const viewport = { width: 1600, height: 1200 }
+  const viewport = { width: 1600, height: 1000 }
   const page = await newPage(context, viewport)
   await page.goto(`${baseUrl}/${STILL}`, { waitUntil: 'domcontentloaded' })
   // The pill is live DOM on top of the poster, so baking a second one into it would double the label
   // (and freeze it on the first sample). Hidden, not removed: it must keep its box or the board reflows.
+  // The object is absolutely placed over the whole first screen, so it is pinned by both sides here;
+  // the caption is live DOM over it and would otherwise be baked in twice. Visibility, not display:
+  // it must keep its box or the object reflows and the poster stops matching the render.
   await page.addStyleTag({
-    content: `${BOARD} { width: ${POSTER.cssWidth}px !important; max-width: none !important; }
-      ${PILL} { visibility: hidden !important; }`,
+    content: `${BOARD} { position: absolute !important; inset: 0 auto auto 0 !important;
+        width: ${POSTER.cssWidth}px !important; height: ${POSTER.cssHeight}px !important; max-width: none !important; }
+      ${PILL}, ${OVER_OBJECT} { visibility: hidden !important; }`,
   })
   const board = page.locator(BOARD).first()
   await board.waitFor()

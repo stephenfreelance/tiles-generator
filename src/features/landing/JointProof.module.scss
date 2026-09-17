@@ -8,6 +8,9 @@
   gap: 1px;
   width: 100%;
   border-radius: var(--radius-md);
+  // The same lift the plan drawing beside it has: with the old well gone these pieces lie straight on
+  // the band, and the shadow is what keeps them a laid wall rather than a picture printed on it.
+  box-shadow: var(--shadow-md);
   background: var(--hairline);
 }
 

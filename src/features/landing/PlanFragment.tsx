@@ -106,6 +106,9 @@ export function PlanFragment({
       aria-label={label}
     >
       <defs>
+        {/* Red means cut, and this drawing is where that is settled: every cut tile is hatched and
+            washed in the one color the page reserves for it, the same wash the legend puts behind a
+            cut mark, so the cut region reads as a block before a single letter is read. */}
         <pattern
           id={hatchId}
           patternUnits="userSpaceOnUse"
@@ -113,6 +116,7 @@ export function PlanFragment({
           height={span * 0.02}
           patternTransform="rotate(45)"
         >
+          <rect className={styles.cutWash} width={span * 0.02} height={span * 0.02} />
           <line className={styles.cutLine} x1="0" y1="0" x2="0" y2={span * 0.02} strokeWidth={span * 0.0032} />
         </pattern>
       </defs>

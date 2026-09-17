@@ -99,9 +99,11 @@
   }
 }
 
+// The gap inside the ring is the band the sample is lying on (the page's sections set --band), so
+// the ring never draws a white halo around a sample standing on the darker of the two light levels.
 .specimen:focus-visible .sample {
   box-shadow:
-    0 0 0 2px var(--panel),
+    0 0 0 2px var(--band, var(--panel)),
     0 0 0 4px var(--accent);
 }
 

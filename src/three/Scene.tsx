@@ -8,10 +8,10 @@ import { Backdrop } from './Backdrop'
 import { CameraRig, type CameraRigHandle } from './CameraRig'
 import { sheetBackground } from './colorMath'
 import { Dimensions } from './Dimensions'
-import { LOOK, type Tier } from './look'
+import { LOOK, type Presentation, type Tier } from './look'
 import type { TileMaterialSet } from './materials'
 import { useSceneServices } from './sceneServices'
-import { annotationMarginMm, BACKDROP_LAYER, computeFraming, OVERLAY_LAYER, stageFor, stageRotationX, type ViewMode } from './stage'
+import { annotationMarginMm, BACKDROP_LAYER, computeFraming, objectComposition, OVERLAY_LAYER, stageFor, stageRotationX, type ViewMode } from './stage'
 import { StudioLights } from './StudioLights'
 import { TileField } from './TileField'
 import { usePieceAssets, useTileMaterials } from './useSceneAssets'
@@ -102,7 +102,10 @@ export interface SceneProps {
   /** The view is pointed at or focused: wash every cut piece in red pencil. */
   revealCuts: boolean
   interactive: boolean
+  /** Offscreen, hidden, or a hand on the view: the cinematic drift stands down. */
   paused: boolean
+  /** Offscreen or hidden on its own: the arrival choreography costs nothing at all. */
+  offscreen?: boolean
   reduced: boolean
   tier: Tier
   /** Tile color as '#RRGGBB'. */
@@ -110,6 +113,10 @@ export interface SceneProps {
   unit: LengthUnit
   wave: WaveClock
   rigRef: Ref<CameraRigHandle>
+  /** Presentation preset. Omitted or 'studio': today's scene, exactly. */
+  presentation?: Presentation
+  /** The object presentation's arrival waits at frame 0 until this is true. Omitted: it plays at once. */
+  arrivalReady?: boolean
   onTierChange: (update: (tier: Tier) => Tier) => void
 }
 
@@ -122,17 +129,23 @@ export function Scene({
   revealCuts,
   interactive,
   paused,
+  offscreen = false,
   reduced,
   tier,
   color,
   unit,
   wave,
   rigRef,
+  presentation = 'studio',
+  arrivalReady = true,
   onTierChange,
 }: SceneProps) {
   // The mode that was built, not the one just asked for: the meshes on screen belong to it.
   const mode = shown.mode
   const stage = stageFor(mode)
+  // The object presentation only ever means anything for a wall of tiles; a single tile keeps its own.
+  const object = presentation === 'object' && mode === 'surface'
+  const standoffMm = object ? LOOK.object.standoffMm : 0
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
 
@@ -164,6 +177,15 @@ export function Scene({
   // sway and centered in the frame. Floor stages run a full turntable instead, which no four-corner fit
   // stands in for, and an interactive view is the visitor's to aim: both keep the plain framing.
   const swayed = !interactive && stage === 'wall'
+  // Read as two numbers, not as a merged object: a fresh object here would make `framing` a fresh
+  // object every render, and the cinematic rig restarts its clock on every new framing.
+  const sweepAzimuthDeg = object ? LOOK.object.cinematic.azimuthAmpDeg : LOOK.camera.cinematic.azimuthAmpDeg
+  const sweepPolarDeg = object ? LOOK.object.cinematic.elevationAmpDeg : LOOK.camera.cinematic.elevationAmpDeg
+  // Composed for the frame it is actually on, by the width of that frame: a phone and a tablet stand
+  // the object on a row of its own with no type over it, and the width is what says so. The aspect
+  // does not: the same phone hands this canvas anything from a square to a letterbox. The two
+  // compositions are frozen, so this only ever changes identity when the frame crosses the breakpoint.
+  const composition = object ? objectComposition(size.width) : undefined
   const framing = useMemo(
     () =>
       computeFraming({
@@ -177,12 +199,14 @@ export function Scene({
         aspect,
         fovDeg: LOOK.camera.fovDeg,
         annotationMm,
-        sweep: swayed ? { azimuthDeg: LOOK.camera.cinematic.azimuthAmpDeg, polarDeg: LOOK.camera.cinematic.elevationAmpDeg } : undefined,
+        sweep: swayed ? { azimuthDeg: sweepAzimuthDeg, polarDeg: sweepPolarDeg } : undefined,
         recenter: swayed,
+        presentation,
+        composition,
       }),
-    [stage, mode, width, height, reliefTop, shown.tile.width, shown.tile.height, aspect, annotationMm, swayed],
+    [stage, mode, width, height, reliefTop, shown.tile.width, shown.tile.height, aspect, annotationMm, swayed, sweepAzimuthDeg, sweepPolarDeg, presentation, composition],
   )
-  const framingKey = `${stage}:${mode}:${Math.round(width)}x${Math.round(height)}:${reliefTop.toFixed(2)}:${annotationMm.toFixed(1)}`
+  const framingKey = `${stage}:${mode}:${Math.round(width)}x${Math.round(height)}:${reliefTop.toFixed(2)}:${annotationMm.toFixed(1)}:${presentation}`
 
   useEffect(() => {
     camera.layers.enable(OVERLAY_LAYER)
@@ -200,9 +224,24 @@ export function Scene({
         reliefTop={reliefTop}
         lightAngle={lightAngle}
         tier={tier}
+        presentation={presentation}
+        standoffMm={standoffMm}
+        reduced={reduced}
+        paused={paused}
+        offscreen={offscreen}
+        arrivalReady={arrivalReady}
       />
       <group rotation={[stageRotationX(stage), 0, 0]}>
-        <Backdrop width={width} height={height} grout={mode === 'surface' && shown.joint > 0} lightAngle={lightAngle} />
+        <Backdrop
+          width={width}
+          height={height}
+          grout={mode === 'surface' && shown.joint > 0}
+          lightAngle={lightAngle}
+          standoffMm={standoffMm}
+          shadowOpacity={object ? LOOK.object.shadowOpacity : undefined}
+          poolIntensity={object ? LOOK.object.poolIntensity : undefined}
+          poolScale={object ? LOOK.object.poolScale : undefined}
+        />
         <group position={[-width / 2, -height / 2, 0]}>
           <TileField
             assets={assets}
@@ -240,6 +279,9 @@ export function Scene({
         interactive={interactive}
         reduced={reduced}
         paused={paused}
+        offscreen={offscreen}
+        presentation={presentation}
+        arrivalReady={arrivalReady}
       />
       {tier > 0 && (
         <Suspense fallback={null}>

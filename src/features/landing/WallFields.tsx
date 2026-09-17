@@ -78,8 +78,9 @@ export function WallFields({ widthMm, heightMm, onWall, onExample, exampleIndex 
           onChangeMm={(mm) => onWall({ heightMm: mm })}
         />
       </div>
+      {/* The tile size is captioned under the wall itself, so this says the one thing the fields cannot. */}
       <p id={hintId} className={styles.hint}>
-        Tiles are 150 mm here. In the studio you pick the tile size, or Tessera works out one that needs no cuts.
+        In the studio you pick the tile size, or Tessera works out one that needs no cuts.
       </p>
     </fieldset>
   )

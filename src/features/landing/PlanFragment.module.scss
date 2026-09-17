@@ -30,6 +30,12 @@
   stroke: var(--cut);
 }
 
+// The field inside the hatch. It is the legend's own cut wash, so a cut tile on the plan and a cut
+// mark in the table beside it are painted from the same pot.
+.cutWash {
+  fill: var(--cut-soft);
+}
+
 .inkText {
   fill: var(--ink);
 }
@@ -64,7 +70,7 @@
 // halo in the surface it sits on first: the drafter's break in the line, and it holds at phone size.
 .chainText {
   paint-order: stroke;
-  stroke: var(--panel-2);
+  stroke: var(--plan-field, var(--panel-2));
   stroke-dasharray: none;
   stroke-linejoin: round;
 }
@@ -95,7 +101,7 @@
 // The other half of that highlight: a piece covering most of the wall is shown by fading the rest,
 // since lighting two cells in three is not a highlight. One path, so the joints fade with the tiles.
 .fade {
-  fill: color-mix(in srgb, var(--panel-2) 74%, transparent);
+  fill: color-mix(in srgb, var(--plan-field, var(--panel-2)) 74%, transparent);
   pointer-events: none;
 }
 
@@ -103,7 +109,8 @@
 // way the wall is laid. Pure CSS: --lay (0 at that corner, 1 at the far one) is all React writes, and
 // the parent's [data-drawn] starts the wave. 220 ms of stagger plus a 160 ms fade, cuts done by 400 ms.
 .shutter {
-  fill: var(--panel-2);
+  // The surface the drawing is on: a plate sets --plan-field so the shutters fade into its field.
+  fill: var(--plan-field, var(--panel-2));
   opacity: 1;
   pointer-events: none;
   transition: opacity 160ms var(--ease-out);
@@ -142,9 +149,62 @@
   }
 }
 
+// A forced palette carries no red and no warm ink: it filters the paints it is given by lightness,
+// which leaves --ink-3 a mid-tone that never lifts off Canvas and lets the cut red land anywhere.
+// So every paint in the drawing is named in the system's own colors here, and "cut" is carried by
+// the hatch and by the mark rather than by hue.
 @include forced-colors {
   .shutter {
     display: none;
+  }
+
+  .whole,
+  .outline,
+  .rule,
+  .guide,
+  .cutLine,
+  .region {
+    stroke: CanvasText;
+  }
+
+  .inkText,
+  .wholeText,
+  .cutText,
+  .guideText {
+    fill: CanvasText;
+  }
+
+  // The hatch is the whole of "cut" here, so its field is the drawing's own surface and its lines are
+  // the system's ink: a cut piece still reads as a block of hatching before its mark is read.
+  .cutWash {
+    fill: Canvas;
+  }
+
+  // The break a dimension strikes in the witness lines it is written across.
+  .chainText {
+    stroke: Canvas;
+  }
+
+  // The mark on a cut piece now stands on hatching rather than on a wash, so it strikes its own break
+  // in it. The chain labels carry their own stroke width, and keep it.
+  .inkText:not(.chainText) {
+    paint-order: stroke;
+    stroke: Canvas;
+    stroke-width: 0.1em;
+    stroke-linejoin: round;
+  }
+
+  // The piece being pointed at takes the system's own selected color; a 10% ink wash is nothing here.
+  .active {
+    fill: none;
+    stroke: Highlight;
+  }
+
+  // The other half of that highlight: the field itself, thinned, so the rest of the wall goes quiet
+  // while the piece stays fully drawn.
+  .fade {
+    fill: Canvas;
+    fill-opacity: 0.7;
   }
 }
 

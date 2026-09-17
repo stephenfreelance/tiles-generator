@@ -6,3 +6,6 @@ dist
 .impeccable/review
 test-output
 *.log
+
+# Workflow worktrees, never part of the project
+.claude/worktrees/

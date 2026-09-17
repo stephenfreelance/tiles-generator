@@ -8,7 +8,7 @@ import { heroPiece } from '@/hooks/previewLod'
 import { usePreviewMeshes } from '@/hooks/usePreviewMeshes'
 import type { CameraRigHandle } from './CameraRig'
 import { meshMatchesPiece } from './geometry'
-import { LOOK, type Tier } from './look'
+import { LOOK, type Presentation, type Tier } from './look'
 import { Scene, SceneBackground, type Shown } from './Scene'
 import { SceneServices, ServicesContext, usePrefersReducedMotion } from './sceneServices'
 import { settingOutPoint, waveAnimates, WaveDirector, waveSettleDelay, type WaveClock } from './wave'
@@ -29,6 +29,18 @@ export interface TileViewportProps {
   paused?: boolean
   /** Scene background as '#RRGGBB': the surface the board sits on. Omitted, it is the drafting sheet. */
   background?: string
+  /** Framing and lighting preset. Omitted or 'studio': every route's view, exactly as it is today. */
+  presentation?: Presentation
+  /**
+   * The object presentation holds its arrival at frame 0 until this is true: the camera stays back and
+   * round, the key stays up near the top edge of the wall, and the tiles stay unlaid. The hero sets it
+   * when the poster has handed over to the live canvas, which is what makes the arrival something the
+   * visitor sees rather than something that played out behind a still image. Omitted, or under
+   * presentation 'studio', it changes nothing.
+   */
+  arrivalReady?: boolean
+  /** Hold the cut-piece wash on whatever the pointer does. Omitted: the pointer alone decides. */
+  revealCuts?: boolean
   className?: string
   onPendingChange?: (pending: boolean) => void
 }
@@ -160,6 +172,9 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     interactive = true,
     paused = false,
     background,
+    presentation = 'studio',
+    arrivalReady = true,
+    revealCuts: holdCuts = false,
     className,
     onPendingChange,
   },
@@ -407,7 +422,8 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   // The legend counts what is on screen rather than what is being built, so it agrees with the wash.
   const shownCuts = shown?.plan.partialCount ?? 0
   const canRevealCuts = interactive && (shown?.mode ?? mode) === 'surface' && shownCuts > 0
-  const revealCuts = canRevealCuts && (pointerOver || focusWithin)
+  // The legend keeps following the pointer; a caller holding the wash on is naming the cuts itself.
+  const revealCuts = (canRevealCuts && (pointerOver || focusWithin)) || (holdCuts && (shown?.mode ?? mode) === 'surface' && shownCuts > 0)
 
   const description =
     mode === 'tile'
@@ -438,7 +454,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
           <Canvas
             key={canvasKey}
             frameloop="demand"
-            dpr={[1, LOOK.quality.dprMax[tier]]}
+            dpr={[1, presentation === 'object' ? Math.min(LOOK.quality.dprMax[tier], LOOK.object.dprMax) : LOOK.quality.dprMax[tier]]}
             shadows="percentage"
             camera={{ fov: LOOK.camera.fovDeg, near: 1, far: 100000, position: [0, 0, 2000] }}
             gl={(defaults) =>
@@ -464,12 +480,15 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
                   revealCuts={revealCuts}
                   interactive={interactive}
                   paused={paused || offscreen}
+                  offscreen={offscreen}
                   reduced={reduced}
                   tier={tier}
                   color={config.color}
                   unit={config.surfaceUnit}
                   wave={wave}
                   rigRef={rigRef}
+                  presentation={presentation}
+                  arrivalReady={arrivalReady}
                   onTierChange={setTier}
                 />
               )}

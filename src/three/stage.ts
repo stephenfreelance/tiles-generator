@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { LOOK } from './look'
+import { LOOK, type Presentation } from './look'
 
 /** Dimension annotations: kept out of the shadow and contact-shadow passes. */
 export const OVERLAY_LAYER = 1
@@ -137,6 +137,17 @@ export function fitShadowCamera(
   }
 }
 
+const WORLD_UP = /* @__PURE__ */ new THREE.Vector3(0, 1, 0)
+
+/** Screen basis of a camera standing at `direction` from its target: forward, right and up, all unit. */
+function screenAxes(direction: THREE.Vector3): { forward: THREE.Vector3; right: THREE.Vector3; up: THREE.Vector3 } {
+  const forward = direction.clone().negate()
+  const right = new THREE.Vector3().crossVectors(forward, WORLD_UP)
+  if (right.lengthSq() < 1e-10) right.set(1, 0, 0)
+  right.normalize()
+  return { forward, right, up: new THREE.Vector3().crossVectors(right, forward) }
+}
+
 /** World direction from the target toward the camera for camera-controls style azimuth/elevation. */
 export function cameraDirection(azimuthDeg: number, elevationDeg: number): THREE.Vector3 {
   const az = azimuthDeg * DEG
@@ -239,6 +250,49 @@ function recenterTarget(
     .addScaledVector(upAxis, centerOffset(vertical, depths))
 }
 
+export interface ScreenBounds {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+/**
+ * Where `corners` land on screen, in fractions of the half-frame: +1 is the right edge, -1 the left,
+ * +1 the top. The union over every direction the fit holds for, not one view, because a frame the
+ * sway swings through has to keep its composition at the ends of that swing as well.
+ */
+export function screenBounds(
+  corners: readonly THREE.Vector3[],
+  target: THREE.Vector3,
+  directions: readonly THREE.Vector3[],
+  distance: number,
+  fovDeg: number,
+  aspect: number,
+): ScreenBounds {
+  const tanV = Math.tan((fovDeg * DEG) / 2)
+  const tanH = tanV * Math.max(0.1, aspect)
+  const bounds: ScreenBounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+  const position = new THREE.Vector3()
+  const rel = new THREE.Vector3()
+  for (const direction of directions) {
+    const axes = screenAxes(direction)
+    position.copy(target).addScaledVector(direction, distance)
+    for (const corner of corners) {
+      rel.subVectors(corner, position)
+      // A corner level with the camera would divide by zero; the fit never puts one there.
+      const depth = Math.max(1e-6, rel.dot(axes.forward))
+      const x = rel.dot(axes.right) / (depth * tanH)
+      const y = rel.dot(axes.up) / (depth * tanV)
+      bounds.minX = Math.min(bounds.minX, x)
+      bounds.maxX = Math.max(bounds.maxX, x)
+      bounds.minY = Math.min(bounds.minY, y)
+      bounds.maxY = Math.max(bounds.maxY, y)
+    }
+  }
+  return bounds
+}
+
 export interface FramingInput {
   stage: Stage
   mode: ViewMode
@@ -258,6 +312,134 @@ export interface FramingInput {
   sweep?: CameraSweep
   /** Center the subject in the frame instead of only fitting it inside. Off: today's framing, exactly. */
   recenter?: boolean
+  /** Presentation preset. Omitted or 'studio': today's framing, exactly. */
+  presentation?: Presentation
+  /**
+   * Where the subject sits in the frame and how much air the fit leaves around it. Omitted: centered
+   * at the preset's own margin, which is what every route asks for.
+   */
+  composition?: Composition
+}
+
+/** How a subject is composed in its frame. `objectComposition` is the one place these are chosen. */
+export interface Composition {
+  /**
+   * Where the subject is asked to sit, in fractions of the half-frame: 0 is dead center, +0.2 puts it
+   * a fifth of the way toward the right edge (and toward the top). An intent, not a promise: a frame
+   * with a column of type laid over it holds the subject clear of that column first, and keeps this
+   * only where it already does.
+   */
+  screenShift: { x: number; y: number }
+  /** Air the fit leaves around the subject, replacing the preset's own: 1 is edge to edge. */
+  margin: number
+  /**
+   * Fraction of the frame's width that has to stay clear on the left, because the page lays a column
+   * of type over exactly that much of this same screen. The fit pulls back until the subject fits
+   * what is left of the frame, then sits inside it. Omitted or 0: nothing is laid over this frame.
+   */
+  clearLeft?: number
+}
+
+// Frozen at module scope, so a frame on the narrow side hands back the same object every render and
+// nothing downstream re-frames (the cinematic rig restarts its clock on every new framing).
+const OBJECT_NARROW: Composition = { screenShift: LOOK.object.narrow.screenShift, margin: LOOK.object.narrow.margin }
+
+// The last wide composition handed out, by the exact frame width it was built for. The clearance is a
+// continuous function of that width, so there is no second constant to freeze: this is what keeps a
+// render at an unchanged width handing back the identical object.
+let wideAt = Number.NaN
+let wideComposition: Composition | null = null
+
+/**
+ * Where the page's column of type ends on a frame `frameWidthPx` CSS pixels wide, plus the air the
+ * wall keeps off it, in CSS pixels. Mirrors `.hero` in LandingPage.module.scss (see
+ * `LOOK.object.typeColumn`): a --gutter, then a lede column of at most 27rem, then one --pad of air.
+ */
+export function typeColumnClearancePx(frameWidthPx: number): number {
+  const spec = LOOK.object.typeColumn
+  const width = Math.max(1, frameWidthPx)
+  const pad = THREE.MathUtils.clamp(spec.padBasePx + width * spec.padPerPx, spec.padMinPx, spec.padMaxPx)
+  const gutter = Math.max(pad, (width - spec.contentMaxPx) / 2)
+  const column = Math.min(spec.columnPx, Math.max(0, width - gutter * 2))
+  return gutter + column + pad * spec.airPads
+}
+
+/**
+ * How the 'object' presentation composes a frame `frameWidthPx` CSS pixels wide. Wide enough and the
+ * page lays its column of type over the left of the same screen: the wall is then held clear of that
+ * column, continuously, by the width of the column at this exact width rather than by a breakpoint.
+ * A cliff there is what printed the headline over the wall on every window between 993 and 1300 px.
+ * Narrower than `narrow.widthPx`, the object stands on a row of its own with nothing over it, so the
+ * wall is composed square on: the whole of it, cut column and cut row included, inside a frame that
+ * has no width to lose. That one step is the page's own, not the camera's. Read only under
+ * presentation 'object'.
+ */
+export function objectComposition(frameWidthPx: number): Composition {
+  if (frameWidthPx <= LOOK.object.narrow.widthPx) return OBJECT_NARROW
+  if (wideComposition !== null && wideAt === frameWidthPx) return wideComposition
+  wideAt = frameWidthPx
+  wideComposition = {
+    screenShift: LOOK.object.screenShift,
+    margin: LOOK.object.wall.margin,
+    clearLeft: Math.min(LOOK.object.typeColumn.maxFraction, typeColumnClearancePx(frameWidthPx) / frameWidthPx),
+  }
+  return wideComposition
+}
+
+/**
+ * The opt-in arrival: where the camera stands and how high the key light sits when the wall first
+ * appears, and how they settle onto the framing. Pure so the choreography is tested without a canvas;
+ * `LOOK.object.arrival` is the one instance of it, and nothing under presentation 'studio' reads it.
+ */
+export interface ArrivalSpec {
+  seconds: number
+  power: number
+  distanceFactor: number
+  azimuthDeg: number
+  elevationDeg: number
+  keyFromDeg: number
+  keySeconds: number
+  keyPower: number
+}
+
+/**
+ * How far the arrival is still from home at `progress`: 1 at the start, 0 once it has landed. Gentle
+ * at both ends, so the move leaves the held pose without a jerk and lands without a bounce, and so it
+ * carries its length through the middle and the end of its window rather than spending it in the
+ * first third: the first third is the one part of it played under a poster that is still dissolving.
+ * `power` is the tail: 1 is the ease itself, above 1 settles sooner, below 1 keeps moving later.
+ */
+function remaining(progress: number, power: number): number {
+  return Math.pow(1 - THREE.MathUtils.smoothstep(THREE.MathUtils.clamp(progress, 0, 1), 0, 1), power)
+}
+
+/**
+ * The camera's offset from the settled framing at `progress`: further back along its own axis, round
+ * toward the face of the wall, and higher. The fit already holds over the whole sway and the arrival
+ * only ever pulls back from it, so nothing it passes through is outside the frame.
+ */
+export function arrivalOffset(spec: ArrivalSpec, progress: number): { azimuthDeg: number; polarDeg: number; distanceFactor: number } {
+  const back = remaining(progress, spec.power)
+  return {
+    azimuthDeg: spec.azimuthDeg * back,
+    // Polar counts down from +Y where elevation counts up: a higher camera is a smaller polar angle.
+    polarDeg: -spec.elevationDeg * back,
+    distanceFactor: 1 + (spec.distanceFactor - 1) * back,
+  }
+}
+
+/**
+ * Key-light elevation at `progress` of its own rake, from near the top edge of the wall down to
+ * `restDeg`. Gentler than the camera's curve, so the shadows are still lengthening as it comes to rest.
+ */
+export function rakeElevationDeg(spec: ArrivalSpec, restDeg: number, progress: number): number {
+  return restDeg + (spec.keyFromDeg - restDeg) * remaining(progress, spec.keyPower)
+}
+
+/** The camera preset a mode and a presentation ask for. */
+export function framingPreset(mode: ViewMode, presentation: Presentation = 'studio'): { azimuthDeg: number; elevationDeg: number; margin: number } {
+  if (mode === 'tile') return LOOK.camera.tile
+  return presentation === 'object' ? LOOK.object.wall : LOOK.camera.wall
 }
 
 export interface Framing {
@@ -279,7 +461,7 @@ export interface Framing {
 
 export function computeFraming(input: FramingInput): Framing {
   const { stage, mode, width, height, reliefTop } = input
-  const preset = mode === 'tile' ? LOOK.camera.tile : LOOK.camera.wall
+  const preset = framingPreset(mode, input.presentation)
   const corners = boxCorners(stage, width, height, 0, reliefTop)
   let target = surfaceToWorld(stage, 0, 0, reliefTop / 2)
   const direction = cameraDirection(preset.azimuthDeg, preset.elevationDeg)
@@ -297,10 +479,12 @@ export function computeFraming(input: FramingInput): Framing {
       }
     }
   }
+  // The composition's own margin where it carries one: a narrow frame is fitted looser than a wide one.
+  const margin = input.composition?.margin ?? preset.margin
   const fitAll = (from: THREE.Vector3): number => {
     let fit = 0
     for (const d of directions) fit = Math.max(fit, fitDistance(fitCorners, from, d, input.fovDeg, input.aspect))
-    return fit * preset.margin
+    return fit * margin
   }
   let distance = fitAll(target)
   if (input.recenter) {
@@ -309,6 +493,37 @@ export function computeFraming(input: FramingInput): Framing {
     for (let pass = 0; pass < 2; pass++) {
       target = recenterTarget(fitCorners, target, direction, distance)
       distance = fitAll(target)
+    }
+  }
+  // Off-centre composition: the camera aims beside the subject rather than at it. Where the page lays
+  // a column of type over the left of this same frame, the fit pulls back until the subject fits what
+  // is left and is then stood inside it, so the type never lands on the subject at any width.
+  const composition = input.composition
+  if (composition) {
+    const clear = THREE.MathUtils.clamp(composition.clearLeft ?? 0, 0, 0.8)
+    // Half-frame coordinates: -1 is the left edge of the frame and +1 the right, so the column ends here.
+    const leftLimit = clear * 2 - 1
+    const band = 1 - leftLimit
+    const axes = screenAxes(direction)
+    const tanV = Math.tan((input.fovDeg * DEG) / 2)
+    const tanH = tanV * Math.max(0.1, input.aspect)
+    // Two passes: moving the target moves the camera with it, which shifts what the swayed views see
+    // by a fraction of a percent, and the second pass takes that back out.
+    for (let pass = 0; pass < 2; pass++) {
+      const seen = screenBounds(fitCorners, target, directions, distance, input.fovDeg, input.aspect)
+      // Only ever further back, and only as far as the column asks: a frame with nothing over it keeps
+      // the fit it was given.
+      const pull = Math.max(1, (seen.maxX - seen.minX) / band)
+      distance *= pull
+      const halfWidth = (seen.maxX - seen.minX) / (2 * pull)
+      const halfHeight = (seen.maxY - seen.minY) / (2 * pull)
+      const x = THREE.MathUtils.clamp(composition.screenShift.x, leftLimit + halfWidth, 1 - halfWidth)
+      const y = THREE.MathUtils.clamp(composition.screenShift.y, -1 + halfHeight, 1 - halfHeight)
+      // Moving the target left is what puts the subject right: the camera travels with it, and both
+      // axes are square to the view, so nothing here changes how far away anything is.
+      target
+        .addScaledVector(axes.right, -(x - (seen.minX + seen.maxX) / (2 * pull)) * distance * tanH)
+        .addScaledVector(axes.up, -(y - (seen.minY + seen.maxY) / (2 * pull)) * distance * tanV)
     }
   }
   const position = target.clone().addScaledVector(direction, distance)
