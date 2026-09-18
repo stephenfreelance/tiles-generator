@@ -83,9 +83,11 @@ export const LANDING_BASE: DesignConfig = normalizeConfig({
   // the exact-fit wall is what the nudge in section 2 is built on.
   joint: 0,
   // A wider chamfer than the studio's default 0.5 mm. Two tiles meet chamfer to chamfer, so this
-  // opens a 3 mm valley along every joint: at the size the hero shows the wall that is the line that
-  // makes 35 separate printed tiles read as 35 separate printed tiles rather than as one sheet.
-  bevel: 1.5,
+  // opens a 2 mm valley along every joint: at the size the hero shows the wall that is the line that
+  // makes 35 separate printed tiles read as 35 separate printed tiles rather than as one sheet. Not
+  // wider: the key rakes this wall at 18 degrees, so the far wall of every horizontal valley is a
+  // face the key cannot reach, and every millimetre of chamfer is another millimetre of it.
+  bevel: 1,
   layout: { origin: 'corner', rowOffset: 0 },
   texture: { ...DEFAULT_CONFIG.texture, id: DEFAULT_TEXTURE_ID },
   color: DEFAULT_COLOR,

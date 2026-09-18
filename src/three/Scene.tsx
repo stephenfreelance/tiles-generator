@@ -251,6 +251,7 @@ export function Scene({
             wave={wave}
             highlightPieceId={highlightPieceId}
             revealCuts={revealCuts}
+            cutHatch={object ? LOOK.object.waveCutHatch : undefined}
             reduced={reduced}
             stage={stage}
           />

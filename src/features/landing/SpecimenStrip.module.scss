@@ -1,6 +1,17 @@
 @use '@/styles/mixins' as *;
 @use './glaze' as *;
 
+// 23 is prime, so the board's last row is whatever the column count leaves over, and a count picked
+// by the browser leaves a single orphan at exactly the width most people read this on: an auto-filled
+// 7rem track reaches 11 columns at 1432 px, which is 11, 11 and one lonely chip on a line of its own.
+// Capping the count at 8 (below) retires that, and with it the 10 columns just under it: from 1048 px
+// to any width at all the board reads 8, 8 and 7, which is the fullest last row 23 can make.
+//
+// Under 1048 px the auto-fill's own counts are kept, because every one of them already ends on two
+// chips or more: 3 at 488 px, then 4, 5, 6, 7 and 8, whose tails are 2, 3, 3, 5, 2 and 7. The thinnest
+// is the 7-column band from 920 to 1040 px, which ends on two. Six columns would end on five there,
+// but only by growing every chip to 150 px and the page under it by most of a row, so the band keeps
+// the columns and the chip size it has.
 .strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -17,12 +28,41 @@
   // out a narrow column while the chips are skipped.
   contain-intrinsic-height: auto 44rem;
 
+  // 73rem is inside the band the auto-fill already fills with 8 columns, so nothing jumps at this
+  // width: the board simply stops counting past 8 from here on, and every wider screen spends the
+  // room it gains on bigger samples (159 px at 1440, 164 px past 1600) rather than on another column.
+  @media (min-width: 73rem) {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    contain-intrinsic-height: auto 38rem;
+  }
+
   // Four columns, so all 23 patterns land on one phone screen instead of six. minmax(0, 1fr) rather
   // than 1fr: the truncated name below must not set the column's minimum width.
   @media (max-width: 30rem) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--s-3) var(--s-2);
     contain-intrinsic-height: auto 43rem;
+  }
+}
+
+// The board lays itself in once, in reading order, the way a row of tiles goes down on a bench: the
+// only thing that moves is the sample and the name that belongs to it, together, 6 px and no further.
+// The start state is inside motion-safe, so a reader who asked for less motion has the whole board
+// from the first frame whether or not the trigger on the strip ever fires.
+@include motion-safe {
+  .strip > li {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 380ms var(--ease-out),
+      transform 380ms var(--ease-out);
+    // 23 chips at 18 ms is 400 ms of stagger: a wave across the board, not a queue to watch.
+    transition-delay: calc(var(--lay, 0) * 18ms);
+  }
+
+  .strip[data-laid] > li {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -89,13 +129,16 @@
   opacity: 1;
 }
 
+// Under the hand a sample comes off the bench and takes the light with it: the glaze sweeps across it
+// (above) while the shadow lengthens under it. The chips are half as wide again as they were, so the
+// lift is a little deeper than it was, and still nothing a reader has to wait for.
 .specimen:hover .sample {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.12),
     var(--shadow-md);
 
   @include motion-safe {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
 }
 

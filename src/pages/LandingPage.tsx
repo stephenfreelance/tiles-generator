@@ -2,7 +2,7 @@
 // the hero and then laid out, cut, rendered, recolored and packed in front of them. Every number below
 // is a computeLayout result for that wall, so a reader who counts always finds the page agreeing with
 // itself. The hero is a product photograph and the sections under it are the plates of a catalogue.
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { studioIntent } from '@/app/prefetchStudio'
 import { COLOR_PRESETS, parseHex } from '@/core/colors'
@@ -30,6 +30,7 @@ import { WallFields } from '@/features/landing/WallFields'
 import { useDesign } from '@/state/designStore'
 import { useHistory } from '@/state/historyStore'
 import { Button, buttonClassName, Switch } from '@/ui'
+import { cx } from '@/ui/cx'
 import styles from './LandingPage.module.scss'
 
 // Lazy, exactly as KitStrip loads it: the rolling count is below the fold on every viewport, and a
@@ -50,6 +51,45 @@ const EXTRA_FILES = 2
  * that says the hand has stopped, short enough that a single press still announces at once.
  */
 const SETTLE_MS = 500
+
+/** How far up the window a band's top edge has to come before the lamp over it is raised. */
+const REACH_FRACTION = 0.88
+
+/**
+ * True from the moment a band has been reached, and true forever after. The light it raises and the
+ * plate it lays in are both decoration over content that is already on the page, so the worst a
+ * missed trigger can do is leave a lamp off, and reduced motion never asks the question at all.
+ *
+ * Measured against the window on arrival and on every scroll until it fires, exactly as CutPlanPanel
+ * measures its own reveal: a jump (a restored scroll position, find-in-page, the skip link) can carry
+ * a band past an IntersectionObserver without one callback, so the observer here only says that
+ * something moved and the rect is what answers. The top edge alone is read, never the bottom, so a
+ * band that was scrolled straight past counts as reached rather than waiting to be scrolled back to.
+ */
+function useReached<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [reached, setReached] = useState(false)
+
+  useEffect(() => {
+    const element = ref.current
+    if (reached || !element) return
+    const check = () => {
+      if (element.getBoundingClientRect().top < window.innerHeight * REACH_FRACTION) setReached(true)
+    }
+    check()
+    const observer = new IntersectionObserver(check)
+    observer.observe(element)
+    window.addEventListener('scroll', check, { passive: true })
+    window.addEventListener('resize', check, { passive: true })
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', check)
+      window.removeEventListener('resize', check)
+    }
+  }, [reached])
+
+  return [ref, reached] as const
+}
 
 /** The value once it has stopped changing for `delayMs`: the trailing edge of a burst, never the whole burst. */
 function useSettled<T>(value: T, delayMs: number): T {
@@ -161,6 +201,11 @@ export function LandingPage() {
   // The object, the accent and the fit line take every frame of a wheel drag. The 23 samples and the
   // kit chips are worker renders, so they follow the color only once the gesture behind it has settled.
   const [settledColor, setSettledColor] = useState(LANDING_DESIGN_START.color)
+  // One per band, so each turns its own light on as it is read rather than the page lighting at once.
+  const [cutsRef, cutsLit] = useReached<HTMLElement>()
+  const [patternsRef, patternsLit] = useReached<HTMLElement>()
+  const [deliverRef, deliverLit] = useReached<HTMLElement>()
+  const [closeRef, closeLit] = useReached<HTMLElement>()
 
   const objectConfig = useMemo(
     () =>
@@ -301,7 +346,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className={styles.section}>
+        <section className={styles.section} ref={cutsRef} data-lit={cutsLit ? '' : undefined}>
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               01
@@ -387,7 +432,7 @@ export function LandingPage() {
           )}
         </section>
 
-        <section className={styles.section}>
+        <section className={styles.section} ref={patternsRef} data-lit={patternsLit ? '' : undefined}>
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               02
@@ -418,7 +463,7 @@ export function LandingPage() {
           <ColorStrip color={color} onPick={pickColor} onPickEnd={settleColor} />
         </section>
 
-        <section className={styles.section}>
+        <section className={styles.section} ref={deliverRef} data-lit={deliverLit ? '' : undefined}>
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               03
@@ -441,7 +486,7 @@ export function LandingPage() {
                 {/* The only place the page counts the files. */}
                 <p className={styles.plateNote}>{plural(fileCount, 'file')}</p>
               </div>
-              <div className={styles.plateField}>
+              <div className={cx(styles.plateField, styles.plateFieldLay)}>
                 <KitStrip config={settledConfig} plan={plan} />
               </div>
               <p className={styles.plateFoot}>
@@ -496,7 +541,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className={styles.close}>
+        <section className={styles.close} ref={closeRef} data-lit={closeLit ? '' : undefined}>
           <h2 className={styles.closeHeading}>
             Measure the wall. <span className={styles.closeTail}>Tessera works out the rest.</span>
           </h2>

@@ -1,5 +1,5 @@
 // The specimen board: every relief in the catalog, rendered as a lit sample you can start from.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { TEXTURES } from '@/core/textures/registry'
 import type { DesignConfig } from '@/core/types'
 import { useTextureChips, type ChipItem } from '@/hooks'
@@ -8,6 +8,13 @@ import styles from './SpecimenStrip.module.scss'
 
 /** How far ahead of the grid the worker is asked for its 23 chips: a screen's warning on a phone. */
 const LEAD_PX = 600
+
+/**
+ * How far up the window the board's top edge has to come before it lays itself in. The chips are asked
+ * for a whole screen early (LEAD_PX), which is far too early to start the wave: at that distance the
+ * board is still skipped by `content-visibility` and the whole thing would be over before it was seen.
+ */
+const LAY_FRACTION = 0.9
 
 export interface SpecimenStripProps {
   /** The design the samples are rendered in: its tile size, depth range and color. */
@@ -65,24 +72,25 @@ export function SpecimenStrip({ base, showJoints, onPick }: SpecimenStripProps) 
   // 23 lit samples are the page's heaviest work and every one of them starts below the fold, so the
   // hero's mesh and the LCP image get the worker and the main thread first.
   const [near, setNear] = useState(false)
+  // And the wave that lays them down, a screen later, when the board is actually being looked at.
+  const [laid, setLaid] = useState(false)
 
   // The observer is the cheap half; the rect is the half that cannot be missed. A jump (a restored
   // scroll position, find-in-page, the skip link) can carry the grid into view without a scroll
-  // event, and an observer that never fires would leave 23 blank squares, so both are watched.
+  // event, and an observer that never fires would leave 23 blank squares, so both are watched. The
+  // observer only says "something changed": both answers are read off the rect, so one listener
+  // settles the render and the wave together, and the pair goes once both have been settled.
   useEffect(() => {
     const element = stripRef.current
-    if (near || !element) return
+    if ((near && laid) || !element) return
     const check = () => {
       const box = element.getBoundingClientRect()
       if (box.top < window.innerHeight + LEAD_PX && box.bottom > -LEAD_PX) setNear(true)
+      // Top edge only: a board already scrolled past is laid, never held at the start of its own wave.
+      if (box.top < window.innerHeight * LAY_FRACTION) setLaid(true)
     }
     check()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) setNear(true)
-      },
-      { rootMargin: `${LEAD_PX}px` },
-    )
+    const observer = new IntersectionObserver(check, { rootMargin: `${LEAD_PX}px` })
     observer.observe(element)
     window.addEventListener('scroll', check, { passive: true })
     window.addEventListener('resize', check, { passive: true })
@@ -91,7 +99,7 @@ export function SpecimenStrip({ base, showJoints, onPick }: SpecimenStripProps) 
       window.removeEventListener('scroll', check)
       window.removeEventListener('resize', check)
     }
-  }, [near])
+  }, [laid, near])
 
   const items = useMemo<ChipItem[]>(
     () =>
@@ -115,11 +123,18 @@ export function SpecimenStrip({ base, showJoints, onPick }: SpecimenStripProps) 
   const chips = useTextureChips(base, items, PATTERN_CHIP_PX)
 
   return (
-    <ul ref={stripRef} className={styles.strip} data-joints={showJoints ? '' : undefined}>
-      {TEXTURES.map((texture) => {
+    <ul
+      ref={stripRef}
+      className={styles.strip}
+      data-joints={showJoints ? '' : undefined}
+      data-laid={laid ? '' : undefined}
+    >
+      {TEXTURES.map((texture, index) => {
         const src = chips.get(texture.id)
         return (
-          <li key={texture.id}>
+          // The chip's place in the wave. A plain custom property, so the stagger is one CSS rule and
+          // the markup carries nothing but the index it already has.
+          <li key={texture.id} style={{ '--lay': index } as CSSProperties}>
             <button
               type="button"
               className={styles.specimen}

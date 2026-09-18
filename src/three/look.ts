@@ -259,25 +259,75 @@ export const LOOK = {
    */
   object: {
     /**
-     * Camera preset for the wall stage: further round and lower, so the relief is seen along itself.
-     * The margin is the air a photograph of a thing keeps around it (1 is edge to edge), and it is the
-     * whole of it: the composition no longer buys its off-centre room by pulling back a second time.
+     * No red-pencil flash on the cut pieces as the wave lays them. On the studio's drawing that
+     * flash names the cuts; on a photograph of a printed wall it is a mustard band down the right
+     * edge and along the bottom for a second, and the cut geometry already says it here.
      */
-    wall: { azimuthDeg: -31, elevationDeg: 8, margin: 1.229 },
+    waveCutHatch: 0,
+    /**
+     * Camera preset for the wall stage: further round and lower, so the relief is seen along itself.
+     * The margin is the air a photograph of a thing keeps around it (1 is edge to edge), and it is
+     * the air it keeps inside whatever the page's own type leaves it, not inside the screen: a
+     * window that hands the object half its width photographs it smaller rather than jamming it
+     * against the column. At 1.229 the wall ran from the last word of the headline to the right-hand
+     * edge of a 1,024 pixel window, which reads as a texture laid over the page, not as a thing.
+     */
+    wall: { azimuthDeg: -31, elevationDeg: 8, margin: 1.36 },
     /** Key-light elevation over the wall. With envIntensity below, this is what rakes the relief. */
     keyElevationDeg: 18,
     /** Key intensity: the rake is the whole point of this view, so it is pushed past the studio's. */
     keyIntensity: 6.8,
     /**
-     * scene.environmentIntensity, pulled down from the studio's 1.7. The key and the environment
-     * together are exposure and their ratio is contrast: less fill under the same key is what turns a
-     * lit swatch into a photograph, and it is what lets every ridge keep the shadow it throws.
+     * A slow breath on the key, in fractions of its intensity. It rides frames the view is already
+     * drawing (the drift, the scroll, the arrival) and never asks for one of its own, so a page left
+     * open still lets the loop sleep. Small enough that it reads as a lamp settling, never as a fade.
      */
-    envIntensity: 1.2,
+    breath: { amplitude: 0.045, periodS: 13 },
+    /**
+     * The light the room throws back at the wall from the side the key never reaches. It casts no
+     * shadow, because a bounce has none: it is what turns the far wall of every chamfer from a black
+     * scratch into a grout shadow, and it is the one thing that keeps a 45 degree valley lit at all
+     * when the key rakes across it at 18. Azimuth is measured from the key's own, so the hand that
+     * sweeps the key swings the bounce with it and the two never cross.
+     */
+    bounce: {
+      azimuthOffsetDeg: 168,
+      /**
+       * Low, like the light coming back off a room rather than off a ceiling. A high bounce lands on
+       * the face of the wall and on the far side of the chamfer in equal measure, which lifts the
+       * joint by flattening everything around it; a grazing one lands on the chamfer and barely
+       * touches the face, which is the whole trick.
+       */
+      elevationDeg: 22,
+      intensity: 1.3,
+      color: '#F7E3C9',
+    },
+    /**
+     * The lamp standing in front of the wall, off toward the key. A point light, so its light falls
+     * off across the face: the corners go quietly down and the wall is lit like a thing in a room
+     * instead of like a swatch under a scanner. The one gradient in this picture.
+     */
+    lamp: {
+      /** How far in front of the wall it stands, in multiples of the wall's longest side. */
+      distanceSpans: 0.72,
+      /** How far off centre, toward the key, in multiples of that same side. */
+      offsetSpans: 0.55,
+      /** Irradiance it lands with at the centre of the wall, in the key's own units. */
+      intensity: 0.6,
+      color: '#FFEBD2',
+    },
+    /**
+     * scene.environmentIntensity, pulled down from the studio's 1.7, and again from this view's own
+     * 1.2 once `bounce` and `lamp` arrived: the fill in this picture comes from somewhere now, and an
+     * environment that lifts the lit face and the shadowed chamfer by the same amount is exposure
+     * spent flattening the shot. The key and the fill together are exposure and their ratio is
+     * contrast: what turns a lit swatch into a photograph is where the fill comes from, not how much.
+     */
+    envIntensity: 0.92,
     /** The tile backs stand this far off the shadow catcher, mm: a real drop shadow under the object. */
     standoffMm: 14,
     /** The studio's 0.36, softened: this shadow is a photograph's, not a drawing's. */
-    shadowOpacity: 0.24,
+    shadowOpacity: 0.3,
     /** PCF softness in texels. Twice the studio's, because this shadow is thrown much further. */
     shadowRadius: 9,
     /**
@@ -327,12 +377,12 @@ export const LOOK = {
      */
     dprMax: 1.75,
     /**
-     * Where the object is asked to sit, in fractions of the half-frame: right of centre and a touch
-     * high. An intent, not a promise. Where the page lays type over this same screen the wall is held
-     * clear of that column first (`typeColumn` below), and on a wide desk, where it already is, this
-     * is what it keeps.
+     * Where the object is asked to sit inside the band the page leaves it: x in fractions of that
+     * band's own half-width (0 is the middle of whatever the type does not take), y in fractions of
+     * the half-frame. Centred across and a touch high, which is where a thing hung on a wall is
+     * photographed. An intent, not a promise: an object too wide for the band keeps the band first.
      */
-    screenShift: { x: 0.17, y: 0.07 },
+    screenShift: { x: 0, y: 0.06 },
     /**
      * The column of type the page lays over the left of this same screen, in CSS pixels of frame.
      * These mirror `.hero` in LandingPage.module.scss, which sets `--pad: clamp(1rem, 0.4rem + 2vw,
@@ -379,10 +429,30 @@ export const LOOK = {
       /** Tighter than the desktop's, because nothing is laid over this frame and every fraction of it
           spent on air is a fraction the wall itself does not get. The air that is left is where the
           shadow the wall stands off falls. */
-      margin: 1.05,
+      margin: 1.18,
     },
     /** The slow drift while the object is on screen: half the studio hero's swing, twice as slow. */
     cinematic: { azimuthAmpDeg: 7, elevationAmpDeg: 1.6, periodS: 36 },
+    /**
+     * What the page's own scroll does to the object. As the first screen leaves, the wall turns a few
+     * degrees further round, the eye drops under it and it settles back into the room: the parallax a
+     * thing standing in a room has when you walk past it, which a picture pasted on the page has not.
+     * It is driven from the frame loop off a number a passive listener writes, never from the scroll
+     * event itself, it is inert under prefers-reduced-motion, and the hero off screen reads none of it.
+     */
+    scroll: {
+      /**
+       * Further round toward the raking edge, degrees. Negative is more oblique, and more oblique is
+       * also narrower on screen: the turn can only ever take the wall further inside its own frame.
+       */
+      azimuthDeg: -6,
+      /** The eye drops as the object rises past it, degrees of elevation: you end up under it. */
+      elevationDeg: -2.5,
+      /** And it stands back into the room as it goes. */
+      distanceFactor: 1.05,
+      /** Damping rate (1/s) toward the pose the scroll asks for: the wall carries weight into the turn. */
+      damp: 5,
+    },
     /**
      * How long the drift carries on after the arrival with nothing touching the object, ms. Half a
      * drift period: it stands down having travelled one visible arc, and a hand on the wall or a

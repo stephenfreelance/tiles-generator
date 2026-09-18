@@ -9,11 +9,11 @@
 // bottom of it rather than taking a row off it. The wall is composed high enough in frame
 // (LOOK.object.screenShift) that the two never meet.
 .stage {
-  // The wash's softness, as a Gaussian standard deviation: the light spreads about three times this
-  // far. It has to be wider than the miss between a baked frame and a live one (the outline it
-  // replaces measured 6 to 14 px) so that the wall's edge is a gradient no eye can read as a line, and
-  // no wider, or the wall's color washes out over the page. --plate-fade is written by HeroStage.tsx.
-  --plate-blur: clamp(9px, 0.85vw, 14px);
+  // How far the glow spreads, as a Gaussian standard deviation: the light reaches about three times
+  // this far. Wide enough that the wall baked into the plate has no edge left anywhere, because a
+  // silhouette here would have to register against a live view that reframes with the window and
+  // against a camera whose framing this raster was not baked at. What is left is light.
+  --plate-blur: clamp(30px, 3.4vw, 50px);
   position: relative;
   display: grid;
   grid-template: 'plate' minmax(0, 1fr) / minmax(0, 1fr);
@@ -31,42 +31,80 @@
   touch-action: pan-y;
 }
 
+// The live render, under the lamp and clearing to the page's own colour (alpha: false). It is opaque
+// and it stays opaque: a WebGL canvas held at a fraction of an opacity has to be read back and blended
+// every frame wherever the compositor is running in software, which on this page measured in seconds,
+// not milliseconds. So the canvas never fades. The lamp over it does.
 .canvas {
   position: absolute;
+  z-index: 0;
   inset: 0;
+}
+
+// While a later rebuild is being meshed the render fades back toward the page rather than flashing.
+// Only once the lamp is gone: before that there is nothing to see through it anyway.
+.object[data-settled] .canvas[data-pending] {
+  opacity: 0.45;
   transition: opacity var(--t-med) var(--ease-out);
 }
 
-// While the wall is being meshed the render fades back toward the page rather than flashing.
-.canvas[data-pending] {
-  opacity: 0.45;
+// The lamp, lit over the spot the wall will hang in before there is anything under it: a pool of the
+// page's own light, out of the page's own palette, painted with its first frame. The render throws
+// one of these on the page anyway (LOOK.object.poolIntensity), so the page opens on the light the
+// photograph is lit by rather than on a picture of the photograph.
+//
+// It is also the whole handover. One opacity ramp on this one layer takes the light off the wall and
+// the wall out of the light together, in step by construction rather than by two clocks agreeing, and
+// it plays over a still frame, because the camera and the key light hold at the first frame of their
+// own arrival until this ramp reports that it has landed (HeroStage.tsx). Nothing is competing with
+// it for the main thread while it runs, which is exactly what the old swap could not say.
+.lamp {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  // The pool, over a flat fill of the page's own colour. Opaque, so the render is completely covered
+  // until the ramp uncovers it: a lamp with transparent corners let the wall paint through them the
+  // instant the canvas drew its first frame, which is a pop before the dissolve has even started. The
+  // fill is --ground, the same paint the canvas clears to, so it is invisible against the page.
+  background:
+    radial-gradient(
+      50% 48% at 63% 44%,
+      var(--panel) 0%,
+      color-mix(in srgb, var(--panel) 55%, transparent) 42%,
+      transparent 80%
+    ),
+    var(--ground);
+  pointer-events: none;
+  // A film dissolve: gentle at both ends and even through the middle, so no frame of it carries a step.
+  transition: opacity var(--reveal, 1200ms) cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-// The object before the render arrives. Not a picture of the render: a plate of the wall's color and
-// the light coming off it, blurred until it has no edge left anywhere. A registering plate cannot
-// work here, because the live view reframes by the width of the window while the plate is one raster
-// baked at one shape, and the miss drew a hard outline around the whole wall at the swap. With no
-// silhouette there is nothing to mis-register: the light dissolves, and the render arrives into it.
+.object[data-lit] .lamp {
+  opacity: 0;
+}
+
+// Nothing on screen changes: it is already fully transparent. This only stops the browser compositing
+// a blurred full-screen raster for as long as the tab lives.
+.object[data-settled] .lamp {
+  display: none;
+}
+
+// The wall's own colour in that light, before there is a wall. It is the LCP element, so it is a real
+// decoded image at first paint and out of layout; it is blurred past every edge and set back to a
+// glow, so it reads as the light coming off a wall rather than as a low-resolution preview of one.
 .plate {
   position: absolute;
-  z-index: 2;
   inset: 0;
   width: 100%;
   height: 100%;
   // Cover, not contain: a letterboxed strip would put the wall's light in a band across the middle of
-  // a frame the render fills, which is the one thing a wash still has to get right.
+  // a frame the render fills, which is the one thing a glow still has to get right.
   object-fit: cover;
   object-position: center;
-  filter: blur(var(--plate-blur));
-  pointer-events: none;
-  // Linear, and long: a dissolve carries its change evenly, so no single frame of it steps. The
-  // duration is --plate-fade rather than --t-med because it survives prefers-reduced-motion, where
-  // --t-med is 0ms and the handover would otherwise be the hard cut this replaces. Nothing moves.
-  transition: opacity var(--plate-fade, 560ms) linear;
-}
-
-.plate[data-gone] {
-  opacity: 0;
+  filter: blur(var(--plate-blur)) saturate(0.6);
+  opacity: 0.42;
+  // Pulled in to the pool and carried right, where LOOK.object.screenShift composes the wall.
+  transform: translate(6%, -2%) scale(0.74);
 }
 
 // The plate caption, ruled off the object above it the way a catalogue rules its plates, and set
@@ -79,22 +117,26 @@
   grid-area: plate;
   align-self: end;
   justify-self: end;
-  gap: var(--s-3);
+  // Tight: the caption and the keys are one block under one rule, not two rows that happen to be
+  // near each other. A wider gap here read as a caption with a toolbar under it.
+  gap: var(--s-2);
   // The page's own gutter, inherited: the caption ends where the page's type ends on both sides, and
   // the width is taken net of it, so the block can never be wider than the screen it is laid on.
   width: calc(100% - 2 * var(--gutter));
-  max-width: 44rem;
+  // As wide as the five keys need and no wider: a rule the width of the page reads as a divider
+  // across the screen rather than as the line under a plate.
+  max-width: 33rem;
   margin-inline: var(--gutter);
-  padding-top: var(--s-3);
+  padding-top: var(--s-2);
   border-top: 1px solid var(--hairline);
 }
 
 // Between a phone and a wide desk the words still sit on this same screen, laid over the left of the
 // object: the caption is held clear of that column instead of running under the lines of type at the
-// bottom of it. 30rem is what keeps its left edge past a 27rem lede plus one gutter at 993 px.
+// bottom of it. 28rem is what keeps its left edge past a 27rem lede plus one gutter at 993 px.
 @media (min-width: 62.0625rem) and (max-width: 72rem) {
   .index {
-    max-width: 30rem;
+    max-width: 28rem;
   }
 }
 
@@ -105,27 +147,28 @@
 // is what sets how large the wall can be: every line the keys wrap to comes off the picture.
 @media (max-width: 62rem) {
   .stage {
-    // A narrower frame gets a shallower wash: the whole plate is about as tall as the wall is here,
+    // A narrower frame gets a shallower glow: the whole plate is about as tall as the wall is here,
     // so a desk-sized blur would push the wall's light off the top and bottom of the frame.
-    --plate-blur: clamp(7px, 2vw, 10px);
+    --plate-blur: clamp(20px, 5vw, 34px);
     grid-template: 'plate' minmax(0, 1fr) 'index' auto / minmax(0, 1fr);
     gap: var(--s-4);
   }
 
-  // Square on and centered below 992 px (LOOK.object.narrow), and larger in frame than a cover crop
-  // of this plate puts it: the wash is scaled up and carried back to the middle, so its light lands
-  // where that wall lands. A wash has no edges to register, so near enough is the whole job, and near
-  // enough is what a single transform can be across a range of phone frames.
+  // The wall is composed square on and dead centre below 992 px (LOOK.object.narrow), so the lamp is
+  // carried back to the middle with it. A glow has no edges, so near enough is the whole job.
   .plate {
-    transform: translate(-14%, 3%) scale(1.14);
+    transform: translate(0, -4%) scale(0.86);
   }
 
-  // The scaled wash would otherwise reach past the window and give the page a sideways scroll. Clipped
-  // with a margin, not at the box: what is cut is air well outside the light, on a frame that already
-  // runs edge to edge.
-  .object {
-    overflow: clip;
-    overflow-clip-margin: 2rem;
+  .lamp {
+    background:
+      radial-gradient(
+        62% 42% at 50% 40%,
+        var(--panel) 0%,
+        color-mix(in srgb, var(--panel) 55%, transparent) 42%,
+        transparent 80%
+      ),
+      var(--ground);
   }
 
   .index {
@@ -139,8 +182,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--s-2) var(--s-3);
-  min-height: 1.5rem;
+  gap: var(--s-1) var(--s-2);
+  min-height: 1.25rem;
 }
 
 .captionDot {
@@ -168,13 +211,14 @@
   font-size: var(--text-xs);
 }
 
-// The other plates, as an index line rather than as buttons on a toolbar: quiet type, a chip of the
-// color it would paint, and one accent rule under the plate that is standing there.
+// The other plates, as the index line under a caption rather than as buttons on a toolbar: quiet
+// type, a chip of the colour it would paint, and a ring around the chip that is standing there. The
+// chips line up under the caption's own chip, so the two lines read as one block of caption.
 .keys {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-1) var(--s-4);
-  margin-left: calc(-1 * var(--s-2));
+  gap: var(--s-1) var(--s-3);
+  margin-left: calc(-1 * var(--s-1));
 }
 
 .key {
@@ -183,30 +227,25 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  min-height: 1.75rem;
-  padding: 0 var(--s-2);
-  border-bottom: 2px solid transparent;
+  min-height: 1.5rem;
+  padding: 0 var(--s-1);
   color: var(--ink-3);
   font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    color var(--t-fast) var(--ease-out),
-    border-color var(--t-fast) var(--ease-out);
+  transition: color var(--t-fast) var(--ease-out);
 
   &:hover {
-    border-bottom-color: var(--hairline);
     color: var(--ink);
   }
 
   &[aria-pressed='true'] {
-    border-bottom-color: var(--accent);
     color: var(--ink);
   }
 
   &:focus-visible {
-    @include focus-ring;
+    @include focus-ring(1px);
   }
 
   @include coarse-pointer {
@@ -220,13 +259,24 @@
   height: 0.75rem;
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+  transition: box-shadow var(--t-fast) var(--ease-out);
+}
+
+// The one standing on the object, marked on the chip itself rather than with a rule under the word:
+// a ring around a colour swatch is how a colour is marked, and it leaves the row as a row of samples
+// instead of a row of tabs. The gap is the page's own paint, so the ring reads as air.
+.key[aria-pressed='true'] .keySwatch {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.2),
+    0 0 0 2px var(--ground),
+    0 0 0 3px var(--accent);
 }
 
 // The tile color is the content of these keys, so it survives a forced palette; the chosen one keeps
 // a visible edge because an accent rule is exactly what such a palette erases.
 @include forced-colors {
-  .key[aria-pressed='true'] {
-    border-bottom-color: Highlight;
+  .key[aria-pressed='true'] .keySwatch {
+    box-shadow: 0 0 0 2px Canvas, 0 0 0 3px Highlight;
   }
 
   .keySwatch,

@@ -1,10 +1,10 @@
 import { CameraControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { LOOK, type Presentation } from './look'
 import { useSceneServices } from './sceneServices'
-import { arrivalOffset, type Framing, type Stage, type ViewMode } from './stage'
+import { arrivalOffset, scrollOffset, type Framing, type Stage, type ViewMode } from './stage'
 
 export interface CameraRigHandle {
   /** Frames the view again, animated. */
@@ -173,13 +173,27 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
 ) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((state) => state.invalidate)
+  const canvas = useThree((state) => state.gl.domElement)
+  const size = useThree((state) => state.size)
   const services = useSceneServices()
+  // The page's own scroll turns the object, but only where there is an object to turn.
+  const scrolls = presentation === 'object' && stage === 'wall' && !reduced
+  // `to` is where the scroll has asked the object to stand and `at` where it has got to; `span` is the
+  // scroll that takes the whole of this view off the top of the screen, measured rather than assumed.
+  const scrollRef = useRef({ to: 0, at: 0, span: 1 })
+  // The listener is attached once and reads this, so scrolling past a hero that is gone costs a clamp.
+  const offscreenRef = useRef(offscreen)
   // How long the drift carries on after the arrival with no hand near the wall. 0: forever, which is
   // every view but the object's.
   const idleStopMs = presentation === 'object' && stage === 'wall' ? LOOK.object.driftIdleMs : 0
   // `played` is per mount, not per framing: the visitor sizes this wall in a field beside it, and an
   // arrival that replayed on every re-frame would pull the camera back on every keystroke.
   const stateRef = useRef({ startedAt: 0, progress: 0, lastAt: 0, arriving: false, played: false, idleAt: 0 })
+  // Where the drift last stood the camera, before the scroll turned it. The drift stands down after a
+  // while and a hand on the wall stops it where it is, so this, and not the framing, is the pose the
+  // scroll turns from: driving the turn off the framing would snap the camera back the first time the
+  // page moved under a wall the drift had carried seven degrees away from it.
+  const poseRef = useRef({ azimuth: 0, polar: 0, distance: 0 })
   const arrival = presentation === 'object' && stage === 'wall' && !reduced ? LOOK.object.arrival : null
 
   const place = useCallback(
@@ -193,15 +207,69 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
     [camera, framing.target],
   )
 
+  /** The same pose, turned by however far the page has scrolled the object away. */
+  const placeScrolled = useCallback(
+    (azimuth: number, polar: number, distance: number) => {
+      if (!scrolls) {
+        place(azimuth, polar, distance)
+        return
+      }
+      const turn = scrollOffset(LOOK.object.scroll, scrollRef.current.at)
+      place(
+        azimuth + THREE.MathUtils.degToRad(turn.azimuthDeg),
+        THREE.MathUtils.clamp(polar + THREE.MathUtils.degToRad(turn.polarDeg), framing.polarLimits[0], framing.polarLimits[1]),
+        distance * turn.distanceFactor,
+      )
+    },
+    [scrolls, place, framing.polarLimits],
+  )
+
+  // How far this view is from being scrolled off the top, in its own CSS pixels. Measured on mount and
+  // whenever the canvas is resized, so the listener itself never reads the layout back.
+  useLayoutEffect(() => {
+    if (!scrolls) return
+    const rect = canvas.getBoundingClientRect()
+    const state = scrollRef.current
+    state.span = Math.max(1, rect.top + window.scrollY + rect.height)
+    state.to = THREE.MathUtils.clamp(window.scrollY / state.span, 0, 1)
+    // A resize mid-scroll must not walk the object round: catch `at` up to wherever the page now is.
+    state.at = state.to
+  }, [scrolls, canvas, size])
+
+  // A hero scrolled away asks for no frames, so the scroll walks on without it: coming back on screen
+  // is where it is told where the page got to, and the one frame it needs to start catching up.
+  useEffect(() => {
+    offscreenRef.current = offscreen
+    if (!scrolls || offscreen) return
+    const state = scrollRef.current
+    state.to = THREE.MathUtils.clamp(window.scrollY / state.span, 0, 1)
+    invalidate()
+  }, [scrolls, offscreen, invalidate])
+
+  // Passive, and one clamp per event: the turn itself is spent in the frame loop, off `at`, so a wheel
+  // that fires ten times between two frames still costs one write. A hero off screen asks for nothing.
+  useEffect(() => {
+    if (!scrolls) return
+    const onScroll = () => {
+      const state = scrollRef.current
+      const next = THREE.MathUtils.clamp(window.scrollY / state.span, 0, 1)
+      if (next === state.to) return
+      state.to = next
+      if (!offscreenRef.current) invalidate()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [scrolls, invalidate])
+
   /** The arrival frozen at `progress`, or the settled framing itself at 1. */
   const placeAt = useCallback(
     (progress: number) => {
       if (!arrival) {
-        place(framing.azimuth, framing.polar, framing.distance)
+        placeScrolled(framing.azimuth, framing.polar, framing.distance)
         return
       }
       const offset = arrivalOffset(arrival, progress)
-      place(
+      placeScrolled(
         framing.azimuth + THREE.MathUtils.degToRad(offset.azimuthDeg),
         THREE.MathUtils.clamp(
           framing.polar + THREE.MathUtils.degToRad(offset.polarDeg),
@@ -211,12 +279,16 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
         framing.distance * offset.distanceFactor,
       )
     },
-    [arrival, framing, place],
+    [arrival, framing, placeScrolled],
   )
 
   useEffect(() => {
     applyCameraClipping(camera, framing)
     const state = stateRef.current
+    const pose = poseRef.current
+    pose.azimuth = framing.azimuth
+    pose.polar = framing.polar
+    pose.distance = framing.distance
     state.startedAt = performance.now()
     if (arrival && !state.played) {
       // A re-frame mid-arrival (a resize, a wall retyped) keeps the progress it had: only a fresh
@@ -258,7 +330,7 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
     [framing, place, invalidate],
   )
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     // Off screen nothing runs at all, the arrival included, and nothing asks for another frame.
     if (offscreen) return
     const state = stateRef.current
@@ -289,17 +361,32 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
       return
     }
     if (reduced) return
-    if (paused) {
-      // A hand on the wall, or a hero scrolled off screen: the countdown to the idle stop runs from
-      // the moment that ends, so coming back to the object always brings the drift back with it.
-      state.idleAt = now
-      return
-    }
+    // A hand on the wall, or a hero scrolled off screen: the countdown to the idle stop runs from the
+    // moment that ends, so coming back to the object always brings the drift back with it.
+    if (paused) state.idleAt = now
     // The drift is scenery, not a thing being watched: once the arrival has landed and nothing has
     // touched the wall for a while it stands down and the loop is allowed to sleep, the way the
     // studio's turntable holds off until the view has been left alone. It costs a landing page a
     // frame every 16 ms for as long as the tab is open, and nobody is watching a 7 degree drift.
-    if (idleStopMs > 0 && state.idleAt > 0 && now - state.idleAt > idleStopMs) return
+    const drifting = !paused && !(idleStopMs > 0 && state.idleAt > 0 && now - state.idleAt > idleStopMs)
+    // The scroll is answered whatever the drift is doing: a hand on the wall drives the light, and a
+    // page going by turns the object, and neither is a reason for the other to stop.
+    const scroll = scrollRef.current
+    const turning = scrolls && Math.abs(scroll.at - scroll.to) > 1e-4
+    if (turning) {
+      scroll.at = THREE.MathUtils.damp(scroll.at, scroll.to, LOOK.object.scroll.damp, Math.min(delta, 1 / 20))
+      if (Math.abs(scroll.at - scroll.to) <= 1e-4) scroll.at = scroll.to
+    }
+    // Nothing moving and nothing to catch up with: the loop is allowed to stop.
+    if (!drifting && !turning) return
+    if (!drifting) {
+      // The drift has stood down, so the object holds the pose it stopped in and only the scroll moves it.
+      const pose = poseRef.current
+      placeScrolled(pose.azimuth, pose.polar, pose.distance)
+      services.motion.bump(now)
+      invalidate()
+      return
+    }
     const seconds = (now - state.startedAt) / 1000
     const sway = stage === 'wall'
     // A product photograph drifts rather than sways: the object presentation halves the swing and
@@ -312,7 +399,11 @@ const CinematicRig = forwardRef<CameraRigHandle, CameraRigProps>(function Cinema
         : THREE.MathUtils.degToRad(cinematic.turntableDegPerSec * seconds))
     const polar =
       framing.polar + THREE.MathUtils.degToRad(cinematic.elevationAmpDeg) * Math.sin((2 * Math.PI * seconds) / (cinematic.periodS * 1.7))
-    place(azimuth, THREE.MathUtils.clamp(polar, framing.polarLimits[0], framing.polarLimits[1]), framing.distance)
+    const pose = poseRef.current
+    pose.azimuth = azimuth
+    pose.polar = THREE.MathUtils.clamp(polar, framing.polarLimits[0], framing.polarLimits[1])
+    pose.distance = framing.distance
+    placeScrolled(pose.azimuth, pose.polar, pose.distance)
     services.motion.bump(now)
     invalidate()
   })

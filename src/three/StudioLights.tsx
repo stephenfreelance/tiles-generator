@@ -50,6 +50,39 @@ function EnvironmentSpin({ stage, lightAngle, envKey }: { stage: Stage; lightAng
   return null
 }
 
+/**
+ * The air around the object: a bounce off the far side of the room and the lamp standing in front of
+ * it. Neither casts a shadow, because neither of them has one to throw: together they are what stops
+ * the chamfer the key rakes across from crushing to black, and what keeps the face of the wall from
+ * being lit flat. Read only under the object presentation, so /studio is lit by exactly what it was.
+ */
+function ObjectAir({ stage, width, height, lightAngle }: { stage: Stage; width: number; height: number; lightAngle: number }) {
+  const span = Math.max(width, height)
+  const bounce = LOOK.object.bounce
+  const lamp = LOOK.object.lamp
+  const placed = useMemo(() => {
+    // A directional light is aimed by where it stands, and the wall's centre is the world origin.
+    const from = keyLightDirection(stage, lightAngle + bounce.azimuthOffsetDeg, bounce.elevationDeg).multiplyScalar(span * 4)
+    const az = THREE.MathUtils.degToRad(lightAngle)
+    const lampAt = surfaceToWorld(
+      stage,
+      Math.cos(az) * span * lamp.offsetSpans,
+      Math.sin(az) * span * lamp.offsetSpans,
+      span * lamp.distanceSpans,
+    )
+    // Point lights fall off with the square of the distance, so the intensity that lands the asked-for
+    // irradiance on the middle of the wall is that square: the lamp then reads the same on a 600 mm
+    // niche and on a 2.4 m feature wall, and only the gradient across the face changes.
+    return { from, lampAt, lampIntensity: lamp.intensity * lampAt.lengthSq() }
+  }, [stage, lightAngle, span, bounce.azimuthOffsetDeg, bounce.elevationDeg, lamp.offsetSpans, lamp.distanceSpans, lamp.intensity])
+  return (
+    <>
+      <directionalLight position={placed.from} intensity={bounce.intensity} color={bounce.color} />
+      <pointLight position={placed.lampAt} intensity={placed.lampIntensity} color={lamp.color} decay={2} />
+    </>
+  )
+}
+
 interface KeyLightSetup {
   fit: ShadowFit
   normal: THREE.Vector3
@@ -84,6 +117,16 @@ function configureKeyLight(light: THREE.DirectionalLight, { fit, normal, center,
   light.shadow.normalBias = texelMm * LOOK.key.normalBiasTexels
   light.shadow.radius = radius ?? LOOK.key.radius
   light.shadow.needsUpdate = true
+}
+
+/**
+ * The key breathing about its resting intensity, the way a lamp in a room never sits perfectly still.
+ * An intensity is a uniform, so this costs one multiply and no shadow map: it is written on frames the
+ * view was already drawing and never asks for one of its own.
+ */
+function breatheKey(light: THREE.DirectionalLight, restIntensity: number, nowMs: number): void {
+  const phase = (2 * Math.PI * nowMs) / (LOOK.object.breath.periodS * 1000)
+  light.intensity = restIntensity * (1 + LOOK.object.breath.amplitude * Math.sin(phase))
 }
 
 interface RakingKeyLightProps {
@@ -204,8 +247,13 @@ function RakingKeyLight({
   }, [arrivalReady, invalidate])
 
   useFrame(() => {
+    if (offscreen) return
+    // The lamp breathing, on frames the view was already drawing. It asks for none of its own, so a
+    // page left open still lets the loop sleep, and it moves an intensity rather than the light
+    // itself: no shadow map is refitted or re-rendered for a breath.
+    if (object && !reduced) breatheKey(light, LOOK.object.keyIntensity, performance.now())
     const rake = rakeRef.current
-    if (!rake || rake.progress >= 1 || offscreen) return
+    if (!rake || rake.progress >= 1) return
     if (!rakes) {
       rake.progress = 1
       return
@@ -247,12 +295,14 @@ export interface StudioLightsProps extends RakingKeyLightProps {
 }
 
 export function StudioLights(props: StudioLightsProps) {
-  const { stage, mode, tier, lightAngle, presentation = 'studio' } = props
-  const intensity = presentation === 'object' && mode === 'surface' ? LOOK.object.envIntensity : LOOK.env.intensity
+  const { stage, mode, tier, lightAngle, width, height, presentation = 'studio' } = props
+  const object = presentation === 'object' && mode === 'surface'
+  const intensity = object ? LOOK.object.envIntensity : LOOK.env.intensity
   return (
     <>
       <StudioEnvironment stage={stage} tier={tier} intensity={intensity} />
       <EnvironmentSpin stage={stage} lightAngle={lightAngle} envKey={`${stage}:${tier}`} />
+      {object && <ObjectAir stage={stage} width={width} height={height} lightAngle={lightAngle} />}
       <RakingKeyLight {...props} />
     </>
   )

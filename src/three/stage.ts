@@ -436,6 +436,26 @@ export function rakeElevationDeg(spec: ArrivalSpec, restDeg: number, progress: n
   return restDeg + (spec.keyFromDeg - restDeg) * remaining(progress, spec.keyPower)
 }
 
+/**
+ * How far the object has turned at `progress` of the hero leaving the screen: 0 while the first screen
+ * is where it started, 1 once it has gone. Eased out, so the first turn of the wheel is where most of
+ * the turn is, which is the part the visitor is still looking at the object for. `LOOK.object.scroll`
+ * is the one instance of it, and nothing under presentation 'studio' reads it.
+ */
+export function scrollOffset(
+  spec: { azimuthDeg: number; elevationDeg: number; distanceFactor: number },
+  progress: number,
+): { azimuthDeg: number; polarDeg: number; distanceFactor: number } {
+  const t = THREE.MathUtils.clamp(progress, 0, 1)
+  const eased = t * (2 - t)
+  return {
+    azimuthDeg: spec.azimuthDeg * eased,
+    // Polar counts down from +Y where elevation counts up: dropping the eye is a larger polar angle.
+    polarDeg: -spec.elevationDeg * eased,
+    distanceFactor: 1 + (spec.distanceFactor - 1) * eased,
+  }
+}
+
 /** The camera preset a mode and a presentation ask for. */
 export function framingPreset(mode: ViewMode, presentation: Presentation = 'studio'): { azimuthDeg: number; elevationDeg: number; margin: number } {
   if (mode === 'tile') return LOOK.camera.tile
@@ -496,14 +516,18 @@ export function computeFraming(input: FramingInput): Framing {
     }
   }
   // Off-centre composition: the camera aims beside the subject rather than at it. Where the page lays
-  // a column of type over the left of this same frame, the fit pulls back until the subject fits what
-  // is left and is then stood inside it, so the type never lands on the subject at any width.
+  // a column of type over the left of this same frame, what the type leaves is the picture: the fit
+  // pulls back until the subject sits inside that band with the same air the margin asks for, and it
+  // is centred in the band rather than in a frame it only has the right-hand end of.
   const composition = input.composition
   if (composition) {
     const clear = THREE.MathUtils.clamp(composition.clearLeft ?? 0, 0, 0.8)
     // Half-frame coordinates: -1 is the left edge of the frame and +1 the right, so the column ends here.
     const leftLimit = clear * 2 - 1
     const band = 1 - leftLimit
+    // With nothing laid over the frame this is dead centre and the whole width: a frame that keeps no
+    // column clear is composed exactly as it was before there was a band to speak of.
+    const bandCenter = (leftLimit + 1) / 2
     const axes = screenAxes(direction)
     const tanV = Math.tan((input.fovDeg * DEG) / 2)
     const tanH = tanV * Math.max(0.1, input.aspect)
@@ -512,12 +536,15 @@ export function computeFraming(input: FramingInput): Framing {
     for (let pass = 0; pass < 2; pass++) {
       const seen = screenBounds(fitCorners, target, directions, distance, input.fovDeg, input.aspect)
       // Only ever further back, and only as far as the column asks: a frame with nothing over it keeps
-      // the fit it was given.
-      const pull = Math.max(1, (seen.maxX - seen.minX) / band)
+      // the fit it was given. The margin comes with the subject into the band, so a window that hands
+      // the object half its width photographs it with air rather than jamming it against the type.
+      const pull = Math.max(1, ((seen.maxX - seen.minX) * margin) / band)
       distance *= pull
       const halfWidth = (seen.maxX - seen.minX) / (2 * pull)
       const halfHeight = (seen.maxY - seen.minY) / (2 * pull)
-      const x = THREE.MathUtils.clamp(composition.screenShift.x, leftLimit + halfWidth, 1 - halfWidth)
+      // The shift is a nudge inside the band, in fractions of its own half-width, so the same number
+      // means the same composition whether the page lays a column over this frame or none at all.
+      const x = THREE.MathUtils.clamp(bandCenter + composition.screenShift.x * (band / 2), leftLimit + halfWidth, 1 - halfWidth)
       const y = THREE.MathUtils.clamp(composition.screenShift.y, -1 + halfHeight, 1 - halfHeight)
       // Moving the target left is what puts the subject right: the camera travels with it, and both
       // axes are square to the view, so nothing here changes how far away anything is.

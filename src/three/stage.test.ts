@@ -13,9 +13,11 @@ import {
   keyLightDirection,
   objectComposition,
   rakeElevationDeg,
+  scrollOffset,
   stageFor,
   stageNormal,
   surfaceToWorld,
+  typeColumnClearancePx,
 } from './stage'
 
 describe('stage frames', () => {
@@ -341,12 +343,12 @@ describe('the object on the frame it is standing in', () => {
   }
 
   /** Where the corners land in a frame of this shape, from the framed view or a point of its sway. */
-  function extent(corners: THREE.Vector3[], framing: Framing, aspect: number, swayAzimuthDeg = 0, swayPolarDeg = 0) {
+  function extent(corners: THREE.Vector3[], framing: Framing, aspect: number, swayAzimuthDeg = 0, swayPolarDeg = 0, distanceFactor = 1) {
     const azimuth = framing.azimuth + THREE.MathUtils.degToRad(swayAzimuthDeg)
-    const polar = framing.polar + THREE.MathUtils.degToRad(swayPolarDeg)
+    const polar = THREE.MathUtils.clamp(framing.polar + THREE.MathUtils.degToRad(swayPolarDeg), framing.polarLimits[0], framing.polarLimits[1])
     const direction = new THREE.Vector3(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth))
     const camera = new THREE.PerspectiveCamera(WALL.fovDeg, aspect, framing.near, framing.far)
-    camera.position.copy(framing.target).addScaledVector(direction, framing.distance)
+    camera.position.copy(framing.target).addScaledVector(direction, framing.distance * distanceFactor)
     camera.lookAt(framing.target)
     camera.updateMatrixWorld()
     let minX = Infinity
@@ -413,10 +415,87 @@ describe('the object on the frame it is standing in', () => {
         expect(seen.maxY, `${phone.label} top`).toBeLessThanOrEqual(1)
       }
       const rest = extent(corners, framing, phone.aspect)
-      // Centred, and still filling its frame: the binding axis keeps at least 80% of the frame.
+      // Centred, and still the thing on the screen: the binding axis keeps three quarters of the
+      // frame. Not more: the wall is photographed down here, which means it stands off its own frame
+      // with the air its shadow falls into, rather than running out to the edges of one.
       expect(Math.abs(rest.minX + rest.maxX), `${phone.label} centered across`).toBeLessThan(0.05)
       expect(Math.abs(rest.minY + rest.maxY), `${phone.label} centered down`).toBeLessThan(0.1)
-      expect(Math.max(rest.maxX - rest.minX, rest.maxY - rest.minY), `${phone.label} scale`).toBeGreaterThan(1.6)
+      const binding = Math.max(rest.maxX - rest.minX, rest.maxY - rest.minY)
+      expect(binding, `${phone.label} scale`).toBeGreaterThan(1.5)
+      expect(binding, `${phone.label} air`).toBeLessThan(1.8)
+    }
+  })
+
+  it('stands the object in the room the type leaves it, with air on both sides', () => {
+    // The complaint this answers was that the wall filled the screen: on a desk it ran from the last
+    // word of the headline to the right-hand edge, which reads as a texture over the page rather than
+    // as a photograph of a thing. What the column of type leaves is the picture, and the object is
+    // composed inside it: clear of the type, clear of the edge, and about the same clear of both.
+    const corners = boxCorners('wall', WALL.width, WALL.height, 0, WALL.reliefTop)
+    for (const frame of [
+      { widthPx: 1024, aspect: 1.5 },
+      { widthPx: 1120, aspect: 1.6 },
+      { widthPx: 1280, aspect: 1.8 },
+      { widthPx: 1440, aspect: 1.8 },
+      { widthPx: 1920, aspect: 2 },
+    ]) {
+      const framing = computeFraming({ ...WALL, aspect: frame.aspect, composition: objectComposition(frame.widthPx) })
+      const seen = extent(corners, framing, frame.aspect)
+      // Half-frame coordinates, so this is where the page's own column of type ends.
+      const typeEdge = (typeColumnClearancePx(frame.widthPx) / frame.widthPx) * 2 - 1
+      const band = 1 - typeEdge
+      const left = seen.minX - typeEdge
+      const right = 1 - seen.maxX
+      expect(left, `${frame.widthPx} clear of the type`).toBeGreaterThan(0.12 * band)
+      expect(right, `${frame.widthPx} clear of the edge`).toBeGreaterThan(0.12 * band)
+      // Centred in what it was left, rather than pushed against one end of it.
+      expect(Math.abs(left - right), `${frame.widthPx} centered in the band`).toBeLessThan(0.1)
+      // And still the subject: over half of the room it has, so every joint and both cut edges read.
+      expect((seen.maxX - seen.minX) / band, `${frame.widthPx} scale`).toBeGreaterThan(0.5)
+      expect((seen.maxX - seen.minX) / band, `${frame.widthPx} air`).toBeLessThan(0.78)
+    }
+  })
+
+  it('turns the object as the page scrolls it away, and never out of its frame', () => {
+    // The scroll turn is the parallax of a thing standing in a room: it goes further round, the eye
+    // drops under it and it settles back. It is only ever more oblique, and more oblique is narrower
+    // on screen, so the turn cannot push an edge out of a frame the fit already holds.
+    const held = scrollOffset(LOOK.object.scroll, 0)
+    expect(held.azimuthDeg).toBeCloseTo(0, 10)
+    expect(held.polarDeg).toBeCloseTo(0, 10)
+    expect(held.distanceFactor).toBeCloseTo(1, 10)
+    const gone = scrollOffset(LOOK.object.scroll, 1)
+    expect(gone.azimuthDeg).toBe(LOOK.object.scroll.azimuthDeg)
+    expect(gone.polarDeg).toBe(-LOOK.object.scroll.elevationDeg)
+    expect(gone.distanceFactor).toBe(LOOK.object.scroll.distanceFactor)
+    // Eased out: the first turn of the wheel is where most of the turn is, which is the part of it the
+    // visitor is still looking at the object for.
+    expect(Math.abs(scrollOffset(LOOK.object.scroll, 0.25).azimuthDeg)).toBeGreaterThan(Math.abs(gone.azimuthDeg) * 0.4)
+    // Nothing past the clamp either way, so a rubber-band scroll cannot walk the object round.
+    expect(scrollOffset(LOOK.object.scroll, -1)).toEqual(held)
+    expect(scrollOffset(LOOK.object.scroll, 2)).toEqual(gone)
+
+    const corners = boxCorners('wall', WALL.width, WALL.height, 0, WALL.reliefTop)
+    const sway = WALL.sweep
+    for (const frame of [
+      { widthPx: 360, aspect: 0.95 },
+      { widthPx: 390, aspect: 1 },
+      { widthPx: 768, aspect: 1.85 },
+      { widthPx: 1024, aspect: 1.5 },
+      { widthPx: 1440, aspect: 1.8 },
+    ]) {
+      const framing = computeFraming({ ...WALL, aspect: frame.aspect, composition: objectComposition(frame.widthPx) })
+      for (let step = 0; step <= 10; step++) {
+        const turn = scrollOffset(LOOK.object.scroll, step / 10)
+        // At the ends of the drift as well: the scroll turns the object the drift is already swinging.
+        for (const swayDeg of [-sway.azimuthDeg, 0, sway.azimuthDeg]) {
+          for (const tiltDeg of [-sway.polarDeg, 0, sway.polarDeg]) {
+            const seen = extent(corners, framing, frame.aspect, turn.azimuthDeg + swayDeg, turn.polarDeg + tiltDeg, turn.distanceFactor)
+            expect(Math.max(Math.abs(seen.minX), Math.abs(seen.maxX)), `${frame.widthPx} across at ${step}`).toBeLessThanOrEqual(1)
+            expect(Math.max(Math.abs(seen.minY), Math.abs(seen.maxY)), `${frame.widthPx} down at ${step}`).toBeLessThanOrEqual(1)
+          }
+        }
+      }
     }
   })
 
@@ -444,9 +523,9 @@ describe('the object on the frame it is standing in', () => {
 
   it('frames the phone exactly here', () => {
     const framing = computeFraming({ ...WALL, aspect: 1, composition: objectComposition(390) })
-    expectVector(framing.target, [-44.535591129931376, -29.72680449075017, -18.68568694700568])
-    expectVector(framing.position, [-1008.9538067148716, 233.438479054877, 1586.375761656109])
-    expect(framing.distance).toBeCloseTo(1890.9205998157668, 3)
+    expectVector(framing.target, [-40.26926205554858, -31.059056872201413, -15.903782208953835])
+    expectVector(framing.position, [-1109.3906275858526, 260.6770621244959, 1763.4129705856997])
+    expect(framing.distance).toBeCloseTo(2096.2105247651884, 3)
   })
 
   it('leaves the studio on that same phone frame exactly where it was', () => {

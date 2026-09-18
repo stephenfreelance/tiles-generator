@@ -1,8 +1,9 @@
-// The object: the visitor's wall photographed on the page itself. No board, no frame, no panel. The
-// live render arrives once the browser has a spare moment and dissolves in over a plate of the wall's
-// own color and light, so the whole 3D stack stays off the first paint and the page still has
-// something true on it from frame one.
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+// The object: the visitor's wall photographed on the page itself. No board, no frame, no panel.
+// The page opens on the lamp already lit over the spot the wall will hang in; the render is built
+// behind it and the lamp then dissolves off it in one long ramp, and the camera settles where that
+// ramp ends. One continuous move, never a swap. The whole 3D stack stays off the first paint, so the
+// page has something true on it from frame one.
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type TransitionEvent } from 'react'
 import { useMediaQuery } from '@/app/useMediaQuery'
 import { colorName } from '@/core/colors'
 import { textureById } from '@/core/textures/registry'
@@ -24,13 +25,26 @@ const IDLE_MS = 300
 /** A plate that never answers must not strand the page on a still image. */
 const PLATE_CEILING_MS = 1500
 /**
- * The dissolve from the plate to the live render, milliseconds. It is written onto the stage as
- * --plate-fade, so the CSS transition and the arrival below are one number: the arrival is armed the
- * frame the plate is gone. Long enough that no single frame of the handover carries a visible step,
- * and it runs under prefers-reduced-motion too: a dissolve between two still pictures moves nothing,
- * travels nowhere and has no direction, while the hard cut it replaces is a flash of the whole wall.
+ * The reveal: the lamp dissolving off the finished render, milliseconds. It is the only thing that
+ * moves in the handover. The lamp is one opaque layer over an opaque canvas, so a single opacity ramp
+ * on it takes the light down and brings the wall up together, with no second layer to keep in step
+ * and nothing to mis-register. It is written onto the stage as --reveal, so the CSS ramp and the
+ * timers below are one number.
  */
-const PLATE_FADE_MS = 560
+const REVEAL_MS = 1200
+/**
+ * The same dissolve for a reader who asked for less motion. Nothing travels, nothing scales and
+ * nothing is staged: it is only long enough that the wall paints in rather than flashing on, which is
+ * what a hard swap of two still pictures would be.
+ */
+const REVEAL_STILL_MS = 200
+/** A ceiling on the reveal, over its own length: the ramp's own end event is what normally lands it. */
+const REVEAL_CEILING_MS = 1600
+/** Frames this cheap in a row mean the machine has the handover to spare. */
+const QUIET_FRAMES = 3
+const QUIET_BUDGET_MS = 50
+/** A machine that never goes quiet still gets its wall: the reveal starts anyway. */
+const QUIET_CEILING_MS = 1400
 /** A rest this long lays a relief on the object: long enough that crossing the keys lays nothing. */
 const DWELL_MS = 320
 /** No second preview inside this, and the committed relief comes back this long after the hand goes. */
@@ -49,10 +63,11 @@ export interface HeroStageProps {
 export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPreviewTexture }: HeroStageProps) {
   const [live, setLive] = useState(false)
   const [pending, setPending] = useState(true)
-  const [plateGone, setPlateGone] = useState(false)
-  // The shared contract with TileViewport: the arrival holds at its first frame until this is true, so
-  // the wall lays in where the visitor is looking at it rather than behind the plate.
-  const [arrivalReady, setArrivalReady] = useState(false)
+  // The reveal: the lamp starts coming off the wall.
+  const [lit, setLit] = useState(false)
+  // The far end of it: the render has the frame to itself, so the camera and the key light take over
+  // from the ramp and the lamp stops being composited at all.
+  const [settled, setSettled] = useState(false)
   const raking = useRakingLight()
   const fine = useMediaQuery('(pointer: fine)')
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -67,12 +82,14 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
   const pendingRef = useRef(true)
   const dwellRef = useRef<number | undefined>(undefined)
   const applyRef = useRef<number | undefined>(undefined)
-  const armRef = useRef<number | undefined>(undefined)
+  const settleRef = useRef<number | undefined>(undefined)
   const frameRef = useRef<number | undefined>(undefined)
   const handedRef = useRef(false)
   const plateRef = useRef<HTMLImageElement>(null)
+  const lampRef = useRef<HTMLDivElement>(null)
 
   const texture = textureById(config.texture.id)
+  const revealMs = reduced ? REVEAL_STILL_MS : REVEAL_MS
 
   // The canvas is worth about 284 kB gz and the plate is this page's LCP element, so the download is
   // armed by the plate rather than by first paint: asking for both at once is the canvas taking
@@ -113,24 +130,49 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
   useEffect(() => () => {
     window.clearTimeout(dwellRef.current)
     window.clearTimeout(applyRef.current)
-    window.clearTimeout(armRef.current)
+    window.clearTimeout(settleRef.current)
     if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current)
   }, [])
 
-  // The handover, started once and only once the live wall is on screen. Two frames, not zero: the
-  // frame the meshes land on is the frame that uploads them and draws the wall for the first time, and
-  // a dissolve begun on it steps through that work instead of playing over it. Waiting for the browser
-  // to paint costs a frame on a fast machine and exactly as long as it takes on a slow one.
+  /**
+   * The handover, started once and only once the machine can carry it. The frame the meshes land on
+   * is also the frame that uploads them, compiles their shaders and fits the shadow map: a dissolve
+   * begun on it does not play, it waits, and then jumps to wherever its clock has run to, which is
+   * the cut this replaces. So the reveal waits for QUIET_FRAMES cheap frames in a row, which costs a
+   * frame or two on a fast machine and exactly as long as it takes on a slow one, and starts anyway
+   * at the ceiling so a machine that never goes quiet still gets its wall.
+   *
+   * Nothing in the view moves while the ramp runs: the camera and the key light hold at the first
+   * frame of their own arrival until `settled`, so the dissolve plays over a still picture and costs
+   * the machine nothing but the compositing. The move starts where the ramp ends, on its end event.
+   */
   const handOver = useCallback(() => {
     if (handedRef.current) return
     handedRef.current = true
-    frameRef.current = requestAnimationFrame(() => {
-      frameRef.current = requestAnimationFrame(() => {
-        frameRef.current = undefined
-        setPlateGone(true)
-        armRef.current = window.setTimeout(() => setArrivalReady(true), PLATE_FADE_MS)
-      })
-    })
+    const deadline = performance.now() + QUIET_CEILING_MS
+    let last = performance.now()
+    let calm = 0
+    const step = (now: number) => {
+      calm = now - last <= QUIET_BUDGET_MS ? calm + 1 : 0
+      last = now
+      if (calm < QUIET_FRAMES && now < deadline) {
+        frameRef.current = requestAnimationFrame(step)
+        return
+      }
+      frameRef.current = undefined
+      setLit(true)
+      // The ramp says when it is done rather than a second clock guessing, so the arrival starts on
+      // the frame the light finishes leaving. The timer is only a ceiling, for a transition that never
+      // reports (an interrupted one, or a browser that skipped it).
+      settleRef.current = window.setTimeout(() => setSettled(true), revealMs + REVEAL_CEILING_MS)
+    }
+    frameRef.current = requestAnimationFrame(step)
+  }, [revealMs])
+
+  const land = useCallback((event: TransitionEvent<HTMLDivElement>) => {
+    if (event.propertyName !== 'opacity' || event.target !== lampRef.current) return
+    window.clearTimeout(settleRef.current)
+    setSettled(true)
   }, [])
 
   const applyPreview = useCallback(() => {
@@ -164,8 +206,8 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
       pendingRef.current = next
       setPending(next)
       if (next) return
-      // The view has a wall to show: dissolve the plate off it, and arm the arrival for the frame the
-      // dissolve ends. Every later rebuild lands here too, hence the once-only guard inside.
+      // The view has a wall to show: start the reveal as soon as the machine can carry it. Every later
+      // rebuild lands here too, hence the once-only guard inside.
       handOver()
       if (wantedRef.current !== shownRef.current) armPreview(floorRef.current)
     },
@@ -204,12 +246,17 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
     [onPickSpecimen, onPreviewTexture],
   )
 
-  // One number for the dissolve, read by the CSS transition and by the arrival timer above.
-  const stageVars: StyleWithVars = { '--plate-fade': `${PLATE_FADE_MS}ms` }
+  // One number for the handover, read by the CSS ramp and by the timer above.
+  const stageVars: StyleWithVars = { '--reveal': `${revealMs}ms` }
 
   return (
     <div className={styles.stage} style={stageVars}>
-      <div className={styles.object} {...raking.handlers}>
+      <div
+        className={styles.object}
+        data-lit={lit || undefined}
+        data-settled={settled || undefined}
+        {...raking.handlers}
+      >
         <div className={styles.canvas} data-pending={pending || undefined}>
           {live && (
             <Suspense fallback={null}>
@@ -218,30 +265,42 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
                 plan={plan}
                 lightAngle={raking.angleDeg}
                 paused={raking.paused}
-                arrivalReady={arrivalReady}
+                // Held at its first frame until the lamp is all the way off, so the dissolve plays over
+                // a still picture and the move starts where the dissolve ends: one gesture, not two
+                // competing for the same frames. The first frames of the arrival are the dearest this
+                // view ever draws (a shadow map refit per degree of rake), and a ramp sharing them
+                // with the arrival stalls and then steps, which is the cut this replaces.
+                arrivalReady={settled}
                 onPendingChange={handlePending}
               />
             </Suspense>
           )}
         </div>
-        {/* Not a picture of the render: a plate of the wall's own color and the light coming off it,
-            blurred past every edge it has. The live view reframes by the width of the window, so a
-            plate with a silhouette in it would have to register against a frame it cannot know, and
-            the miss showed as a hard outline around the whole wall. A plate with no edges has nothing
-            to mis-register: what dissolves away is light, and the render arrives into the same light. */}
-        <img
-          ref={plateRef}
-          className={styles.plate}
-          data-plate=""
-          data-gone={plateGone || undefined}
-          src={PLATE_SRC}
-          alt=""
-          width={1400}
-          height={800}
-          fetchPriority="high"
-          decoding="sync"
-          draggable={false}
-        />
+        {/* The lamp: a pool of the page's own light over the spot the wall will hang in, with the
+            wall's own colour standing in it, blurred past every edge it has. Not a picture of the
+            render: a silhouette here would have to register against a live view that reframes with
+            the window, and the miss showed as a hard outline around the whole wall at the swap. This
+            has nothing to mis-register, and it is one layer over an opaque canvas, so the handover is
+            one ramp on one thing. */}
+        <div
+          ref={lampRef}
+          className={styles.lamp}
+          aria-hidden="true"
+          onTransitionEnd={lit && !settled ? land : undefined}
+        >
+          <img
+            ref={plateRef}
+            className={styles.plate}
+            data-plate=""
+            src={PLATE_SRC}
+            alt=""
+            width={1400}
+            height={800}
+            fetchPriority="high"
+            decoding="sync"
+            draggable={false}
+          />
+        </div>
       </div>
 
       {/* The plate caption: what is standing there, and the other five it could be. Set as a caption

@@ -21,6 +21,10 @@
   // How far into a band the level above it is still showing. It follows the width, because a phone
   // gives a band a fifth of the height a desktop does and a 13rem dissolve there is the whole head.
   --band-fade: clamp(5rem, 16vw, 13rem);
+  // The lamp that comes up over a band as it is reached. --panel is the brightest paper this room
+  // has, so the light is that and nothing whiter: what it can do is lift whichever of the two levels
+  // it lands on almost all the way to the paper, and fall off across the rest of the band.
+  --lamp: color-mix(in srgb, var(--panel) 88%, transparent);
   display: grid;
   align-content: start;
   background: var(--ground);
@@ -206,13 +210,45 @@
 .section {
   --band: var(--lit);
   --band-from: var(--ground);
+  position: relative;
   display: grid;
   align-content: start;
   gap: clamp(var(--s-4), 3vw, var(--s-7));
   padding: clamp(var(--s-5), 7vw, var(--s-9)) var(--gutter);
+  // The lamp below is a negative-z child, so the band has to be a stacking context of its own or it
+  // would sink behind the page's ground and never be seen.
+  isolation: isolate;
   background:
     linear-gradient(to bottom, var(--band-from), transparent var(--band-fade)),
     var(--band);
+}
+
+// What a reader arrives into: the light over the bench comes up where the band begins, once, as the
+// band is reached, and then stays. It is light and nothing else, so a band whose trigger never fires
+// is a band with the lamp off, never a band with something missing. Paints above the section's own
+// background and below every word on it.
+.section::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  // 18rem down, not at the top edge: the first --band-fade of a band is still dissolving out of the
+  // level above it and is already the brighter of the two, so a light hung there lands on nothing.
+  // The lamp sits just under the head instead, where the plate number and the heading are, and falls
+  // off over the work below them.
+  background: radial-gradient(56rem 24rem at 24% 18rem, var(--lamp), transparent 70%);
+  pointer-events: none;
+}
+
+@include motion-safe {
+  .section::before {
+    opacity: 0;
+    transition: opacity 1200ms var(--ease-out);
+  }
+
+  .section[data-lit]::before {
+    opacity: 1;
+  }
 }
 
 .section + .section {
@@ -359,6 +395,9 @@
   padding: 0;
 }
 
+// Ruled off with a border and nothing else. Drawing this rule in as its band is reached was tried and
+// dropped: the plan panel's own caption rule is not this page's to animate, so the two captions stood
+// side by side, one ruled and one not, for as long as the draw lasted.
 .plateCaption {
   display: flex;
   flex-wrap: wrap;
@@ -402,6 +441,26 @@
   color: var(--ink-3);
   font-size: var(--text-xs);
   line-height: 1.5;
+}
+
+// Set on a plate's field where nothing inside it arrives under its own steam: the drawing on the plan
+// uncovers itself and the corner assembles itself, but the zip is a still life and would otherwise be
+// the one plate already finished when its band is reached. Only the objects move, never the caption
+// over them or the line under them, and the start state is inside motion-safe so a reader who asked
+// for less motion has the plate whole from the first frame.
+@include motion-safe {
+  .plateFieldLay {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 620ms var(--ease-out) 140ms,
+      transform 620ms var(--ease-out) 140ms;
+  }
+
+  [data-lit] .plateFieldLay {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 // The four pieces are 192 px chips. Past 2x they start to soften, which at this size they can carry:
@@ -634,16 +693,45 @@
   line-height: 1.6;
 }
 
-// The last band, and the only one below the floor: the lamp goes off, the sentence is set as large as
-// the headline, and the foot of the page runs on out of it without a rule.
+// The last band, and the only one below the floor: the bench lamp is behind us, the sentence is set as
+// large as the headline, and the foot of the page runs on out of it without a rule.
 .close {
+  position: relative;
   display: grid;
   justify-items: start;
   gap: clamp(var(--s-4), 2vw, var(--s-5));
   padding: clamp(var(--s-6), 6vw, var(--s-9)) var(--gutter);
+  isolation: isolate;
   background:
     linear-gradient(to bottom, var(--lit), transparent var(--band-fade)),
     var(--panel-2);
+}
+
+// The page ends the way a shot ends: the room's light draws in on the last sentence and the way out
+// of it. Inset well inside the band and scaled by less than that inset, so the gather starts inside
+// the band's own edges and can never widen the document by a pixel.
+.close::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 8%;
+  background: radial-gradient(62% 74% at 26% 46%, var(--lamp), transparent 70%);
+  pointer-events: none;
+}
+
+@include motion-safe {
+  .close::before {
+    opacity: 0;
+    transform: scale(1.12);
+    transition:
+      opacity 1200ms var(--ease-out),
+      transform 1400ms var(--ease-out);
+  }
+
+  .close[data-lit]::before {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .closeHeading {

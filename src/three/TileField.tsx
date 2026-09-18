@@ -31,12 +31,14 @@ interface PieceInstancesProps {
   highlight: HighlightState
   /** Wash every cut piece in red pencil: the view is being pointed at or is focused. */
   revealCuts: boolean
+  /** Strength of the red-pencil hatch flashed on a cut piece as the wave lays it; 0 turns it off. */
+  cutHatch: number
   animate: boolean
   /** prefers-reduced-motion: tints arrive at once instead of fading. */
   reduced: boolean
 }
 
-function PieceInstances({ asset, piece, positions, materials, wave, highlight, revealCuts, animate, reduced }: PieceInstancesProps) {
+function PieceInstances({ asset, piece, positions, materials, wave, highlight, revealCuts, cutHatch, animate, reduced }: PieceInstancesProps) {
   const count = positions.length / 2
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const tintRef = useRef<THREE.InstancedBufferAttribute | null>(null)
@@ -135,7 +137,7 @@ function PieceInstances({ asset, piece, positions, materials, wave, highlight, r
     state.dim = settle(state.dim, dimTarget, LOOK.highlight.damp, step)
     // prefers-reduced-motion: the wash is a fact about the wall, so it arrives, only without the fade.
     state.cut = reduced ? cutTarget : settle(state.cut, cutTarget, LOOK.cuts.damp, step)
-    const flash = animate && isCut ? LOOK.wave.cutHatch * wave.flash(elapsed) : 0
+    const flash = animate && isCut ? cutHatch * wave.flash(elapsed) : 0
     const flashing = animate && isCut && !wave.done(elapsed)
 
     // One red channel serves both: the piece the plan points at, and every cut under the pointer.
@@ -222,12 +224,30 @@ export interface TileFieldProps {
   highlightPieceId: string | null
   /** Wash every cut piece in red pencil (the view is pointed at or focused). */
   revealCuts: boolean
+  /**
+   * Red-pencil hatch flashed on cut pieces while the wave lays them, 0 to turn it off. The studio
+   * keeps it: there the wall is a drawing being re-laid and the flash says which pieces are cuts.
+   * The hero turns it off, because on a photographed wall it reads as a mustard band down the two
+   * cut edges for a second, and there the cuts are already told by the geometry and by the caption.
+   */
+  cutHatch?: number
   reduced: boolean
   stage: Stage
 }
 
 /** One instanced mesh per unique piece: at most a handful of draw calls for a whole wall. */
-export const TileField = memo(function TileField({ assets, pieces, placements, materials, wave, highlightPieceId, revealCuts, reduced, stage }: TileFieldProps) {
+export const TileField = memo(function TileField({
+  assets,
+  pieces,
+  placements,
+  materials,
+  wave,
+  highlightPieceId,
+  revealCuts,
+  cutHatch = LOOK.wave.cutHatch,
+  reduced,
+  stage,
+}: TileFieldProps) {
   const positionsByPiece = useMemo(() => {
     const counts = new Map<string, number>()
     for (const p of placements) counts.set(p.pieceId, (counts.get(p.pieceId) ?? 0) + 1)
@@ -267,6 +287,7 @@ export const TileField = memo(function TileField({ assets, pieces, placements, m
             animate={animate}
             reduced={reduced}
             revealCuts={revealCuts}
+            cutHatch={cutHatch}
             highlight={highlightPieceId === null ? 'none' : highlightPieceId === piece.id ? 'on' : 'off'}
           />
         )
