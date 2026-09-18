@@ -17,7 +17,9 @@
   justify-content: space-between;
   gap: var(--s-2) var(--s-4);
   padding-bottom: var(--s-2);
-  border-bottom: 2px solid var(--ink);
+  // In lockstep with .plateCaption in LandingPage.module.scss: these two captions stand side by side,
+  // so a rule changed on one and not the other draws half a band across the page.
+  border-bottom: 1px solid var(--hairline);
   font-size: var(--text-md);
   font-weight: 650;
   letter-spacing: -0.01em;

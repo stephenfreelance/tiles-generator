@@ -1,6 +1,12 @@
 @use '@/styles/mixins' as *;
 
 .app {
+  // The positioning root for the whole screen. Without it an absolutely positioned descendant with no
+  // offsets (every visually-hidden label is one) is laid out against the initial containing block, so
+  // its static position deep inside a scrolling column escapes both that column's clip and the studio's
+  // `overflow: hidden` and stretches the document: the studio grew a vertical scrollbar over a screen
+  // that is meant to be exactly as tall as the window.
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 100dvh;

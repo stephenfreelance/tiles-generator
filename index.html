@@ -32,7 +32,7 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Tessera's landing page: the headline &quot;Design 3D-printed tiles that fit your wall exactly&quot; and the wall size fields, beside a 3D render of a green wavy relief tile wall."
+      content="Tessera's landing page: the headline &quot;Design 3D-printed tiles that fit your wall exactly&quot; and the wall size fields, beside a wall of green wavy relief tiles with its edge pieces cut to fit."
     />
     <meta name="twitter:card" content="summary_large_image" />
 
@@ -51,13 +51,6 @@
       // Self-referencing canonical, written from the address actually served. Guessing a domain would
       // be worse than having none: it would hand crawlers someone else's canonical. Dropping the query
       // string is the real work here, so /studio?utm_source=... does not read as a second page.
-      //
-      // Then the landing page's LCP element: the hero poster. Vite's env substitution is a plain replace
-      // over the whole file, inline scripts included, so the base token below is rewritten here as well
-      // (and would be inside this comment, which is why it is not written out again). The poster sits on
-      // a stable public/ path because a bundled copy is content-hashed, the same reason the woff2 above
-      // is declared by hand. Only the landing route paints it, hence the path test: /studio, /download
-      // and /history are served this same file and must not fetch 34 kB they never show.
       ;(function () {
         var page = location.origin + location.pathname
         var link = document.createElement('link')
@@ -65,17 +58,6 @@
         link.href = page
         document.head.appendChild(link)
         document.querySelector('meta[property="og:url"]').setAttribute('content', page)
-
-        var base = '%BASE_URL%'
-        if (location.pathname !== base && location.pathname !== base + 'index.html') return
-        var poster = document.createElement('link')
-        poster.rel = 'preload'
-        poster.as = 'image'
-        poster.type = 'image/webp'
-        poster.href = base + 'hero-poster.webp'
-        // An attribute, not the property: Safari reads it long before it exposes link.fetchPriority.
-        poster.setAttribute('fetchpriority', 'high')
-        document.head.appendChild(poster)
       })()
     </script>
   </head>

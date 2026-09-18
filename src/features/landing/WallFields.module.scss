@@ -25,15 +25,27 @@
   white-space: nowrap;
 }
 
-// Sentence case, one step up from what it heads: the expanded uppercase lettering of the old drafting
-// sheet is gone, and a running head set a little darker carries the same weight without shouting.
+// The title of the block, not a label on it. It is the only head the block has now that the ink rule
+// over it is gone, so it carries the grouping alone: full ink, the headline's weight, and a step of
+// air under it that no two rows inside the block get. Roughly half the headline at every width, which
+// is far enough down to read as the second voice in the hero and far enough up that it can never be
+// taken for the "Width" and "Height" labels under it, which it used to match exactly.
 .head {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-  font-weight: 650;
-  letter-spacing: -0.005em;
-  line-height: 1.25;
+  margin: 0 0 var(--s-1);
+  color: var(--ink);
+  font-size: clamp(1.25rem, 0.95rem + 0.85vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+// The short laptop screens the hero already tightens for (LandingPage.module.scss runs the same
+// query): the head closes up rather than spending the pixels the fit line needs to stay above the fold
+// at 720.
+@media (min-width: 62.0625rem) and (max-height: 50rem) {
+  .head {
+    font-size: 1.5rem;
+  }
 }
 
 // Side by side while the block has room for both, stacked below. auto-fit measures the block itself,
@@ -158,10 +170,12 @@
   }
 }
 
-// A finger takes 44 px steppers, which is 2.5rem more well and a track too wide to pair up on a phone.
+// A finger takes a 44 px target, but Field.module.scss draws that with a pseudo-element rather than
+// with 44 px of button, so the well only carries two 2rem steppers now and gives the figure the room
+// back. The track stays too wide to pair up: a second column would leave about 3rem for the label.
 @include coarse-pointer {
   .field {
-    --field-width: 11rem;
+    --field-width: 10rem;
   }
 
   .fields {

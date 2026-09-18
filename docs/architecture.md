@@ -70,6 +70,9 @@ src/
   app/                  router, shell, useAccentTheme (the accent on the root element)   [studio]
   pages/                StudioPage, LandingPage, ExportPage, HistoryPage, NotFoundPage   [studio | pages]
   features/             page-specific components (studio/*, plan/*, export/*, history/*, landing/*)
+    landing/            the home page. It never imports three: HeroWall.tsx lays the visitor's whole
+                        wall as a CSS grid of relief chips over wallGrid.ts (shared with JointProof)
+                        and useTextureChips, so one chip per unique piece covers a wall of any size.
 ```
 
 Only edit files you own. Files marked [lead] are read-only contracts; if one blocks you, work around it locally and describe the needed change in your report.
@@ -158,7 +161,7 @@ export interface TileViewportProps {
   showDimensions?: boolean
   showLayerLines?: boolean
   highlightPieceId?: string | null
-  interactive?: boolean        // false on the landing hero: no controls, slow auto orbit
+  interactive?: boolean        // false on the download page's view: no controls, slow auto orbit
   className?: string
   onPendingChange?: (pending: boolean) => void
 }

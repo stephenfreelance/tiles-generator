@@ -1,0 +1,185 @@
+@use '@/styles/mixins' as *;
+
+// The wall itself: a grid of real millimetres, one cell per tile, each painting the chip its piece was
+// rendered as. A hairline of bench between the cells reads as the joint, and the relief still runs
+// across it, because every chip carries exactly the slice of pattern its piece replaces.
+//
+// The cinema is all on this one element and its two overlays: the shadow it stands off the page with,
+// the raking sheen that travels across it, and the falloff that takes the far corner down. The chips
+// are lit by a fixed key from the upper left (src/core/textures/hillshade.ts: azimuth 135, elevation
+// 26), so every light drawn here comes from the same corner.
+.wall {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  // Fitted, never stretched: as wide as the frame allows, or as wide as the frame's own height allows
+  // at the wall's ratio, whichever is smaller. A grid of empty cells has no intrinsic size, so
+  // `max-width: 100%` plus `aspect-ratio` has nothing to work from and both sides have to be read
+  // directly. HeroStage writes the frame's box here from one ResizeObserver, which is measurably
+  // cheaper than a CSS size container: the reason, and the numbers, are on that effect. The fallbacks
+  // are what paints correctly on the frame before the observer has first reported.
+  width: min(var(--frame-w, 100%), var(--frame-h, 100vh) * var(--wall-ratio, 1.43));
+  // The sheen below sweeps in from outside the wall, and the outside corners are the wall's own.
+  // A box-shadow is drawn outside the border box, so this never clips the shadow under it.
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  // The joint, showing between the butted chips.
+  background: var(--hairline);
+  // A thing standing off the page, lit from the upper left: the shadow falls down and to the right,
+  // long and soft, the way a raking key throws one.
+  box-shadow:
+    0 2px 4px rgb(46 36 27 / 0.06),
+    0 18px 30px -22px rgb(46 36 27 / 0.45),
+    0 48px 80px -48px rgb(46 36 27 / 0.55);
+}
+
+// One printed tile, painted in the visitor's own colour before it has a picture on it: the wall is the
+// right size, the right shape and the right colour from its first frame, with its joints already
+// drawn, and the relief then comes up on it. The alternative, a grey placeholder, made the opening
+// frame a flat slab for the 300 ms the worker takes, and made a worker that never answers look broken
+// rather than plain.
+.tile {
+  position: relative;
+  background-color: var(--tile-ink, var(--panel-2));
+  // A tile has an edge, and at a joint the same line is the chamfer the two tiles meet on: without it
+  // the hairline between them reads as a grout line drawn over the relief rather than as the shadow in
+  // the valley two printed tiles make. The pieces plate draws its own the same way.
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+
+// The chip. It is a square with the piece centred in it and the rest transparent, so the picture is
+// scaled by the piece's own long side (set inline) and centred: a 100 mm cut then shows exactly the
+// 100 mm of relief it was cut from, at the same scale as the whole tiles beside it.
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--chip);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: var(--chip-size, cover);
+  opacity: 0;
+  transition: opacity var(--t-med) var(--ease-out);
+}
+
+.tile[data-chip]::before {
+  opacity: 1;
+}
+
+// The wave that lays the wall, once, working out from the setting-out corner the way a tiler lays one.
+// A plain custom property carries each tile's place in it, so the stagger is one CSS rule and no cell
+// needs a component of its own. --lay-spread is 0 on a wall too big to stagger, which collapses the
+// whole thing to one fade without a second code path.
+@include motion-safe {
+  .tile {
+    opacity: 0;
+    // translateY, not translate3d: a 3D transform promotes a compositor layer per cell, and the max
+    // wall is 289 of them, for a move of six pixels. Measured identical without the promotion.
+    transform: translateY(6px) scale(0.985);
+    transition:
+      opacity var(--lay-tile, 420ms) var(--ease-out),
+      transform var(--lay-tile, 420ms) var(--ease-out);
+    transition-delay: calc(var(--lay, 0) * var(--lay-spread, 620ms));
+  }
+
+  .wall[data-laid] .tile {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// The light. Two layers over the chips, both inert to the pointer: a falloff that takes the corner the
+// key never reaches down a little, so the wall is lit rather than scanned, and a sheen that travels
+// across the relief the way a window does over a tiled wall as the afternoon goes on.
+.wall::before,
+.wall::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.wall::before {
+  inset: 0;
+  background: linear-gradient(118deg, rgb(255 253 248 / 0.16) 0%, transparent 42%, rgb(46 36 27 / 0.16) 100%);
+  mix-blend-mode: soft-light;
+}
+
+// The sheen is one band, moved with a transform rather than with a background-position: a transform
+// runs on the compositor and repaints nothing, and this layer is the size of the hero. The band starts
+// and ends outside the wall, which is what the oversized inset is for, and the wall clips it.
+.wall::after {
+  inset: -30% -70%;
+  background-image: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgb(255 253 248 / 0.06) 47%,
+    rgb(255 253 248 / 0.18) 50%,
+    rgb(255 253 248 / 0.06) 53%,
+    transparent 60%
+  );
+  opacity: 0;
+  transform: translate3d(60%, 60%, 0);
+  transition: opacity var(--t-slow) var(--ease-out);
+}
+
+.wall[data-laid]::after {
+  opacity: 1;
+}
+
+// It is the only thing on this page that moves untouched, so it stops entirely for a reader who asked
+// for less motion, and it stands down while the hero is off screen (HeroStage writes --rake-play).
+@include motion-safe {
+  .wall[data-laid]::after {
+    animation: rake 26s var(--ease-in-out) 1.6s infinite;
+    animation-play-state: var(--rake-play, running);
+  }
+}
+
+@keyframes rake {
+  0%,
+  6% {
+    transform: translate3d(-60%, -60%, 0);
+  }
+
+  54%,
+  100% {
+    transform: translate3d(60%, 60%, 0);
+  }
+}
+
+// A cut piece is not marked here. The geometry says it: the last column and the last row are narrower
+// than the rest and their relief is cut off mid-pattern, which is true in all eleven colours. The
+// pieces plate below carries the marks, where there is room to read them.
+
+// A forced palette drops background images outright, so the wall would be an empty grid. The joint is
+// what is left of it, drawn in the system's own ink so the tiles are still countable.
+@include forced-colors {
+  .wall {
+    gap: 2px;
+    background: CanvasText;
+  }
+
+  .tile {
+    forced-color-adjust: none;
+    background-color: Canvas;
+  }
+
+  .wall::before,
+  .wall::after {
+    display: none;
+  }
+}
+
+// Printing a page of relief chips is not what a printer is for, but an empty grid is worse: the wave's
+// start state is dropped so the wall prints whole whether or not it was ever laid on screen.
+@media print {
+  .tile {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .wall::after {
+    display: none;
+  }
+}

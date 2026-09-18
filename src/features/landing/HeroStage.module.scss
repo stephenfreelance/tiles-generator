@@ -1,181 +1,102 @@
 @use '@/styles/mixins' as *;
 
-// The object has no board. Its canvas clears to --ground, the same paint the page is on, so what a
-// visitor sees is a lit wall of tiles lying on the page with its own shadow under it and nothing
-// around it: no border, no radius, no panel, no card. Everything here places that object and captions
-// it the way a plate in a catalogue is captioned.
+// The object has no board. It is a wall of printed tiles standing on the page, with the light it is
+// lit by pooled on the page behind it and its own shadow under it: no border, no radius, no panel, no
+// card around any of it. Everything here places that object and captions it the way a plate in a
+// catalogue is captioned.
 
-// One cell holding both, so the photograph gets the whole screen and its caption is laid over the
-// bottom of it rather than taking a row off it. The wall is composed high enough in frame
-// (LOOK.object.screenShift) that the two never meet.
 .stage {
-  // How far the glow spreads, as a Gaussian standard deviation: the light reaches about three times
-  // this far. Wide enough that the wall baked into the plate has no edge left anywhere, because a
-  // silhouette here would have to register against a live view that reframes with the window and
-  // against a camera whose framing this raster was not baked at. What is left is light.
-  --plate-blur: clamp(30px, 3.4vw, 50px);
-  position: relative;
   display: grid;
-  grid-template: 'plate' minmax(0, 1fr) / minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(var(--s-3), 1.6vw, var(--s-4));
   min-width: 0;
   min-height: 0;
   height: 100%;
 }
 
-.object {
+// The room the wall stands in. The perspective lives here rather than on the wall, so the turn below
+// is a real one: the near edge comes toward the reader and the far edge goes away, which is what
+// stops the wall reading as a picture pasted on the page.
+.frame {
   position: relative;
-  grid-area: plate;
+  display: grid;
+  place-items: center;
+  min-width: 0;
   min-height: 0;
-  // A sweep across the object steers the light; a swipe up it still scrolls the page, so the gesture
-  // can never steal a scroll from a finger.
+  padding: clamp(var(--s-2), 1.5vw, var(--s-5));
+  // A long perspective and a small turn. The wall is a grid of real millimetres and the page's promise
+  // is that it fits exactly, so the keystone the turn costs is a lie the picture tells about the tiles:
+  // at rotateY(-7deg)/1800px the wall's own aspect rendered 3.8% wrong, and at -4deg/2400px it is 1.6%,
+  // for a turn that still reads as a wall standing in a room rather than a swatch lying on the page.
+  perspective: 2400px;
+  perspective-origin: 62% 46%;
+  // A sweep across the object turns it; a swipe up it still scrolls the page, so the gesture can never
+  // steal a scroll from a finger.
   touch-action: pan-y;
 }
 
-// The live render, under the lamp and clearing to the page's own colour (alpha: false). It is opaque
-// and it stays opaque: a WebGL canvas held at a fraction of an opacity has to be read back and blended
-// every frame wherever the compositor is running in software, which on this page measured in seconds,
-// not milliseconds. So the canvas never fades. The lamp over it does.
-.canvas {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-}
-
-// While a later rebuild is being meshed the render fades back toward the page rather than flashing.
-// Only once the lamp is gone: before that there is nothing to see through it anyway.
-.object[data-settled] .canvas[data-pending] {
-  opacity: 0.45;
-  transition: opacity var(--t-med) var(--ease-out);
-}
-
-// The lamp, lit over the spot the wall will hang in before there is anything under it: a pool of the
-// page's own light, out of the page's own palette, painted with its first frame. The render throws
-// one of these on the page anyway (LOOK.object.poolIntensity), so the page opens on the light the
-// photograph is lit by rather than on a picture of the photograph.
+// The turn. The resting angle is the composition: a wall photographed a few degrees off square, lit
+// from the upper left, so the relief is seen along itself rather than straight on. --turn and --lift
+// are what the hand adds to it, and --away is how far the page has scrolled past the first screen: as
+// it goes, the wall turns a little further round and stands back into the room.
 //
-// It is also the whole handover. One opacity ramp on this one layer takes the light off the wall and
-// the wall out of the light together, in step by construction rather than by two clocks agreeing, and
-// it plays over a still frame, because the camera and the key light hold at the first frame of their
-// own arrival until this ramp reports that it has landed (HeroStage.tsx). Nothing is competing with
-// it for the main thread while it runs, which is exactly what the old swap could not say.
-.lamp {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  // The pool, over a flat fill of the page's own colour. Opaque, so the render is completely covered
-  // until the ramp uncovers it: a lamp with transparent corners let the wall paint through them the
-  // instant the canvas drew its first frame, which is a pop before the dissolve has even started. The
-  // fill is --ground, the same paint the canvas clears to, so it is invisible against the page.
-  background:
-    radial-gradient(
-      50% 48% at 63% 44%,
-      var(--panel) 0%,
-      color-mix(in srgb, var(--panel) 55%, transparent) 42%,
-      transparent 80%
-    ),
-    var(--ground);
-  pointer-events: none;
-  // A film dissolve: gentle at both ends and even through the middle, so no frame of it carries a step.
-  transition: opacity var(--reveal, 1200ms) cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-.object[data-lit] .lamp {
-  opacity: 0;
-}
-
-// Nothing on screen changes: it is already fully transparent. This only stops the browser compositing
-// a blurred full-screen raster for as long as the tab lives.
-.object[data-settled] .lamp {
-  display: none;
-}
-
-// The wall's own colour in that light, before there is a wall. It is the LCP element, so it is a real
-// decoded image at first paint and out of layout; it is blurred past every edge and set back to a
-// glow, so it reads as the light coming off a wall rather than as a low-resolution preview of one.
-.plate {
-  position: absolute;
-  inset: 0;
+// Written from a rAF-throttled pointer handler and a passive scroll listener, never from React state,
+// so nothing here commits a render. The transition is the damping: restarted on every write, it makes
+// the wall carry weight into the turn instead of snapping to the pointer.
+.tilt {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
-  // Cover, not contain: a letterboxed strip would put the wall's light in a band across the middle of
-  // a frame the render fills, which is the one thing a glow still has to get right.
-  object-fit: cover;
-  object-position: center;
-  filter: blur(var(--plate-blur)) saturate(0.6);
-  opacity: 0.42;
-  // Pulled in to the pool and carried right, where LOOK.object.screenShift composes the wall.
-  transform: translate(6%, -2%) scale(0.74);
+  transform: rotateY(calc((-4deg + var(--turn, 0) * 1deg) - var(--away, 0) * 3deg))
+    rotateX(calc(1deg + var(--lift, 0) * 1deg)) scale(calc(1 - var(--away, 0) * 0.04));
+  transform-style: preserve-3d;
+  transition: transform 520ms var(--ease-out);
 }
 
-// The plate caption, ruled off the object above it the way a catalogue rules its plates, and set
-// under the wall rather than under the whole screen: the rule is the width of the picture it names.
-// --gutter is the page's own, inherited, so the caption ends where the page's type ends.
+// The wall is a grid of millimetres with proportions of its own, so it is fitted into whatever this
+// column leaves it rather than filling it.
+.tilt > * {
+  justify-self: center;
+  align-self: center;
+}
+
+// The pool of light the object is standing in, painted on the page itself: a photograph of a lit thing
+// has lit air around it, and this is the only mark an object with no frame leaves on the page.
+.pool {
+  position: absolute;
+  z-index: -1;
+  // It spills onto the page, which is the point, but never past it: the frame's own right edge is
+  // exactly one --pad in from the window, so that is how far the light may reach sideways. A wider
+  // spill is out of flow but still scrollable overflow, and it grew the document by 92 px at 1920.
+  inset-block: -12%;
+  inset-inline: calc(-1 * var(--pad));
+  background: radial-gradient(
+    52% 50% at 44% 40%,
+    color-mix(in srgb, var(--panel) 78%, transparent) 0%,
+    color-mix(in srgb, var(--panel) 34%, transparent) 46%,
+    transparent 76%
+  );
+  pointer-events: none;
+}
+
+// Reduced motion keeps the composition and drops every move: the resting turn stays, the hand and the
+// scroll are not listened to at all (HeroStage.tsx), and nothing transitions.
+@include reduced-motion {
+  .tilt {
+    transition: none;
+  }
+}
+
+// The plate caption, ruled off the object above it the way a catalogue rules its plates.
 .index {
-  position: relative;
-  z-index: 3;
   display: grid;
-  grid-area: plate;
-  align-self: end;
-  justify-self: end;
-  // Tight: the caption and the keys are one block under one rule, not two rows that happen to be
-  // near each other. A wider gap here read as a caption with a toolbar under it.
   gap: var(--s-2);
-  // The page's own gutter, inherited: the caption ends where the page's type ends on both sides, and
-  // the width is taken net of it, so the block can never be wider than the screen it is laid on.
-  width: calc(100% - 2 * var(--gutter));
-  // As wide as the five keys need and no wider: a rule the width of the page reads as a divider
-  // across the screen rather than as the line under a plate.
-  max-width: 33rem;
-  margin-inline: var(--gutter);
+  min-width: 0;
   padding-top: var(--s-2);
   border-top: 1px solid var(--hairline);
-}
-
-// Between a phone and a wide desk the words still sit on this same screen, laid over the left of the
-// object: the caption is held clear of that column instead of running under the lines of type at the
-// bottom of it. 28rem is what keeps its left edge past a 27rem lede plus one gutter at 993 px.
-@media (min-width: 62.0625rem) and (max-width: 72rem) {
-  .index {
-    max-width: 28rem;
-  }
-}
-
-// Stacked under the object rather than beside the type: the caption runs the width of the page, and
-// takes a row of its own again, because a phone has no screen to spare for an overlap. Below this
-// width the camera composes the wall square on and centered in the plate (LOOK.object.narrow) rather
-// than to the right of a column of type there is none of, so whatever this row leaves of the plate
-// is what sets how large the wall can be: every line the keys wrap to comes off the picture.
-@media (max-width: 62rem) {
-  .stage {
-    // A narrower frame gets a shallower glow: the whole plate is about as tall as the wall is here,
-    // so a desk-sized blur would push the wall's light off the top and bottom of the frame.
-    --plate-blur: clamp(20px, 5vw, 34px);
-    grid-template: 'plate' minmax(0, 1fr) 'index' auto / minmax(0, 1fr);
-    gap: var(--s-4);
-  }
-
-  // The wall is composed square on and dead centre below 992 px (LOOK.object.narrow), so the lamp is
-  // carried back to the middle with it. A glow has no edges, so near enough is the whole job.
-  .plate {
-    transform: translate(0, -4%) scale(0.86);
-  }
-
-  .lamp {
-    background:
-      radial-gradient(
-        62% 42% at 50% 40%,
-        var(--panel) 0%,
-        color-mix(in srgb, var(--panel) 55%, transparent) 42%,
-        transparent 80%
-      ),
-      var(--ground);
-  }
-
-  .index {
-    grid-area: index;
-    justify-self: stretch;
-    max-width: none;
-  }
 }
 
 .caption {
@@ -211,9 +132,8 @@
   font-size: var(--text-xs);
 }
 
-// The other plates, as the index line under a caption rather than as buttons on a toolbar: quiet
-// type, a chip of the colour it would paint, and a ring around the chip that is standing there. The
-// chips line up under the caption's own chip, so the two lines read as one block of caption.
+// The other plates, as the index line under a caption rather than as buttons on a toolbar: quiet type,
+// a chip of the colour it would paint, and a ring around the chip that is standing there.
 .keys {
   display: flex;
   flex-wrap: wrap;
@@ -262,9 +182,7 @@
   transition: box-shadow var(--t-fast) var(--ease-out);
 }
 
-// The one standing on the object, marked on the chip itself rather than with a rule under the word:
-// a ring around a colour swatch is how a colour is marked, and it leaves the row as a row of samples
-// instead of a row of tabs. The gap is the page's own paint, so the ring reads as air.
+// The one standing on the object, marked on the chip itself rather than with a rule under the word.
 .key[aria-pressed='true'] .keySwatch {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.2),
@@ -272,8 +190,27 @@
     0 0 0 3px var(--accent);
 }
 
-// The tile color is the content of these keys, so it survives a forced palette; the chosen one keeps
-// a visible edge because an accent rule is exactly what such a palette erases.
+// A phone has no width to spare and nothing is laid over this frame, so the wall is stood square on
+// and given the whole of it.
+@media (max-width: 62rem) {
+  .frame {
+    padding: var(--s-2) 0;
+    perspective-origin: 50% 46%;
+  }
+
+  .tilt {
+    // A touch more than the desktop's, because the longer perspective above flattens a small wall.
+    transform: rotateY(calc(-5deg + var(--turn, 0) * 1deg)) rotateX(calc(1.2deg + var(--lift, 0) * 1deg));
+  }
+
+  .pool {
+    inset-block: -8%;
+    inset-inline: calc(-1 * var(--pad));
+  }
+}
+
+// The tile color is the content of these keys, so it survives a forced palette; the chosen one keeps a
+// visible edge because an accent rule is exactly what such a palette erases.
 @include forced-colors {
   .key[aria-pressed='true'] .keySwatch {
     box-shadow: 0 0 0 2px Canvas, 0 0 0 3px Highlight;
@@ -283,5 +220,9 @@
   .captionDot {
     forced-color-adjust: none;
     box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  .pool {
+    display: none;
   }
 }

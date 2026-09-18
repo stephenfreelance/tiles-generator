@@ -319,6 +319,11 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
       // The composer forces NoToneMapping while mounted; this is the tier-0 path.
       state.gl.toneMapping = THREE.NeutralToneMapping
       state.gl.toneMappingExposure = 1
+      // `alpha: false` leaves the renderer's clear alpha at 1, which only matters for a render whose
+      // scene has no background: the contact shadow's own target is cleared opaque black and its plane
+      // then paints a grey square around the tile. The canvas itself always clears to SceneBackground's
+      // colour (three clears a Color background at alpha 1 whatever this says), so 0 costs it nothing.
+      state.gl.setClearAlpha(0)
       const canvas = state.gl.domElement
       canvas.addEventListener('webglcontextlost', handleContextLost)
       canvas.addEventListener('webglcontextrestored', handleContextRestored)

@@ -35,10 +35,10 @@
 // The hero: a product photograph with its caption.
 // ---------------------------------------------------------------------------------------------
 
-// The object is the first screen. Its canvas fills the whole of it, edge to edge, and clears to the
-// page's own color, so it is invisible everywhere the wall is not: no border, no card, no column.
-// The wall itself is composed to the right by the camera (LOOK.object.screenShift), which is what
-// keeps it clear of the type laid over the left of the same screen.
+// The object is the first screen: a wall of printed tiles standing on the page with its own light
+// pooled behind it and its own shadow under it. No border, no card, no column. It is laid over the
+// whole screen and held clear of the type by its own left inset, so the words keep the left of the
+// first screen and the wall keeps everything the words do not take.
 .hero {
   position: relative;
   display: grid;
@@ -72,15 +72,22 @@
   align-content: start;
   gap: var(--s-3);
   min-width: 0;
+  // No rule: the drafting sheet's 2 px ink frame is retired, and the block's own head and the air
+  // above it separate it from the wall without drawing a black line across the first screen.
   padding-top: clamp(var(--s-3), 2vw, var(--s-4));
-  border-top: 2px solid var(--ink);
 }
 
-// Behind the type and under it, from one edge of the window to the other.
+// The column the object stands in: the full height of the first screen, and everything the type does
+// not take. The wall is a thing with proportions of its own, so it is fitted into this box rather than
+// bled to the edges of the window the way the old canvas was; the left inset is the type column plus a
+// gutter of air, which is what keeps the headline off the wall at every width in one declaration.
 .heroObject {
   position: absolute;
   z-index: 0;
-  inset: var(--s-4) 0 var(--s-5);
+  // The right edge takes the page's own padding rather than its gutter: past 88rem the page stops
+  // growing its content and starts growing its gutters, and a photograph that stops growing with the
+  // window reads as a smaller object than the one before it.
+  inset: var(--s-4) var(--pad) var(--s-5) calc(var(--gutter) + 27rem + clamp(var(--s-5), 3vw, var(--s-7)));
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -172,8 +179,11 @@
     padding-bottom: var(--s-4);
   }
 
+  // Only the air above and below closes up. The left inset is what holds the wall clear of the type,
+  // so it is repeated rather than dropped: reset to 0 here, the wall stood over the hero's own column.
   .heroObject {
-    inset: var(--s-3) 0 var(--s-3);
+    inset: var(--s-3) var(--pad) var(--s-3)
+      calc(var(--gutter) + 27rem + clamp(var(--s-5), 3vw, var(--s-7)));
   }
 
   // Still the largest thing on the page, and still two beats: a size, not a step down in rank.
@@ -270,6 +280,9 @@
 // side. Two columns rather than one stack, so the heading can be set at a size worth reading instead
 // of at the size a paragraph running the width of the page would force on it.
 .plateHead {
+  // One leading for the number and the heading beside it, so their cap lines are the same line.
+  --head-leading: 1.02;
+
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   gap: var(--s-4) var(--s-5);
@@ -277,15 +290,19 @@
   padding-top: var(--s-2);
 }
 
+// The plate number sits on the heading's own cap line, and equal leading is the only thing that puts
+// it there: both boxes start at the top of the row, so each first baseline lands at half the leading
+// plus the font's ascent, and only an equal line-height makes those two sums equal. The negative
+// margin this replaces could not do it, because the gap it had to close grows with the font-size
+// clamp: it was 9 px out at 900 px of window and 14 px out at 1440.
 .plateNo {
   @include tabular;
 
-  margin-top: -0.14em;
   color: var(--accent);
   font-size: clamp(2.25rem, 1rem + 2.6vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.05em;
-  line-height: 0.8;
+  line-height: var(--head-leading);
 }
 
 .plateTitle {
@@ -301,7 +318,7 @@
   font-size: clamp(1.9rem, 1.05rem + 2.3vw, 3.1rem);
   font-weight: 700;
   letter-spacing: -0.028em;
-  line-height: 1.02;
+  line-height: var(--head-leading);
   text-wrap: balance;
 }
 
@@ -405,7 +422,10 @@
   justify-content: space-between;
   gap: var(--s-2) var(--s-4);
   padding-bottom: var(--s-2);
-  border-bottom: 2px solid var(--ink);
+  // The app owns one rule, and it is the hairline: a 2 px ink rule here drew a black band across the
+  // page wherever two captions sat side by side. The plate still reads as a plate, ruled in the same
+  // line as the questions and the tally below it.
+  border-bottom: 1px solid var(--hairline);
   font-size: var(--text-md);
   font-weight: 650;
 }
@@ -513,10 +533,11 @@
     background: var(--wash);
   }
 
-  // Pinned: the same fill plus a rule under it in ink, so held and passed-over never read the same.
+  // Pinned: the same fill plus a rule under it in the accent, so held and passed-over never read the
+  // same. The accent is what this app marks a selection with, and it is not a black line.
   &[aria-pressed='true'] {
     background: var(--wash);
-    box-shadow: inset 0 -2px 0 var(--ink);
+    box-shadow: inset 0 -2px 0 var(--accent);
   }
 
   &:focus-visible {
@@ -837,12 +858,20 @@
     isolation: auto;
   }
 
+  // A definite height, not a floor: the wall is fitted into this box by reading both of its sides, and
+  // a box whose height comes from the wall inside it has no height to read.
+  //
+  // The height follows the width rather than being a flat cap, because at this breakpoint the object
+  // has the whole column and a cap sized for a phone leaves a tablet showing a stamp. 1.4 is about the
+  // shape of the walls this page lays (the three examples are 1.43, 1.5 and 2.0), and 7rem is the
+  // caption plus its keys on the line and a half they take on a phone: a wall squarer than 1.4 is
+  // letterboxed inside the box, a wider one leaves a little air under it, and neither can run off the
+  // bottom of the screen, because of the 58vh ceiling.
   .heroObject {
     position: static;
     grid-area: object;
     inset: auto;
-    min-height: min(62vh, 25rem);
-    margin: 0 calc(-1 * var(--gutter));
+    height: min(58vh, calc((100vw - 2 * var(--pad)) / 1.4 + 7rem));
   }
 
   .heroLede {
@@ -872,8 +901,10 @@
     padding-top: 0;
   }
 
+  // Stacked, the number sits over the heading rather than beside it, so there is nothing to align to
+  // and the tight measure is what keeps it close to the title it numbers.
   .plateNo {
-    margin-top: 0;
+    line-height: 0.8;
   }
 
   .joints {

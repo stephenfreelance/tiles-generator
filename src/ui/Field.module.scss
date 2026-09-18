@@ -81,13 +81,18 @@
 }
 
 .steppers {
+  // Named because the coarse-pointer targets at the foot of this file split exactly this between them.
+  --stepper-gap: var(--s-1);
+
   display: flex;
   flex: none;
-  gap: var(--s-1);
+  gap: var(--stepper-gap);
 }
 
 .stepper {
   @include button-reset;
+  // Anchors the finger's tap target, drawn by ::before at the foot of this file.
+  position: relative;
   display: grid;
   place-items: center;
   width: 1.875rem;
@@ -193,16 +198,50 @@
   }
 }
 
-// Last, so a finger gets 44 px whatever the layout.
+// Last, so a finger gets 44 px whatever the layout. The target is 44 px; the ink inside it is not.
+// Two 44 px squares beside a three-digit number read as a pair of buttons with a number wedged
+// between them, and on a phone they took more than half the well.
 @include coarse-pointer {
   .control,
   .compact .control {
     height: 3rem;
   }
 
+  // The number is what the row is for, so typing gets the whole height of the well as its target.
+  .input {
+    align-self: stretch;
+  }
+
+  .steppers {
+    --stepper-ink: 2rem;
+    --stepper-tap: 44px;
+    // What the target still needs once the ink and the gap the pair shares are taken off, halved.
+    // Each button reaches that far outward and half the gap inward, so both get a full 44 px, the two
+    // meet on the gap's midline, and no tap between them lands on nothing.
+    --stepper-reach: max(0px, calc((var(--stepper-tap) - var(--stepper-ink) - var(--stepper-gap)) / 2));
+  }
+
   .stepper,
   .compact .stepper {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--stepper-ink);
+    height: var(--stepper-ink);
+  }
+
+  // The finger's target: invisible, outside the ink, and square, so the button's rounded corners stop
+  // being dead pixels too. Sized rather than inset, because an inset resolves against the padding box
+  // and would come up 2 px short of 44 through the 1 px border.
+  .stepper::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--stepper-tap);
+    height: var(--stepper-tap);
+    transform: translate(calc(-50% - var(--stepper-reach)), -50%);
+  }
+
+  // The plus reaches the other way, so the pair meets in the middle instead of overlapping.
+  .stepper:last-child::before {
+    transform: translate(calc(-50% + var(--stepper-reach)), -50%);
   }
 }

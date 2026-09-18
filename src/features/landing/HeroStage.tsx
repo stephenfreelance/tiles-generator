@@ -1,54 +1,27 @@
-// The object: the visitor's wall photographed on the page itself. No board, no frame, no panel.
-// The page opens on the lamp already lit over the spot the wall will hang in; the render is built
-// behind it and the lamp then dissolves off it in one long ramp, and the camera settles where that
-// ramp ends. One continuous move, never a swap. The whole 3D stack stays off the first paint, so the
-// page has something true on it from frame one.
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type TransitionEvent } from 'react'
+// The object: the visitor's wall standing on the page, photographed rather than rendered. It is built
+// from the same printed relief chips the pieces plate is built from (four CPU renders cover a wall of
+// any size), so the whole 3D stack is off this route: nothing to download, nothing to compile, nothing
+// to hand over from a poster. What is left to do here is stand the wall in the room: turn it a few
+// degrees off square, let it answer the hand and the scroll, and caption it.
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useMediaQuery } from '@/app/useMediaQuery'
 import { colorName } from '@/core/colors'
 import { textureById } from '@/core/textures/registry'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { formatLength } from '@/core/units'
 import type { StyleWithVars } from '@/ui/cx'
+import { HeroWall } from './HeroWall'
 import { LANDING_SPECIMENS } from './landingDesign'
-import { useRakingLight } from './useRakingLight'
 import styles from './HeroStage.module.scss'
 
-const HeroCanvas = lazy(() => import('./HeroCanvas'))
-
-// From public/ rather than imported: a bundled copy's URL is content-hashed and lives inside this
-// chunk, so the preload in index.html could not name it and this LCP fetch waited for the chunk.
-const PLATE_SRC = `${import.meta.env.BASE_URL}hero-poster.webp`
-
-/** Once the plate is on screen, but never later than this: the object is above the fold everywhere. */
-const IDLE_MS = 300
-/** A plate that never answers must not strand the page on a still image. */
-const PLATE_CEILING_MS = 1500
-/**
- * The reveal: the lamp dissolving off the finished render, milliseconds. It is the only thing that
- * moves in the handover. The lamp is one opaque layer over an opaque canvas, so a single opacity ramp
- * on it takes the light down and brings the wall up together, with no second layer to keep in step
- * and nothing to mis-register. It is written onto the stage as --reveal, so the CSS ramp and the
- * timers below are one number.
- */
-const REVEAL_MS = 1200
-/**
- * The same dissolve for a reader who asked for less motion. Nothing travels, nothing scales and
- * nothing is staged: it is only long enough that the wall paints in rather than flashing on, which is
- * what a hard swap of two still pictures would be.
- */
-const REVEAL_STILL_MS = 200
-/** A ceiling on the reveal, over its own length: the ramp's own end event is what normally lands it. */
-const REVEAL_CEILING_MS = 1600
-/** Frames this cheap in a row mean the machine has the handover to spare. */
-const QUIET_FRAMES = 3
-const QUIET_BUDGET_MS = 50
-/** A machine that never goes quiet still gets its wall: the reveal starts anyway. */
-const QUIET_CEILING_MS = 1400
+/** How far the hand may turn the wall, degrees, over its own resting turn. */
+const TURN_DEG = 5
+/** And how far it may drop the eye under it, or lift it over. */
+const LIFT_DEG = 2.6
 /** A rest this long lays a relief on the object: long enough that crossing the keys lays nothing. */
-const DWELL_MS = 320
-/** No second preview inside this, and the committed relief comes back this long after the hand goes. */
-const PREVIEW_FLOOR_MS = 600
+const DWELL_MS = 280
+/** How far down the first screen the wall has settled all the way back into the room. */
+const SETTLE_SCREENS = 0.9
 
 export interface HeroStageProps {
   config: DesignConfig
@@ -61,260 +34,174 @@ export interface HeroStageProps {
 }
 
 export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPreviewTexture }: HeroStageProps) {
-  const [live, setLive] = useState(false)
-  const [pending, setPending] = useState(true)
-  // The reveal: the lamp starts coming off the wall.
-  const [lit, setLit] = useState(false)
-  // The far end of it: the render has the frame to itself, so the camera and the key light take over
-  // from the ramp and the lamp stops being composited at all.
-  const [settled, setSettled] = useState(false)
-  const raking = useRakingLight()
   const fine = useMediaQuery('(pointer: fine)')
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)')
-  // The preview is a pointer affordance: not offered to a finger, and not to a reader who asked for
-  // less motion, since relaying the wall is the largest movement on the page.
+  // The parallax is a pointer affordance, and it is motion: not offered to a finger, and not to a
+  // reader who asked for less of it. The wall keeps its resting turn either way, because a thing
+  // standing at an angle is a composition, not an animation.
+  const turns = fine && !reduced
   const dwells = fine && !reduced
 
-  // What the pointer is asking for against what the object was last told, so one rebuild runs at a time.
-  const wantedRef = useRef<string | null>(null)
-  const shownRef = useRef<string | null>(null)
-  const floorRef = useRef(0)
-  const pendingRef = useRef(true)
+  const frameRef = useRef<HTMLDivElement>(null)
   const dwellRef = useRef<number | undefined>(undefined)
-  const applyRef = useRef<number | undefined>(undefined)
-  const settleRef = useRef<number | undefined>(undefined)
-  const frameRef = useRef<number | undefined>(undefined)
-  const handedRef = useRef(false)
-  const plateRef = useRef<HTMLImageElement>(null)
-  const lampRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef<number | undefined>(undefined)
+  const wantRef = useRef<{ turn: number; lift: number } | null>(null)
+  // What the pointer last asked for, so a move that changes nothing costs no write at all.
+  const [previewing, setPreviewing] = useState<string | null>(null)
 
-  const texture = textureById(config.texture.id)
-  const revealMs = reduced ? REVEAL_STILL_MS : REVEAL_MS
+  const write = useCallback((turn: number, lift: number) => {
+    const frame = frameRef.current
+    if (!frame) return
+    frame.style.setProperty('--turn', `${turn.toFixed(2)}`)
+    frame.style.setProperty('--lift', `${lift.toFixed(2)}`)
+  }, [])
 
-  // The canvas is worth about 284 kB gz and the plate is this page's LCP element, so the download is
-  // armed by the plate rather than by first paint: asking for both at once is the canvas taking
-  // bandwidth off the only thing the visitor can see. An error arms it too, and a timer caps the wait.
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const box = event.currentTarget.getBoundingClientRect()
+      if (box.width <= 0 || box.height <= 0) return
+      const across = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) - 0.5
+      const down = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height)) - 0.5
+      // One write per frame at most: a pointermove can fire far faster than the compositor draws.
+      wantRef.current = { turn: across * 2 * TURN_DEG, lift: -down * 2 * LIFT_DEG }
+      if (rafRef.current !== undefined) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = undefined
+        const want = wantRef.current
+        if (want) write(want.turn, want.lift)
+      })
+    },
+    [write],
+  )
+
+  const onPointerLeave = useCallback(() => {
+    wantRef.current = null
+    write(0, 0)
+  }, [write])
+
+  // The wall settles back into the room as the first screen leaves: one passive listener writing one
+  // number, read by the transform in CSS, so the scroll never commits React state. Quantized to a
+  // hundredth, which is about twenty writes over a screen. The same number stands the sheen down once
+  // the hero is behind the reader: a loop nobody can see is a loop nobody should be paying for.
   useEffect(() => {
-    const plate = plateRef.current
-    let idle: number | undefined
-    let timer: number | undefined
-    let armed = false
-    const start = () => setLive(true)
-    const arm = () => {
-      if (armed) return
-      armed = true
-      // requestIdleCallback is missing on older Safari, hence the plain timer beside it.
-      if (typeof window.requestIdleCallback === 'function') {
-        idle = window.requestIdleCallback(start, { timeout: IDLE_MS })
-      } else {
-        timer = window.setTimeout(start, IDLE_MS)
-      }
+    if (reduced) return
+    let last = -1
+    const walk = () => {
+      const screen = Math.max(1, window.innerHeight) * SETTLE_SCREENS
+      const along = Math.round(Math.min(1, Math.max(0, window.scrollY / screen)) * 100) / 100
+      if (along === last) return
+      last = along
+      const frame = frameRef.current
+      if (!frame) return
+      frame.style.setProperty('--away', `${along}`)
+      frame.style.setProperty('--rake-play', along >= 1 ? 'paused' : 'running')
     }
-    const ceiling = window.setTimeout(arm, PLATE_CEILING_MS)
-    // A plate already decoded (back button, second visit) never fires load, hence the complete test.
-    if (plate && !plate.complete) {
-      plate.addEventListener('load', arm, { once: true })
-      plate.addEventListener('error', arm, { once: true })
-    } else {
-      arm()
-    }
+    walk()
+    window.addEventListener('scroll', walk, { passive: true })
+    window.addEventListener('resize', walk, { passive: true })
     return () => {
-      plate?.removeEventListener('load', arm)
-      plate?.removeEventListener('error', arm)
-      window.clearTimeout(ceiling)
-      if (idle !== undefined) window.cancelIdleCallback(idle)
-      window.clearTimeout(timer)
+      window.removeEventListener('scroll', walk)
+      window.removeEventListener('resize', walk)
     }
-  }, [])
-
-  useEffect(() => () => {
-    window.clearTimeout(dwellRef.current)
-    window.clearTimeout(applyRef.current)
-    window.clearTimeout(settleRef.current)
-    if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current)
-  }, [])
+  }, [reduced])
 
   /**
-   * The handover, started once and only once the machine can carry it. The frame the meshes land on
-   * is also the frame that uploads them, compiles their shaders and fits the shadow map: a dissolve
-   * begun on it does not play, it waits, and then jumps to wherever its clock has run to, which is
-   * the cut this replaces. So the reveal waits for QUIET_FRAMES cheap frames in a row, which costs a
-   * frame or two on a fast machine and exactly as long as it takes on a slow one, and starts anyway
-   * at the ceiling so a machine that never goes quiet still gets its wall.
-   *
-   * Nothing in the view moves while the ramp runs: the camera and the key light hold at the first
-   * frame of their own arrival until `settled`, so the dissolve plays over a still picture and costs
-   * the machine nothing but the compositing. The move starts where the ramp ends, on its end event.
+   * The box the wall is fitted into, in pixels. The wall has proportions of its own and has to read
+   * both sides of this box to take the smaller fit; a CSS size container does that in one declaration
+   * and charges a second layout pass for every commit. Measured at 256 tiles under a 4x CPU throttle,
+   * holding a stepper down: average frame 53 ms and p95 309 ms with the container, 36 ms and 192 ms
+   * with the box written here. This observer fires when the window resizes, never when the wall does,
+   * so the path that was slow reads it zero times.
    */
-  const handOver = useCallback(() => {
-    if (handedRef.current) return
-    handedRef.current = true
-    const deadline = performance.now() + QUIET_CEILING_MS
-    let last = performance.now()
-    let calm = 0
-    const step = (now: number) => {
-      calm = now - last <= QUIET_BUDGET_MS ? calm + 1 : 0
-      last = now
-      if (calm < QUIET_FRAMES && now < deadline) {
-        frameRef.current = requestAnimationFrame(step)
-        return
-      }
-      frameRef.current = undefined
-      setLit(true)
-      // The ramp says when it is done rather than a second clock guessing, so the arrival starts on
-      // the frame the light finishes leaving. The timer is only a ceiling, for a transition that never
-      // reports (an interrupted one, or a browser that skipped it).
-      settleRef.current = window.setTimeout(() => setSettled(true), revealMs + REVEAL_CEILING_MS)
-    }
-    frameRef.current = requestAnimationFrame(step)
-  }, [revealMs])
-
-  const land = useCallback((event: TransitionEvent<HTMLDivElement>) => {
-    if (event.propertyName !== 'opacity' || event.target !== lampRef.current) return
-    window.clearTimeout(settleRef.current)
-    setSettled(true)
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    let last = ''
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      const next = `${Math.round(width)}x${Math.round(height)}`
+      if (next === last) return
+      last = next
+      frame.style.setProperty('--frame-w', `${Math.round(width)}px`)
+      frame.style.setProperty('--frame-h', `${Math.round(height)}px`)
+    })
+    observer.observe(frame)
+    return () => observer.disconnect()
   }, [])
 
-  const applyPreview = useCallback(() => {
-    applyRef.current = undefined
-    if (wantedRef.current === shownRef.current) return
-    // One rebuild in flight: a preview asked for while the object is meshing waits for that to land.
-    if (pendingRef.current) return
-    shownRef.current = wantedRef.current
-    floorRef.current = performance.now() + PREVIEW_FLOOR_MS
-    onPreviewTexture(wantedRef.current)
-  }, [onPreviewTexture])
-
-  const armPreview = useCallback(
-    (at: number) => {
-      window.clearTimeout(applyRef.current)
-      applyRef.current = window.setTimeout(applyPreview, Math.max(0, at - performance.now()))
+  useEffect(
+    () => () => {
+      window.clearTimeout(dwellRef.current)
+      if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current)
     },
-    [applyPreview],
+    [],
   )
 
-  const requestPreview = useCallback(
-    (textureId: string | null, delayMs: number) => {
-      wantedRef.current = textureId
-      armPreview(Math.max(floorRef.current, performance.now() + delayMs))
+  const preview = useCallback(
+    (textureId: string | null) => {
+      setPreviewing(textureId)
+      onPreviewTexture(textureId)
     },
-    [armPreview],
-  )
-
-  const handlePending = useCallback(
-    (next: boolean) => {
-      pendingRef.current = next
-      setPending(next)
-      if (next) return
-      // The view has a wall to show: start the reveal as soon as the machine can carry it. Every later
-      // rebuild lands here too, hence the once-only guard inside.
-      handOver()
-      if (wantedRef.current !== shownRef.current) armPreview(floorRef.current)
-    },
-    [armPreview, handOver],
+    [onPreviewTexture],
   )
 
   const startDwell = useCallback(
     (textureId: string) => {
       window.clearTimeout(dwellRef.current)
-      // The object already wears this relief, so there is nothing to lay and no rebuild to pay for.
+      // The wall already wears this relief, so there is nothing to lay and no render to pay for.
       if (textureId === config.texture.id) return
-      dwellRef.current = window.setTimeout(() => requestPreview(textureId, 0), DWELL_MS)
+      dwellRef.current = window.setTimeout(() => preview(textureId), DWELL_MS)
     },
-    [config.texture.id, requestPreview],
+    [config.texture.id, preview],
   )
 
-  const stopDwell = useCallback(() => window.clearTimeout(dwellRef.current), [])
-
-  const endPreview = useCallback(() => {
+  const endDwell = useCallback(() => {
     window.clearTimeout(dwellRef.current)
-    requestPreview(null, PREVIEW_FLOOR_MS)
-  }, [requestPreview])
+    if (previewing !== null) preview(null)
+  }, [preview, previewing])
 
   const pickSpecimen = useCallback(
     (index: number) => {
       window.clearTimeout(dwellRef.current)
-      window.clearTimeout(applyRef.current)
-      applyRef.current = undefined
-      wantedRef.current = null
-      shownRef.current = null
-      // A commit is itself a rebuild, so it starts the floor: no dwell may stomp on it.
-      floorRef.current = performance.now() + PREVIEW_FLOOR_MS
-      onPreviewTexture(null)
+      if (previewing !== null) preview(null)
       onPickSpecimen(index)
     },
-    [onPickSpecimen, onPreviewTexture],
+    [onPickSpecimen, preview, previewing],
   )
 
-  // One number for the handover, read by the CSS ramp and by the timer above.
-  const stageVars: StyleWithVars = { '--reveal': `${revealMs}ms` }
+  const texture = textureById(config.texture.id)
+  const stageVars: StyleWithVars = { '--turn': '0', '--lift': '0', '--away': '0' }
 
   return (
-    <div className={styles.stage} style={stageVars}>
+    <div className={styles.stage}>
       <div
-        className={styles.object}
-        data-lit={lit || undefined}
-        data-settled={settled || undefined}
-        {...raking.handlers}
+        ref={frameRef}
+        className={styles.frame}
+        style={stageVars}
+        onPointerMove={turns ? onPointerMove : undefined}
+        onPointerLeave={turns ? onPointerLeave : undefined}
       >
-        <div className={styles.canvas} data-pending={pending || undefined}>
-          {live && (
-            <Suspense fallback={null}>
-              <HeroCanvas
-                config={config}
-                plan={plan}
-                lightAngle={raking.angleDeg}
-                paused={raking.paused}
-                // Held at its first frame until the lamp is all the way off, so the dissolve plays over
-                // a still picture and the move starts where the dissolve ends: one gesture, not two
-                // competing for the same frames. The first frames of the arrival are the dearest this
-                // view ever draws (a shadow map refit per degree of rake), and a ramp sharing them
-                // with the arrival stalls and then steps, which is the cut this replaces.
-                arrivalReady={settled}
-                onPendingChange={handlePending}
-              />
-            </Suspense>
-          )}
-        </div>
-        {/* The lamp: a pool of the page's own light over the spot the wall will hang in, with the
-            wall's own colour standing in it, blurred past every edge it has. Not a picture of the
-            render: a silhouette here would have to register against a live view that reframes with
-            the window, and the miss showed as a hard outline around the whole wall at the swap. This
-            has nothing to mis-register, and it is one layer over an opaque canvas, so the handover is
-            one ramp on one thing. */}
-        <div
-          ref={lampRef}
-          className={styles.lamp}
-          aria-hidden="true"
-          onTransitionEnd={lit && !settled ? land : undefined}
-        >
-          <img
-            ref={plateRef}
-            className={styles.plate}
-            data-plate=""
-            src={PLATE_SRC}
-            alt=""
-            width={1400}
-            height={800}
-            fetchPriority="high"
-            decoding="sync"
-            draggable={false}
+        {/* The light the wall is standing in, thrown on the page behind it: the one mark an object
+            with no frame leaves on the page it is standing on. */}
+        <div className={styles.pool} aria-hidden="true" />
+        <div className={styles.tilt}>
+          <HeroWall
+            config={config}
+            plan={plan}
+            label={`${plan.placements.length} printed ${texture.name} tiles in ${colorName(config.color)} laid on a ${formatLength(config.surface.width)} by ${formatLength(config.surface.height)} wall, ${plan.columns} across and ${plan.rows} down, with ${plan.partialCount} of them cut to fit the edges.`}
           />
         </div>
       </div>
 
-      {/* The plate caption: what is standing there, and the other five it could be. Set as a caption
-          to a photograph, on the page itself, because the object has no panel to be labelled inside. */}
+      {/* The plate caption: what is standing there, and the other four it could be. */}
       <div className={styles.index}>
         <p className={styles.caption}>
           <span className={styles.captionDot} style={{ background: config.color }} aria-hidden="true" />
           <span className={styles.captionName}>
             {texture.name} in {colorName(config.color)}
           </span>
-          {/* Read off the plan, never typed. The grid, not the tally: the fit line beside the fields
-              already counts the whole tiles and the cuts, and a caption to a photograph says what is
-              in the frame. The landing lays every wall from the corner with no row offset, so columns
-              times rows is exactly the number of tiles standing there. */}
+          {/* Read off the plan, never typed. The landing lays every wall from the corner with no row
+              offset, so columns times rows is exactly the number of tiles standing there. */}
           <span className={styles.captionNote}>
             {`${formatLength(config.tile.width)} tiles, ${plan.columns} across and ${plan.rows} down`}
           </span>
@@ -323,7 +210,7 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
           className={styles.keys}
           role="group"
           aria-label="Choose a sample"
-          onPointerLeave={dwells ? endPreview : undefined}
+          onPointerLeave={dwells ? endDwell : undefined}
         >
           {LANDING_SPECIMENS.map((entry, entryIndex) => {
             const entryTexture = textureById(entry.textureId)
@@ -337,7 +224,7 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
                 aria-label={`Show ${entryTexture.name} in ${colorName(entry.color)}`}
                 onClick={() => pickSpecimen(entryIndex)}
                 onPointerEnter={dwells ? () => startDwell(entry.textureId) : undefined}
-                onPointerLeave={dwells ? stopDwell : undefined}
+                onPointerLeave={dwells ? () => window.clearTimeout(dwellRef.current) : undefined}
               >
                 <span className={styles.keySwatch} style={{ background: entry.color }} aria-hidden="true" />
                 {entryTexture.name}

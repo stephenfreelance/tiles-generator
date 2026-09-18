@@ -4,6 +4,11 @@ Frontend-only React + Vite app that turns a wall size, a tile size, a relief tex
 color into printable 3D tiles (STL / STEP / zip). The browser does all the work: no backend, no
 account, and no network calls at runtime. Designs persist in localStorage.
 
+The 3D preview (`src/three`, react-three-fiber) lives on `/studio` and `/download` only. The home page
+builds its wall out of the same CPU-rendered relief chips the "pieces side by side" plate uses
+(`src/features/landing/HeroWall.tsx` over `wallGrid.ts` and `useTextureChips`), so it downloads no
+three.js at all: one chip per unique piece covers a wall of any size.
+
 Live at https://tessera.stephenperrin.fr/ (a custom domain on GitHub Pages; the old
 https://stephenfreelance.github.io/tiles-generator/ address redirects there), deployed by CI from
 `main` of `git@github.com:stephenfreelance/tiles-generator.git` (see Deploy).
@@ -104,14 +109,14 @@ no animation at all.
 The console is otherwise clean, so treat anything else as a real regression.
 
 1. `THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.` on every route
-   with a 3D view. Emitted by `@react-three/fiber`'s own store (`dist/events-*.esm.js`), not by app
+   with a 3D view (`/studio` and `/download`; the home page has none). Emitted by `@react-three/fiber`'s own store (`dist/events-*.esm.js`), not by app
    code. Silencing it means moving off the three / postprocessing pins above, so leave it.
 2. `GL Driver Message (OpenGL, Performance, ...): GPU stall due to ReadPixels` on the first route with
-   a 3D view (`/`, `/studio` or `/download`) that a headless Chromium opens, which is what the capture
+   a 3D view (`/studio` or `/download`) that a headless Chromium opens, which is what the capture
    harness runs. Chromium's software GL backend logs it a few times per browser process, not app code,
    and the design review saw it too.
 3. `THREE.WebGLRenderer: Context Lost.` once each time a route with a 3D view unmounts during
-   client-side navigation (leaving `/`, `/studio` or `/download`), never on a full page load.
+   client-side navigation (leaving `/studio` or `/download`), never on a full page load.
    `@react-three/fiber` calls `forceContextLoss()` when its Canvas unmounts, to hand the GPU context
    back, and three logs the loss. It is the cleanup working, so do not try to silence it.
 4. Dev server only: Vite's `[vite] connecting...` / `connected.` and React's DevTools prompt.
@@ -207,12 +212,13 @@ npm run shots                              # all four routes, desktop and mobile
 npm run shots -- --motion                  # the same eight, animations running, to test-output/shots-motion
 npm run shots -- --og                      # regenerate public/og-cover.png (1200x630 share card)
 npm run shots -- --icons                   # regenerate public/apple-touch-icon.png
-npm run shots -- --hero-poster             # regenerate public/hero-poster.webp (the landing's LCP image)
 npm run shots -- --url http://localhost:4173   # point at `npm run preview` instead
 ```
 
 The default eight shots append `?still=1`, which `LandingMotion` reads to set Motion's `skipAnimations`,
 so a capture lands on the final frame instead of a random one. `--motion` drops the flag, which is the
-only way to photograph the home page's motion at all. Regenerate the hero poster whenever the board's
-look, its wall or its default sample changes: it is the still the landing paints while the 3D chunk
-downloads, so a stale one makes the handover to the live canvas jump.
+only way to photograph the home page's motion at all. `?still=1` reaches Motion only: the hero wall's
+lay-in and its light are plain CSS, and `SETTLE_MS` in the harness is what waits those out.
+
+Regenerate `public/og-cover.png` (`npm run shots -- --og`) whenever the hero changes: the share card is
+a photograph of the first screen, so a stale one shows the old one.
