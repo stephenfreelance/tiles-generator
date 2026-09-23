@@ -4,7 +4,7 @@ Frontend-only React + Vite app that turns a wall size, a tile size, a relief tex
 color into printable 3D tiles (STL / STEP / zip), with optional edge profiles, keys or moulded tabs that
 lock tiles edge to edge and printed wall clips each tile clicks onto (the download then adds their printed
 parts and a step-by-step guide, and `/fit-test` prints and zips the fit test on its own). The browser does all the work: no backend, no account, and no
-network calls at runtime. Designs persist in localStorage.
+network calls at runtime but one, the anonymous GoatCounter count (see Analytics). Designs persist in localStorage.
 
 The 3D preview (`src/three`, react-three-fiber) lives on `/studio` and `/download` only. The home page
 builds its wall (`src/features/landing/HeroWall.tsx` over `wallGrid.ts` and `useTextureChips`) out of
@@ -113,6 +113,29 @@ find-in-page, the skip link): `useReached` in `LandingPage.tsx` measures each ba
 odometers roll on a timer if they are never seen, and the bands' lay-in entrances start lower and at
 0.3 opacity, never hidden. An entrance that can never run leaves content invisible, which is worse than
 no animation at all.
+
+## Analytics (GoatCounter)
+
+The live site counts usage with GoatCounter, and that count is the app's only network call. `src/app/analytics.ts`
+speaks GoatCounter's `/count` protocol itself (no `count.js`, no dependency) and holds the whole catalogue: the
+screens (`SCREENS`), the fixed events (`EVENTS`) and the events named after a choice (`CHOICES`: `studio-edit-*`,
+`fit-test-chose-*`, `zip-*`). `useAnalytics` (mounted once in `AppShell`) counts each screen; pages call `track`,
+`trackChoice`, `trackZip` or `trackDownloadFailure` at the moment an action succeeds.
+
+- **Never send a design's name, a measurement, a color hex, free text, an error message or the `?d=` link.**
+  Screens go through `screenPath` (an unknown path is `/not-found`, never the path typed), the first view's query
+  through `campaignQuery` (campaign parameters only), sizes only as `tileBand`, colors only as a preset name or
+  `custom`. `analytics.test.ts` holds these. The home page's "Does anything leave my computer?" answer, PRODUCT.md
+  and the README describe exactly what is sent: a new kind of data needs all three reworded, or it cannot ship.
+- A new event goes in `EVENTS` or `CHOICES` (lower case, hyphens, never a leading `/`). Something done over and
+  over (an edit, a view switch) takes `{ once: true }`, one count per visit.
+- Counting is off unless the build sets `VITE_GOATCOUNTER`, which only the `pages` job does (from the repository
+  variable `GOATCOUNTER`), so dev, tests, `npm run preview`, the capture harness and forks send nothing. It is also
+  off on a local host, in a frame, under Do Not Track or Global Privacy Control, and in a browser switched off by
+  opening any page with `#toggle-goatcounter` (GoatCounter's own switch, kept under its `skipgc` localStorage key).
+- Studio edits are counted in `useStudioUpdate` (`countedEditor`), so load, undo, redo and share links, which go
+  around it, are never counted as edits. `editedArea` names the area touched cause first: a wall that carries its
+  Recommended tile is a wall edit, a lock that raises the base is a lock edit.
 
 ## Keys, tabs, wall clips and the guide
 
@@ -260,7 +283,8 @@ what it printed.
 
 - localStorage keys: `tessera.design.v1` (zustand persist version 1), `tessera.prefs.v1` (version 2,
   whose `migrate` drops the retired `mounting` key) and `tessera.history.v1` (at most 40 designs with
-  WebP thumbnails; when storage is full it sheds the oldest thumbnails, then the oldest designs).
+  WebP thumbnails; when storage is full it sheds the oldest thumbnails, then the oldest designs). `skipgc`
+  (`'t'`) is GoatCounter's own opt-out key, not persisted state (see Analytics).
 - Removing or renaming a persisted key needs a `version` bump and a `migrate`, as prefs v2 did. zustand
   5 discards stored state whose version differs when there is no `migrate`, so a bare bump loses every
   maker's saved state.

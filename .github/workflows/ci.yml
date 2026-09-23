@@ -59,9 +59,12 @@ jobs:
       # The router and every asset URL take the site's base: empty on the custom domain
       # (tessera.stephenperrin.fr), "/tiles-generator" without one. It is baked into the build, so
       # re-run this workflow whenever the custom domain setting changes, or the live page goes blank.
+      # GOATCOUNTER is a repository variable (Settings > Secrets and variables > Actions > Variables)
+      # holding the GoatCounter site code. Only this build counts visits; unset, the site counts nothing.
       - run: npm run build -- --base "$BASE_PATH/"
         env:
           BASE_PATH: ${{ steps.site.outputs.base_path }}
+          VITE_GOATCOUNTER: ${{ vars.GOATCOUNTER }}
 
       # Pages has no rewrites. Each route gets a copy of the shell, so a deep link or a shared design
       # answers 200 (Pages serves /studio from studio.html), and 404.html boots the app for any other

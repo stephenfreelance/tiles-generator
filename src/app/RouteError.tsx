@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 import { buttonClassName } from '@/ui'
+import { track } from './analytics'
 import styles from './AppShell.module.scss'
 import { useAccentTheme } from './useAccentTheme'
 
@@ -8,6 +10,8 @@ export function RouteError() {
   const error = useRouteError()
   // This sheet replaces AppShell, so it paints the accent itself when a cold load fails.
   useAccentTheme()
+  // Counted without its message, which can carry anything the failure met.
+  useEffect(() => track('error-screen', { once: true }), [])
   const detail = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error instanceof Error

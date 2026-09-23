@@ -6,6 +6,7 @@
 // patterns, the download and how the tiles go up, then the questions and the close.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
+import { track } from '@/app/analytics'
 import { studioIntent } from '@/app/prefetchStudio'
 import { parseHex } from '@/core/colors'
 import { TEXTURES, textureById } from '@/core/textures/registry'
@@ -122,19 +123,20 @@ interface OpenActionsProps {
  * label claims a wall the visitor has not sized yet.
  */
 function OpenActions({ href, hasWorkInProgress, savedName, sized }: OpenActionsProps) {
+  const start = () => track('home-start')
   if (!hasWorkInProgress) {
     return (
-      <Link to={href} className={buttonClassName('primary', 'lg')} {...studioIntent}>
+      <Link to={href} className={buttonClassName('primary', 'lg')} onClick={start} {...studioIntent}>
         {sized ? 'Open the wall you just sized' : 'Open this wall in the studio'}
       </Link>
     )
   }
   return (
     <>
-      <Link to="/studio" className={buttonClassName('primary', 'lg')} {...studioIntent}>
+      <Link to="/studio" className={buttonClassName('primary', 'lg')} onClick={() => track('home-continue')} {...studioIntent}>
         {`Continue “${shortName(savedName)}”`}
       </Link>
-      <Link to={href} className={styles.quietLink} {...studioIntent}>
+      <Link to={href} className={styles.quietLink} onClick={start} {...studioIntent}>
         {sized ? 'or open the wall you just sized' : 'or start a new design from this wall'}
       </Link>
     </>
@@ -200,6 +202,9 @@ export function LandingPage() {
   const fileCount = zipFileNames(plan).length
   // The wall as the page opened it is nobody's work: only a change to it earns the words "you sized".
   const sized = state.widthMm !== LANDING_DESIGN_START.widthMm || state.heightMm !== LANDING_DESIGN_START.heightMm
+  useEffect(() => {
+    if (sized) track('home-sized', { once: true })
+  }, [sized])
 
   const setWall = useCallback((next: { widthMm?: number; heightMm?: number }) => dispatch({ type: 'wall', ...next }), [dispatch])
   const setExample = useCallback((index: number) => dispatch({ type: 'example', index }), [dispatch])
@@ -225,6 +230,7 @@ export function LandingPage() {
   const openTexture = useCallback(
     (textureId: string) => {
       const texture = textureById(textureId)
+      track('home-texture')
       navigate(
         studioHref({
           texture: {

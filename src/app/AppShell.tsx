@@ -9,6 +9,7 @@ import { isTypingTarget, MOD_KEY } from './keyboard'
 import { prefetchStudio } from './prefetchStudio'
 import { ShortcutsHelp } from './ShortcutsHelp'
 import { useAccentTheme } from './useAccentTheme'
+import { useAnalytics } from './useAnalytics'
 import { useDocumentTitle } from './useDocumentTitle'
 
 // The studio carries the renderer, so pointing at its tab is enough to start fetching it.
@@ -41,6 +42,7 @@ export function AppShell() {
   useDocumentTitle(isStudio ? `${designName} · Studio · Tessera` : (PAGE_TITLES[pathname] ?? 'Not found · Tessera'))
   // Every screen, and every portal under body, takes its accent from the tile color.
   useAccentTheme()
+  useAnalytics()
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -39,8 +39,14 @@ export function Questions() {
       <div className={styles.column}>
         <Question question="Does anything leave my computer?">
           <p className={styles.answer}>
-            No. Your current design and your saved designs live in this browser&rsquo;s local storage, so clearing this
-            site&rsquo;s data clears them and another browser starts empty.
+            Your designs never do. Your current design and your saved designs live in this browser&rsquo;s local
+            storage, so clearing this site&rsquo;s data clears them and another browser starts empty.
+          </p>
+          <p className={styles.answer}>
+            Tessera does send an anonymous count to GoatCounter, a counter hosted in the EU that sets no cookie and
+            keeps no IP address: which screens open, which buttons get used and, for a wall you download, its relief,
+            color name, fixings and a rough tile count. Never its name or its measurements. A browser set to ask sites
+            not to track it sends nothing at all.
           </p>
         </Question>
         <Question question="How do they print?">

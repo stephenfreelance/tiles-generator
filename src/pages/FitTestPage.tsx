@@ -7,6 +7,7 @@
 import { useId, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Download, X } from 'lucide-react'
 import { Link } from 'react-router'
+import { track, trackChoice, trackDownloadFailure } from '@/app/analytics'
 import { studioIntent } from '@/app/prefetchStudio'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
 import { fitTestFor, wallParts } from '@/core/fixing/accessories'
@@ -67,6 +68,7 @@ export function FitTestPage() {
   const bytes = estimateFitTestZipBytes(plan, config, format, parts)
 
   function reportFailure(failure: unknown, retry: () => void) {
+    trackDownloadFailure(failure)
     if (wasCancelled(failure)) {
       toast('Download cancelled. Nothing was written.', { tone: 'info' })
       return
@@ -93,6 +95,7 @@ export function FitTestPage() {
       })
       const bundle = fitTestZip(config, parts, result.files, format)
       downloadBlob(bundle.data, bundle.name, 'application/zip')
+      track('fit-test-zip')
       retryRef.current = null
       toast(`${bundle.name} is in your downloads.`, { tone: 'success' })
       announce(`Download ready: ${bundle.name}.`)
@@ -118,6 +121,7 @@ export function FitTestPage() {
       const file = result.files[0]
       if (file) {
         downloadBlob(file.data, file.name, file.mime)
+        track('fit-test-part')
         toast(`${file.name} is in your downloads.`, { tone: 'success' })
       }
     } catch (failure) {
@@ -205,6 +209,7 @@ export function FitTestPage() {
 
   function setFit(fit: FitClass) {
     update((design) => ({ ...design, fit }))
+    trackChoice('fit-test-chose', fit)
     announce(fitChosenText({ ...config, fit }, system))
   }
 

@@ -2,6 +2,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, Link2, Paperclip, X } from 'lucide-react'
+import { track, trackDownloadFailure, trackZip } from '@/app/analytics'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { studioIntent } from '@/app/prefetchStudio'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
@@ -150,6 +151,7 @@ export function ExportPage() {
   }, [fileCount, tiles])
 
   function reportFailure(failure: unknown, retry: () => void) {
+    trackDownloadFailure(failure)
     if (wasCancelled(failure)) {
       toast('Download cancelled. Nothing was written.', { tone: 'info' })
       return
@@ -178,6 +180,7 @@ export function ExportPage() {
       })
       if (result.zip) {
         downloadBlob(result.zip.data, result.zip.name, result.zip.mime)
+        trackZip(config, { format, quality, fixing: guide.system, tiles })
         retryRef.current = null
         toast(`${result.zip.name} is in your downloads.`, { tone: 'success' })
         announce(`Download ready: ${result.zip.name}.`)
@@ -196,6 +199,7 @@ export function ExportPage() {
       const file = result.files[0]
       if (file) {
         downloadBlob(file.data, file.name, file.mime)
+        track('download-part')
         toast(`${file.name} is in your downloads.`, { tone: 'success' })
       }
     } catch (failure) {
@@ -212,6 +216,7 @@ export function ExportPage() {
       const file = result.files[0]
       if (file) {
         downloadBlob(file.data, file.name, file.mime)
+        track('download-piece')
         toast(`${file.name} is in your downloads.`, { tone: 'success' })
       }
     } catch (failure) {
@@ -233,6 +238,7 @@ export function ExportPage() {
   function downloadPlan() {
     const svg = planSvg(config, plan)
     downloadBlob(new TextEncoder().encode(svg), 'tiling-plan.svg', 'image/svg+xml')
+    track('download-plan')
     toast('The tiling plan is in your downloads.', { tone: 'success' })
   }
 
@@ -253,6 +259,7 @@ export function ExportPage() {
       const file = result.files[0]
       if (file) {
         downloadBlob(file.data, `test-tile-60x60.${format}`, file.mime)
+        track('download-test-tile')
         toast('Test tile saved. Print this one before the wall.', { tone: 'success' })
       }
     } catch (failure) {

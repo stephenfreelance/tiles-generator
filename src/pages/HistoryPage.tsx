@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Trash2 } from 'lucide-react'
+import { track } from '@/app/analytics'
 import { studioIntent } from '@/app/prefetchStudio'
 import { RegisterHeader, RegisterRow } from '@/features/history/RegisterRow'
 import registerStyles from '@/features/history/RegisterRow.module.scss'
@@ -50,6 +51,7 @@ export function HistoryPage() {
   function handleDelete(entry: HistoryEntry) {
     const snapshot = useHistory.getState().entries
     removeEntry(entry.id)
+    track('history-delete')
     announce(`Deleted ${entry.config.name}.`)
     toast(`Deleted "${entry.config.name}".`, {
       tone: 'info',
@@ -60,6 +62,7 @@ export function HistoryPage() {
   function handleClear() {
     const snapshot = useHistory.getState().entries
     clearRegister()
+    track('history-clear')
     setConfirmingClear(false)
     announce(`Deleted ${snapshot.length} designs.`)
     toast(`Deleted ${snapshot.length} designs.`, {
@@ -70,17 +73,20 @@ export function HistoryPage() {
 
   function handleOpen(entry: HistoryEntry) {
     loadDesign(entry.config)
+    track('history-open')
     navigate('/studio')
   }
 
   function handleFiles(entry: HistoryEntry) {
     loadDesign(entry.config)
+    track('history-files')
     navigate('/download')
   }
 
   function handleDuplicate(entry: HistoryEntry) {
     const name = `${entry.config.name} copy`.slice(0, 80)
     saveEntry({ ...entry.config, name }, { thumbnail: entry.thumbnail })
+    track('history-duplicate')
     toast(`Copied as "${name}".`, { tone: 'success' })
   }
 

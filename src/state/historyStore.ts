@@ -62,7 +62,7 @@ function reviveEntry(raw: unknown, now: number): HistoryEntry | null {
     config: normalizeConfig(stored.config),
     createdAt: readTime(stored.createdAt) ?? updatedAt,
     updatedAt,
-    // Only a data: image can be drawn without a network call, and this app makes none.
+    // Only a data: image can be drawn without a network call.
     thumbnail:
       typeof stored.thumbnail === 'string' && stored.thumbnail.startsWith('data:image/') ? stored.thumbnail : undefined,
     validated: !!stored.validated,

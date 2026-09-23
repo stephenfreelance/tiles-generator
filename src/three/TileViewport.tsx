@@ -1,6 +1,7 @@
 import { Canvas, type RootState } from '@react-three/fiber'
 import { Component, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import * as THREE from 'three'
+import { track } from '@/app/analytics'
 import type { DesignConfig, LayoutPlan, PieceSpec } from '@/core/types'
 import { formatSize } from '@/core/units'
 import { heroPiece } from '@/hooks/previewLod'
@@ -195,6 +196,11 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
   const [director] = useState(() => new WaveDirector())
   const [tier, setTier] = useState<Tier>(initialTier)
   const [glState, setGlState] = useState<GlState>(() => (isWebGLAvailable() ? 'ok' : 'unsupported'))
+  // A preview that never shows is the visit's worst failure, and nothing else would report it.
+  useEffect(() => {
+    if (glState === 'unsupported') track('error-webgl-unsupported', { once: true })
+    if (glState === 'error') track('error-webgl-crashed', { once: true })
+  }, [glState])
   const [canvasKey, setCanvasKey] = useState(0)
   const [offscreen, setOffscreen] = useState(false)
   const rootRef = useRef<RootState | null>(null)

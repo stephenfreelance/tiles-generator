@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Check, Download, Scissors } from 'lucide-react'
 import { useNavigate } from 'react-router'
+import { track } from '@/app/analytics'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { isTypingTarget } from '@/app/keyboard'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
@@ -178,6 +179,7 @@ export function StudioPage() {
 
   const getFiles = async () => {
     if (saving) return
+    track('studio-get-files')
     setSaving(true)
     let thumbnail: string | undefined
     try {

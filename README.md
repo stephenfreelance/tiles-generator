@@ -2,7 +2,7 @@
 
 Tessera turns a wall size, a tile size, a relief texture and a tile color into a ready-to-print set of 3D-printable tiles. It computes how many full tiles fit, generates the cut pieces needed to cover the rest, previews the whole surface and a single tile in 3D, and exports every unique piece as STL or STEP. Optionally it profiles the edge of the whole wall, locks the tiles edge to edge with printed keys or with tabs moulded into the tiles themselves, or puts them up on printed wall clips that each tile carries to the wall and clicks onto.
 
-Everything runs in the browser: no account, no backend, no upload. Designs live in localStorage.
+Everything runs in the browser: no account, no backend, no upload. Designs live in localStorage. The live site sends one thing, an anonymous, cookie-free usage count to [GoatCounter](https://www.goatcounter.com/) (see `src/app/analytics.ts`); a local build sends nothing.
 
 ## Run it
 

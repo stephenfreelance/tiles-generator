@@ -2,6 +2,7 @@ import { Link2 } from 'lucide-react'
 import { useHref, useLocation } from 'react-router'
 import type { DesignConfig } from '@/core/types'
 import { Button, IconButton, toast } from '@/ui'
+import { track } from './analytics'
 import { toSearch } from './designLink'
 
 const LABEL = 'Copy link to this design'
@@ -23,6 +24,7 @@ export function CopyLinkButton({ config, as = 'text', className }: CopyLinkButto
     const link = `${window.location.origin}${href}?${toSearch(config)}`
     try {
       await navigator.clipboard.writeText(link)
+      track('copy-link')
       toast('Link copied. It carries the wall, the tile, the relief and the color.', { tone: 'success' })
     } catch {
       toast('This browser would not let Tessera reach the clipboard. Copy the address bar instead.', { tone: 'error' })

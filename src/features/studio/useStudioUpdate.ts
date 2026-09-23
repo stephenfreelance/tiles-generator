@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { trackEdit } from '@/app/analytics'
 import { normalizeConfig } from '@/core/config'
 import type { DesignConfig } from '@/core/types'
 import { useDesign, type EditOptions } from '@/state/designStore'
@@ -60,6 +61,19 @@ export function studioEditor(store: Store, memo: MemoSlot): { update: DesignUpda
   return { update, chooseTile }
 }
 
+/** The same two functions, each edit read off the store before and after it for the visit's usage count. */
+function countedEditor(editor: { update: DesignUpdate; chooseTile: ChooseTile }): typeof editor {
+  const counted = (edit: () => void) => {
+    const before = useDesign.getState().config
+    edit()
+    trackEdit(before, useDesign.getState().config)
+  }
+  return {
+    update: (recipe, options) => counted(() => editor.update(recipe, options)),
+    chooseTile: (kind, size, options) => counted(() => editor.chooseTile(kind, size, options)),
+  }
+}
+
 const sameMemo = (a: TileChoiceMemo | null, b: TileChoiceMemo) =>
   a !== null && a.kind === b.kind && sameTileSize(a, b)
 
@@ -74,14 +88,16 @@ export function useStudioUpdate(config: DesignConfig): StudioUpdate {
   // the page's life; the state copy is only there to render the choice.
   const [editor] = useState(() => {
     let current: TileChoiceMemo | null = null
-    return studioEditor(useDesign, {
-      get: () => current,
-      set: (next) => {
-        if (sameMemo(current, next)) return
-        current = next
-        setMemo(next)
-      },
-    })
+    return countedEditor(
+      studioEditor(useDesign, {
+        get: () => current,
+        set: (next) => {
+          if (sameMemo(current, next)) return
+          current = next
+          setMemo(next)
+        },
+      }),
+    )
   })
 
   return { update: editor.update, chooseTile: editor.chooseTile, tileChoice: tileChoiceKind(memo, config) }

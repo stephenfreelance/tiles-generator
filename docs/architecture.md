@@ -1,6 +1,6 @@
 # Tessera architecture
 
-Frontend-only app (no backend). The browser computes the layout, generates tile meshes (and the meshes of any printed parts: keys, wall clips and the fit test; the tabs print nothing, since they are built into the tiles) in a Web Worker, renders the preview with react-three-fiber, and writes STL / STEP / zip files locally. Designs persist in localStorage.
+Frontend-only app (no backend; its one network call is the anonymous GoatCounter count, `src/app/analytics.ts`). The browser computes the layout, generates tile meshes (and the meshes of any printed parts: keys, wall clips and the fit test; the tabs print nothing, since they are built into the tiles) in a Web Worker, renders the preview with react-three-fiber, and writes STL / STEP / zip files locally. Designs persist in localStorage.
 
 ## Stack and pins
 
@@ -106,6 +106,9 @@ src/
   ui/                   design-system components, CSS modules                             [ui]
   styles/               tokens, base                                                     [lead, ui may add partials]
   app/                  router, shell, useAccentTheme (the accent on the root element)   [studio]
+    analytics.ts        the GoatCounter usage count: every screen and event it may send, what they may never
+                        carry, and the sender (off unless the build sets VITE_GOATCOUNTER)
+    useAnalytics.ts     counts each screen (mounted once in AppShell)
   pages/                StudioPage, LandingPage, ExportPage, FitTestPage, HistoryPage, NotFoundPage [studio | pages]
   features/             page-specific components (studio/*, plan/*, export/*, history/*, landing/*, fixing/*, fit/*)
     fit/                the fit test's own page parts: GuideSteps.tsx (the numbered steps and the one
