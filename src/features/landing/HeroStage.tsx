@@ -12,6 +12,7 @@ import { formatLength } from '@/core/units'
 import type { StyleWithVars } from '@/ui/cx'
 import { HeroWall } from './HeroWall'
 import { LANDING_SPECIMENS } from './landingDesign'
+import { wallRatio } from './wallGrid'
 import styles from './HeroStage.module.scss'
 
 /** How far the hand may turn the wall, degrees, over its own resting turn. */
@@ -170,7 +171,15 @@ export function HeroStage({ config, plan, specimenIndex, onPickSpecimen, onPrevi
   )
 
   const texture = textureById(config.texture.id)
-  const stageVars: StyleWithVars = { '--turn': '0', '--lift': '0', '--away': '0' }
+  // The frame takes the wall's own proportions, so the wall fills it instead of being letterboxed into
+  // a box sized by whatever the type column left over: at 1.05 against the wall's 1.43 a quarter of the
+  // frame was empty air above and below the tiles.
+  const stageVars: StyleWithVars = {
+    '--turn': '0',
+    '--lift': '0',
+    '--away': '0',
+    '--wall-ratio': `${wallRatio(plan).toFixed(3)}`,
+  }
 
   return (
     <div className={styles.stage}>

@@ -1,6 +1,8 @@
 // The studio's wall map as plain geometry in CSS px: pure and DOM-free, so the layout rules are
 // unit-tested and the renderer only paints boxes.
+import { borderSides } from '@/core/layout'
 import { tileCutSides, type ChainItem, type PlanMarkRow, type PlanModel, type PlanTile, type WallSide } from '@/core/plan/planModel'
+import { SIDE_NAMES } from '@/core/sides'
 import { formatLength, formatNumber } from '@/core/units'
 
 export const CHIP_PX = 24
@@ -39,6 +41,18 @@ const LINE_CLEARANCE_PX = 4
 /** Room between a stacked side column and the wall for the leaders that tie each chip to its row. */
 export const LEADER_LANE_PX = 20
 const MAX_PASSES = 8
+/** A clip mark is drawn at the clip's own length, kept between these lengths in px so it never blots or vanishes. */
+export const CLIP_MARK_MIN_PX = 6
+export const CLIP_MARK_MAX_PX = 14
+/** Length of a wall clip along its catch, mm, and how thick its mark is against that length. */
+const CLIP_LENGTH_MM = 48
+const CLIP_MARK_ASPECT = 0.34
+/** A key mark is drawn larger than the key (16 mm would be a speck), within these lengths in px. */
+export const KEY_MARK_MIN_PX = 4
+export const KEY_MARK_MAX_PX = 8
+const KEY_MARK_SCALE = 1.6
+/** Length across the joint of the key the marks stand for, mm (two 8 mm reaches). */
+const KEY_LENGTH_MM = 16
 
 type Side = WallSide
 
@@ -92,6 +106,11 @@ export interface MapDimension {
 }
 
 export interface MapStart {
+  /**
+   * What the marker is called: "Start", or "SO" once wall clips are placed, since a clipped wall goes up
+   * from its own start line along the bottom edge, and the setting-out plan calls this point SO.
+   */
+  word: 'Start' | 'SO'
   dot: { x: number; y: number }
   lines: Segment[]
   dimension: MapDimension | null
@@ -102,6 +121,20 @@ export interface MapStart {
   pillLeader: Segment | null
 }
 
+/** A wall clip at the centre of its pocket. `upright` for a clip turned a quarter turn on a narrow piece. */
+export interface MapClip {
+  x: number
+  y: number
+  upright: boolean
+}
+
+/** A key across a joint, at its centre. `upright` for a key across a row joint (its length runs up the wall). */
+export interface MapKey {
+  x: number
+  y: number
+  upright: boolean
+}
+
 export interface WallMapGeometry {
   width: number
   height: number
@@ -110,6 +143,12 @@ export interface WallMapGeometry {
   chips: MapChip[]
   start: MapStart
   widened: boolean
+  clips: MapClip[]
+  /** Length of a clip mark, px. */
+  clipPx: number
+  keys: MapKey[]
+  /** Length of a key mark, px. */
+  keyPx: number
 }
 
 export interface AxisMap {
@@ -119,7 +158,8 @@ export interface AxisMap {
 
 /**
  * Everything the map's layout depends on, as one string. A recolour rebuilds the plan model without
- * moving a tile, and this is how the map knows it has nothing to redraw.
+ * moving a tile, and this is how the map knows it has nothing to redraw. The pieces are part of it:
+ * keys or a border profile split the same tiles into more models without moving any of them.
  */
 export function planLayoutKey(model: PlanModel): string {
   const chain = (items: ChainItem[]) => items.map((i) => `${i.kind[0]}${i.length}`).join(',')
@@ -133,20 +173,114 @@ export function planLayoutKey(model: PlanModel): string {
     model.tiles.length,
     ...model.chains.columns.map((c) => chain(c.items)),
     chain(model.chains.rows.items),
+    model.legend.map((row) => `${row.mark}=${row.pieceId}`).join(','),
+    // Clips and keys are drawn too: turning either on changes the map without moving a tile.
+    model.clips.length,
+    model.clips.reduce((sum, c) => sum + c.x * 3 + c.y + (c.axis === 'v' ? 7 : 0), 0),
+    model.keys.length,
+    model.keys.reduce((sum, k) => sum + k.x * 3 + k.y, 0),
   ].join('|')
 }
 
-/** Which wall edges each cut piece touches on its cut axis. */
+/** Half a clip mark's thickness across its length: the radius its rounded ends are drawn at. */
+const clipMarkHalf = (length: number) => Math.max(1.25, (CLIP_MARK_ASPECT * length) / 2)
+
+/** A key mark's width across its joint, as a share of its length. */
+const KEY_MARK_WIDTH = 0.625
+
+/** The box a clip mark covers, so the drawing can keep its lettering off it. */
+export function clipMarkBox(clip: MapClip, length: number): Box {
+  const [hw, hh] = clip.upright ? [clipMarkHalf(length), length / 2] : [length / 2, clipMarkHalf(length)]
+  return { x: clip.x - hw, y: clip.y - hh, width: 2 * hw, height: 2 * hh }
+}
+
+/** The box a key mark covers. */
+export function keyMarkBox(key: MapKey, length: number): Box {
+  const across = (KEY_MARK_WIDTH * length) / 2
+  const [hw, hh] = key.upright ? [across, length / 2] : [length / 2, across]
+  return { x: key.x - hw, y: key.y - hh, width: 2 * hw, height: 2 * hh }
+}
+
+/**
+ * One clip mark as path data: a small rounded bar of `length` px centred on the pocket, lying along the
+ * wall, or up it for a turned clip. A bar, not a dog-bone, so a clip never reads as a key.
+ */
+export function clipMarkPath(clip: MapClip, length: number): string {
+  const f = (v: number) => Math.round(v * 100) / 100
+  const half = length / 2
+  const r = clipMarkHalf(length)
+  if (clip.upright) {
+    const x0 = clip.x - r
+    const x1 = clip.x + r
+    const y0 = clip.y - half + r
+    const y1 = clip.y + half - r
+    return `M${f(x0)} ${f(y0)}A${f(r)} ${f(r)} 0 0 1 ${f(x1)} ${f(y0)}V${f(y1)}A${f(r)} ${f(r)} 0 0 1 ${f(x0)} ${f(y1)}Z`
+  }
+  const x0 = clip.x - half + r
+  const x1 = clip.x + half - r
+  const y0 = clip.y - r
+  const y1 = clip.y + r
+  return `M${f(x0)} ${f(y0)}H${f(x1)}A${f(r)} ${f(r)} 0 0 1 ${f(x1)} ${f(y1)}H${f(x0)}A${f(r)} ${f(r)} 0 0 1 ${f(x0)} ${f(y0)}Z`
+}
+
+/**
+ * One key mark as path data: a small dog-bone of `length` px centred on the key, its heads across the
+ * joint. Drawn larger than life, so a wall of keys reads at a glance.
+ */
+export function keyMarkPath(key: MapKey, length: number): string {
+  const head = 0.325 * length
+  const neck = length - 2 * head
+  const w = KEY_MARK_WIDTH * length
+  const step = (w - 0.25 * length) / 2
+  const f = (v: number) => Math.round(v * 100) / 100
+  // Drawn along x, then turned for a key across a row joint by swapping the axes.
+  const moves: [number, number][] = [
+    [head, 0],
+    [0, step],
+    [neck, 0],
+    [0, -step],
+    [head, 0],
+    [0, w],
+    [-head, 0],
+    [0, -step],
+    [-neck, 0],
+    [0, step],
+    [-head, 0],
+  ]
+  const [x0, y0] = key.upright ? [key.x - w / 2, key.y - length / 2] : [key.x - length / 2, key.y - w / 2]
+  const rel = moves.map(([dx, dy]) => (key.upright ? `l${f(dy)} ${f(dx)}` : `l${f(dx)} ${f(dy)}`)).join('')
+  return `M${f(x0)} ${f(y0)}${rel}z`
+}
+
+/**
+ * Which wall edges each piece belongs to: a cut touches the edges of its cut axis, and a border
+ * version (keys left out, or the border profile) the edges it sits on. A piece only near a profiled
+ * edge, kept off it by a narrow cut, belongs to that edge when it has no other. The base whole tile,
+ * and any piece no edge shapes, has none.
+ */
 export function pieceSides(model: PlanModel): Map<string, Set<Side>> {
   const sides = new Map<string, Set<Side>>()
-  for (const t of model.tiles) {
-    if (!t.cut) continue
-    let set = sides.get(t.pieceId)
+  const setOf = (pieceId: string) => {
+    let set = sides.get(pieceId)
     if (!set) {
       set = new Set()
-      sides.set(t.pieceId, set)
+      sides.set(pieceId, set)
     }
+    return set
+  }
+  for (const t of model.tiles) {
+    if (!t.cut) continue
+    const set = setOf(t.pieceId)
     for (const side of tileCutSides(t, model)) set.add(side)
+  }
+  for (const row of model.legend) {
+    if (row.pieceId === model.basePieceId) continue
+    const { on, near } = borderSides(row.edges)
+    const own = sides.get(row.pieceId)
+    const border = on.length || own?.size ? on : near
+    if (border.length === 0) continue
+    const set = setOf(row.pieceId)
+    for (const side of border) set.add(SIDE_NAMES[side])
   }
   return sides
 }
@@ -267,7 +401,8 @@ interface Groups {
 function groupPieces(model: PlanModel): Groups {
   const sides = pieceSides(model)
   const groups: Groups = {
-    full: model.legend.find((r) => r.kind === 'full') ?? null,
+    // The base whole tile stands on the wall; its border versions join the band of their edge.
+    full: model.legend.find((r) => r.pieceId === model.basePieceId) ?? null,
     edges: { top: [], right: [], bottom: [], left: [] },
     corners: [],
     loose: [],
@@ -279,7 +414,7 @@ function groupPieces(model: PlanModel): Groups {
     else groups.tilesByPiece.set(t.pieceId, [t])
   }
   for (const row of model.legend) {
-    if (row.kind === 'full') continue
+    if (row.pieceId === model.basePieceId) continue
     const set = sides.get(row.pieceId) ?? new Set<Side>()
     const opposite = (set.has('left') && set.has('right')) || (set.has('top') && set.has('bottom'))
     if (set.size === 0 || opposite) {
@@ -400,8 +535,11 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
   const corner = so.modeX === 'edge'
   const bond = model.chains.columns.length > 1
 
+  // A lone cut on a side says its size; a whole border version has nothing cut to say.
   const edgeSize = (side: Side, row: PlanMarkRow) =>
-    groups.edges[side].length === 1 ? formatNumber(side === 'top' || side === 'bottom' ? row.height : row.width, 1) : null
+    row.kind !== 'full' && groups.edges[side].filter((r) => r.kind !== 'full').length === 1
+      ? formatNumber(side === 'top' || side === 'bottom' ? row.height : row.width, 1)
+      : null
 
   const inBand = (side: 'left' | 'right') => (side === 'left' ? plan.leftInBand : plan.rightInBand)
   // Side bands: the widest chip sets the column, stacked columns sit side by side.
@@ -422,11 +560,13 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
   const top = plan.topLines ? plan.topLines * LINE_PX : 8
   const bottom = plan.bottomLines ? plan.bottomLines * LINE_PX : 12
 
+  // On clips "Start" would read as the start line the clipped wall goes up from, the bottom edge, not this point.
+  const word: MapStart['word'] = model.clips.length > 0 ? 'SO' : 'Start'
   const startText = formatLength(so.point.y)
   let startCol: number
   if (corner && so.point.y > EPS) {
     // The measurement can outgrow 64 px ("137.5 mm"), so the column widens to hold it.
-    const labelW = Math.max(labelWidth('Start', false), labelWidth(startText, true))
+    const labelW = Math.max(labelWidth(word, false), labelWidth(startText, true))
     startCol = Math.max(64, Math.ceil(DIM_OFFSET_PX + DIM_LABEL_GAP_PX + labelW + 2))
   } else if (corner) startCol = 48
   else startCol = plan.pillInColumn ? 56 : 8
@@ -469,6 +609,17 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
     else tileBoxes.set(t.pieceId, [t])
   }
 
+  // Clips: a bar on each pocket, at the clip's own length where the drawing allows, never lost or blotted.
+  const scaleX = W > 0 ? wallW / W : 0
+  const clipPx = Math.min(CLIP_MARK_MAX_PX, Math.max(CLIP_MARK_MIN_PX, CLIP_LENGTH_MM * scaleX))
+  const clips: MapClip[] = model.clips.map((c) => ({ x: px(c.x), y: py(c.y), upright: c.axis === 'v' }))
+
+  // Keys: a mark on each, scaled with the drawing but never lost or blotted.
+  const keyPx = Math.min(KEY_MARK_MAX_PX, Math.max(KEY_MARK_MIN_PX, KEY_MARK_SCALE * KEY_LENGTH_MM * scaleX))
+  const keys: MapKey[] = model.keys.map((k) => ({ x: px(k.x), y: py(k.y), upright: k.seam === 'horizontal' }))
+  // Drawn before the start marker, because the marker's tag has to find a spot that covers none of them.
+  const markBoxes: Box[] = [...clips.map((c) => clipMarkBox(c, clipPx)), ...keys.map((k) => keyMarkBox(k, keyPx))]
+
   // The start marker, in ink.
   const labels: MapLabel[] = []
   const lines: Segment[] = []
@@ -509,11 +660,11 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
         startY = LABEL_H / 2
         sizeY = Math.max(sizeY, startY + LABEL_H)
       }
-      labels.push(label('Start', lx, startY, 'end', false), label(startText, lx, sizeY, 'end', true))
+      labels.push(label(word, lx, startY, 'end', false), label(startText, lx, sizeY, 'end', true))
       dot = { x: wall.x, y }
     } else {
       dot = { x: wall.x, y: foot }
-      labels.push(label('Start', wall.x - leftBand - 8, Math.max(LABEL_H / 2, dot.y - 9), 'end', false))
+      labels.push(label(word, wall.x - leftBand - 8, Math.max(LABEL_H / 2, dot.y - 9), 'end', false))
     }
     // Lettering pushed below the wall's foot takes the drawing down with it.
     for (const box of [...labels.map((l) => l.box), ...(dimension ? [dimension.box] : [])]) height = Math.max(height, box.y + box.height)
@@ -535,24 +686,29 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
         { x: cx - 8 - PILL_W, y: cy + 8, width: PILL_W, height: PILL_H },
       ]
       const lineBoxes = [segmentBox(level, 4), segmentBox(upright, 4)]
-      pill = tries.find((b) => inside(b, wall) && !lineBoxes.some((l) => intersects(b, l))) ?? null
+      // The tag hides whatever it lands on, so it takes the first corner clear of the centre lines and of
+      // every clip and key mark. With no corner clear, the next pass stands it in the side column instead.
+      pill =
+        tries.find((b) => {
+          const clear = grow(b, 2)
+          return inside(b, wall) && !lineBoxes.some((l) => intersects(b, l)) && !markBoxes.some((m) => intersects(clear, m))
+        }) ?? null
       if (!pill) next.pillInColumn = true
     }
   }
   const dotBox: Box = { x: dot.x - DOT_RING_PX, y: dot.y - DOT_RING_PX, width: 2 * DOT_RING_PX, height: 2 * DOT_RING_PX }
-  const startObstacles: Box[] = [...labels.map((l) => l.box), dotBox, ...lines.map((l) => segmentBox(l, 4))]
+  const lineBoxes = lines.map((l) => segmentBox(l, 4))
+  const startObstacles: Box[] = [...labels.map((l) => l.box), dotBox, ...lineBoxes]
   if (pill) startObstacles.push(pill)
   if (dimension) startObstacles.push(dimension.box, ...guides.map((g) => segmentBox(g, 2)))
   const outer: Box = { x: 0, y: 0, width, height }
   // Left chips and their leaders stay above the level line, clear of the lines out to the dimension.
   const leftFloor = dimension ? dot.y - LINE_CLEARANCE_PX - STACK_GAP_PX : foot
   // A chip on the line of a centre mark reads as that line's label, so the lines' reach is kept clear.
+  const levelBand: Box = { x: 0, y: dot.y - LINE_CLEARANCE_PX, width, height: 2 * LINE_CLEARANCE_PX }
   const lineBands: Box[] = corner
     ? []
-    : [
-        { x: 0, y: dot.y - LINE_CLEARANCE_PX, width, height: 2 * LINE_CLEARANCE_PX },
-        { x: dot.x - LINE_CLEARANCE_PX, y: 0, width: 2 * LINE_CLEARANCE_PX, height },
-      ]
+    : [levelBand, { x: dot.x - LINE_CLEARANCE_PX, y: 0, width: 2 * LINE_CLEARANCE_PX, height }]
 
   const chips: MapChip[] = []
   const chipBoxes: Box[] = []
@@ -584,11 +740,12 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
     const cx = bandContentCentre(c.h)
     const cy = c.v === 'top' ? wall.y - LINE_PX / 2 : wall.y + wallH + LINE_PX / 2
     const box: Box = { x: cx - w / 2, y: cy - CHIP_PX / 2, width: w, height: CHIP_PX }
-    // Two pieces in one corner cannot happen on a real grid, but a stacked one must not overlap.
+    // A narrow cut can put a second piece in a corner (the tile it keeps off both edges). The second
+    // steps along the band toward the wall's middle, where the drawing has room, and points back.
     for (let guard = 0; guard < chipBoxes.length + 1; guard++) {
       const hit = chipBoxes.find((b) => intersects(box, b))
       if (!hit) break
-      box.x = c.h === 'left' ? hit.x - STACK_GAP_PX - w : hit.x + hit.width + STACK_GAP_PX
+      box.x = c.h === 'left' ? hit.x + hit.width + STACK_GAP_PX : hit.x - STACK_GAP_PX - w
     }
     const cornerX = c.h === 'left' ? wall.x : wall.x + wallW
     const cornerY = c.v === 'top' ? wall.y : wall.y + wallH
@@ -712,11 +869,12 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
       return below + h <= hi + EPS ? below : y
     }
 
-    // The strips each mark covers along this side: the row ends of a running bond, else every tile.
+    // The strips each mark covers along this side: the row ends of a running bond, else every tile. A
+    // whole border version always lies along its side, even one a narrow cut keeps off the row end.
     const edgeIds = new Set(rows.map((r) => r.pieceId))
     const endBoxes = tiles.filter((_, i) => {
       const t = model.tiles[i]
-      return edgeIds.has(t.pieceId) && (!bond || (side === 'left' ? t.x <= EPS : t.x + t.w >= W - EPS))
+      return edgeIds.has(t.pieceId) && (!bond || !t.cut || (side === 'left' ? t.x <= EPS : t.x + t.w >= W - EPS))
     })
 
     // Per mark on a straight grid, per row end on a running bond: the chip points at its own strip.
@@ -750,7 +908,9 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
         }
       }
     }
-    let chosen = attempt.length && fits(attempt.map((a) => a.box)) ? attempt : null
+    // Every mark needs a chip: a row end two pieces share cannot hold both, so the side stacks.
+    const covers = rows.every((row) => attempt.some((a) => a.row.pieceId === row.pieceId))
+    let chosen = attempt.length && covers && fits(attempt.map((a) => a.box)) ? attempt : null
 
     if (!chosen) {
       // Stack: marks around the wall's middle, wrapping into columns when too tall. A stacked chip no
@@ -829,8 +989,12 @@ function runPass(model: PlanModel, groups: Groups, width: number, maxWallHeight:
     wall,
     tiles,
     chips,
-    start: { dot, lines, dimension, guides, labels, pill, pillLeader },
+    start: { word, dot, lines, dimension, guides, labels, pill, pillLeader },
     widened,
+    clips,
+    clipPx,
+    keys,
+    keyPx,
   }
   // Anything pushed out of the drawing is a layout the next pass has to make room for.
   if (!chips.every((c) => inside(c.box, outer))) {

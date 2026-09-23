@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_CONFIG } from './config'
+import { pieceSockets, pieceTabs, TAB_SIDE } from './fixing/tabs'
+import type { BackFeature } from './fixing/types'
 import {
   axisStart,
+  basePiece,
   computeLayout,
+  edgeSides,
+  hasEdges,
+  layoutInputOf,
   perfectFitSizes,
   recommendedTile,
   STANDARD_TILE_SIZES,
   THIN_CUT_MM,
   tilePresets,
+  type LayoutEdges,
   type LayoutInput,
 } from './layout'
+import { hasSide, sideBit } from './sides'
+import type { DesignConfig, LayoutPlan, PieceSpec } from './types'
 
 const base = (over: Partial<LayoutInput> = {}): LayoutInput => ({
   surface: { width: 900, height: 600 },
@@ -332,5 +342,414 @@ describe('perfectFitSizes', () => {
   it('accounts for joints', () => {
     const [size] = perfectFitSizes(606, 2, 150)
     expect(size).toBe(150)
+  })
+})
+
+describe('computeLayout with edges', () => {
+  const ALL = { bottom: true, right: true, top: true, left: true }
+  const NONE = { bottom: false, right: false, top: false, left: false }
+  const wall = (over: Partial<LayoutInput> = {}): LayoutInput =>
+    base({ surface: { width: 1200, height: 600 }, tile: { width: 150, height: 150 }, ...over })
+  const profiled = (sides: Partial<typeof ALL>, band = 12): LayoutEdges => ({
+    profiled: { ...NONE, ...sides },
+    band,
+    boundaryMatters: false,
+    tabs: null,
+  })
+  const keyed: LayoutEdges = { profiled: null, band: 0, boundaryMatters: true, tabs: null }
+  const summary = (plan: LayoutPlan) => plan.pieces.map((p) => [p.mark, p.id, p.label, p.count])
+  const byId = (plan: LayoutPlan) => new Map(plan.pieces.map((p) => [p.id, p]))
+
+  it('changes nothing when no edge changes a model', () => {
+    const inputs = [
+      base(),
+      base({ surface: { width: 1000, height: 800 } }),
+      base({ surface: { width: 1250, height: 640 }, tile: { width: 100, height: 100 }, layout: { origin: 'center', rowOffset: 0.3333 } }),
+      base({ surface: { width: 900.5, height: 150 } }),
+    ]
+    const quiet: LayoutEdges[] = [
+      { profiled: null, band: 0, boundaryMatters: false, tabs: null },
+      { profiled: ALL, band: 0, boundaryMatters: false, tabs: null },
+      { profiled: NONE, band: 20, boundaryMatters: false, tabs: null },
+    ]
+    for (const input of inputs) {
+      const plain = computeLayout(input)
+      for (const edges of quiet) expect(computeLayout({ ...input, edges })).toEqual(plain)
+      for (const piece of plain.pieces) expect(piece.edges).toEqual({ boundary: 0, tabs: 0, profiled: {} })
+    }
+  })
+
+  it('splits a wall profiled top and bottom into the interior, the top row and the bottom row', () => {
+    const plan = computeLayout(wall({ edges: profiled({ top: true, bottom: true }) }))
+    expect(summary(plan)).toEqual([
+      ['A', 'full', 'Full tile', 16],
+      ['B', 'full-eB0', 'Full tile, bottom border', 8],
+      ['C', 'full-eT0', 'Full tile, top border', 8],
+    ])
+    expect(plan.pieces[1].edges).toEqual({ boundary: 0, tabs: 0, profiled: { bottom: 0 } })
+    expect(plan.pieces[2].edges).toEqual({ boundary: 0, tabs: 0, profiled: { top: 0 } })
+    // Every piece is still a whole tile: the edge makes models, not cuts.
+    expect([plan.fullCount, plan.partialCount, plan.exact]).toEqual([32, 0, true])
+    const ids = byId(plan)
+    for (const pl of plan.placements) {
+      const expected = pl.row === 0 ? 'full-eB0' : pl.row === plan.rows - 1 ? 'full-eT0' : 'full'
+      expect(ids.get(pl.pieceId)?.id).toBe(expected)
+    }
+  })
+
+  it('gives a wall profiled on every side nine classes, the interior first', () => {
+    const plan = computeLayout(wall({ edges: profiled(ALL) }))
+    expect(summary(plan)).toEqual([
+      ['A', 'full', 'Full tile', 12],
+      ['B', 'full-eB0', 'Full tile, bottom border', 6],
+      ['C', 'full-eL0', 'Full tile, left border', 2],
+      ['D', 'full-eR0', 'Full tile, right border', 2],
+      ['E', 'full-eT0', 'Full tile, top border', 6],
+      ['F', 'full-eB0L0', 'Full tile, bottom-left corner', 1],
+      ['G', 'full-eB0R0', 'Full tile, bottom-right corner', 1],
+      ['H', 'full-eT0L0', 'Full tile, top-left corner', 1],
+      ['I', 'full-eR0T0', 'Full tile, top-right corner', 1],
+    ])
+    expect(plan.fullCount).toBe(32)
+  })
+
+  it('spills the profile across a narrow cut into the next column', () => {
+    // 1210 mm: eight whole tiles and a 10 mm cut at the right, inside a 20 mm band.
+    const plan = computeLayout(wall({ surface: { width: 1210, height: 600 }, edges: profiled({ left: true, right: true }, 20) }))
+    expect(summary(plan)).toEqual([
+      ['A', 'full', 'Full tile', 24],
+      ['B', 'full-eL0', 'Full tile, left border', 4],
+      ['C', 'full-eR10', 'Full tile, 10 mm from the right border', 4],
+      ['D', 'p-0-0-10-150-eR0', 'Right edge, border', 4],
+    ])
+    const ids = byId(plan)
+    for (const pl of plan.placements) {
+      const piece = ids.get(pl.pieceId)!
+      if (pl.x === 1050) expect(piece.edges.profiled).toEqual({ right: 10 })
+      if (pl.x === 1200) expect(piece.edges.profiled).toEqual({ right: 0 })
+      // Two tiles in, the band has run out.
+      if (pl.x === 900) expect(piece.edges.profiled).toEqual({})
+    }
+  })
+
+  it('spills the profile across a thin bottom row into the row above it', () => {
+    // The corner grid reads from the top, so 610 mm leaves a 10 mm row at the bottom.
+    const plan = computeLayout(wall({ surface: { width: 1200, height: 610 }, edges: profiled({ top: true, bottom: true }, 20) }))
+    const rowOf = (row: number) => new Set(plan.placements.filter((p) => p.row === row).map((p) => p.pieceId))
+    expect([...rowOf(0)]).toEqual(['p-0-140-150-150-eB0'])
+    expect([...rowOf(1)]).toEqual(['full-eB10'])
+    expect([...rowOf(2)]).toEqual(['full'])
+    expect([...rowOf(4)]).toEqual(['full-eT0'])
+    expect(byId(plan).get('full-eB10')?.label).toBe('Full tile, 10 mm from the bottom border')
+    expect(byId(plan).get('p-0-140-150-150-eB0')?.label).toBe('Bottom edge, border')
+  })
+
+  it('tells the boundary pieces apart when keys make it matter', () => {
+    const plan = computeLayout(base({ surface: { width: 1000, height: 700 }, edges: keyed }))
+    expect(summary(plan)).toEqual([
+      ['A', 'full', 'Full tile', 15],
+      ['B', 'full-b8', 'Full tile, left border', 3],
+      ['C', 'full-b4', 'Full tile, top border', 5],
+      ['D', 'full-b12', 'Full tile, top-left corner', 1],
+      ['E', 'p-0-50-150-150-b1', 'Bottom edge', 5],
+      ['F', 'p-0-0-100-150-b2', 'Right edge', 3],
+      ['G', 'p-0-50-150-150-b9', 'Bottom edge, bottom-left corner', 1],
+      ['H', 'p-0-0-100-150-b6', 'Right edge, top-right corner', 1],
+      ['I', 'p-0-50-100-150-b3', 'Bottom-right corner', 1],
+    ])
+    // Same counts as without keys, spread over more models.
+    const plain = computeLayout(base({ surface: { width: 1000, height: 700 } }))
+    expect([plan.fullCount, plan.partialCount, plan.exact]).toEqual([plain.fullCount, plain.partialCount, plain.exact])
+    for (const piece of plan.pieces) expect(piece.edges.profiled).toEqual({})
+  })
+
+  it('reads the boundary from rows and columns, whatever the bond', () => {
+    let seed = 3
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    const origins = ['corner', 'center', 'balanced'] as const
+    const offsets = [0, 0.5, 0.3333] as const
+    for (let i = 0; i < 120; i++) {
+      const input = base({
+        surface: { width: 200 + Math.round(rand() * 2000), height: 150 + Math.round(rand() * 1200) },
+        tile: { width: 40 + Math.round(rand() * 200), height: 40 + Math.round(rand() * 200) },
+        joint: [0, 2][i % 2],
+        layout: { origin: origins[i % 3], rowOffset: offsets[(i >> 2) % 3] },
+        edges: keyed,
+      })
+      const plan = computeLayout(input)
+      const ids = byId(plan)
+      const lastRow = Math.max(...plan.placements.map((p) => p.row))
+      const lastCol = new Map<number, number>()
+      for (const p of plan.placements) lastCol.set(p.row, Math.max(lastCol.get(p.row) ?? 0, p.col))
+      for (const p of plan.placements) {
+        const expected = (p.row === 0 ? 1 : 0) | (p.col === lastCol.get(p.row) ? 2 : 0) | (p.row === lastRow ? 4 : 0) | (p.col === 0 ? 8 : 0)
+        expect(ids.get(p.pieceId)!.edges.boundary).toBe(expected)
+      }
+      // The same pieces as without keys, only split further.
+      const plain = computeLayout({ ...input, edges: undefined })
+      expect(plan.placements.map((p) => [p.x, p.y])).toEqual(plain.placements.map((p) => [p.x, p.y]))
+      expect([plan.fullCount, plan.partialCount, plan.exact]).toEqual([plain.fullCount, plain.partialCount, plain.exact])
+    }
+  })
+
+  it('puts a running bond row end on the right border whether it is a cut or a whole tile', () => {
+    const plan = computeLayout(
+      base({
+        surface: { width: 1250, height: 640 },
+        tile: { width: 100, height: 100 },
+        layout: { origin: 'corner', rowOffset: 0.5 },
+        edges: { profiled: ALL, band: 12, boundaryMatters: true, tabs: null },
+      }),
+    )
+    const ids = byId(plan)
+    const rows = new Set(plan.placements.map((p) => p.row))
+    for (const row of rows) {
+      const inRow = plan.placements.filter((p) => p.row === row).sort((a, b) => a.x - b.x)
+      const last = ids.get(inRow.at(-1)!.pieceId)!
+      const first = ids.get(inRow[0].pieceId)!
+      expect(last.edges.boundary & 2).toBe(2)
+      expect(last.edges.profiled.right).toBe(0)
+      expect(first.edges.profiled.left).toBe(0)
+    }
+    // Both kinds of row end exist in a half bond of 12.5 tiles.
+    const ends = [...rows].map((row) => ids.get(plan.placements.filter((p) => p.row === row).at(-1)!.pieceId)!.kind)
+    expect(new Set(ends)).toEqual(new Set(['full', 'edge', 'corner']))
+    expect(plan.pieces[0]).toMatchObject({ id: 'full', mark: 'A', label: 'Full tile' })
+  })
+
+  it('treats the last tile before a dropped sliver as the row end, and measures from the tiles laid', () => {
+    // 900.5 mm: six whole tiles and a 0.5 mm strip the joint absorbs.
+    const input = base({ surface: { width: 900.5, height: 150 }, edges: { profiled: ALL, band: 12, boundaryMatters: true, tabs: null } })
+    const plan = computeLayout(input)
+    expect(plan.warnings.map((w) => w.code)).toContain('sliver-dropped')
+    const last = plan.placements.find((p) => p.col === 5)!
+    const piece = byId(plan).get(last.pieceId)!
+    expect(piece.edges.boundary & 2).toBe(2)
+    // The band starts at the last tile laid, not at the nominal wall: no floating 0.5 mm offset.
+    expect(piece.edges.profiled.right).toBe(0)
+  })
+
+  it('tells a row end that stops short of the others how far the edge is', () => {
+    // Half bond on 1000.5 mm: even rows end at 1000 (the 0.5 mm strip is dropped), odd rows at 1000.5.
+    const plan = computeLayout(
+      base({
+        surface: { width: 1000.5, height: 300 },
+        tile: { width: 100, height: 100 },
+        layout: { origin: 'corner', rowOffset: 0.5 },
+        edges: profiled({ right: true }, 12),
+      }),
+    )
+    const ids = byId(plan)
+    const endOf = (row: number) => ids.get(plan.placements.filter((p) => p.row === row).at(-1)!.pieceId)!
+    expect(endOf(1).edges.profiled.right).toBe(0)
+    const short = endOf(0).kind === 'full' ? endOf(0) : endOf(2)
+    expect(short.edges.profiled.right).toBe(0.5)
+    expect(short.label).toBe('Full tile, 0.5 mm from the right border')
+  })
+
+  it('counts every whole tile, whichever border version it is', () => {
+    const plan = computeLayout(wall({ surface: { width: 1000, height: 700 }, edges: { profiled: ALL, band: 30, boundaryMatters: true, tabs: null } }))
+    const whole = plan.pieces.filter((p) => p.kind === 'full')
+    expect(whole.length).toBeGreaterThan(1)
+    expect(plan.fullCount).toBe(whole.reduce((s, p) => s + p.count, 0))
+    expect(plan.partialCount).toBe(plan.placements.length - plan.fullCount)
+  })
+
+  it('keeps ids and labels unique and every placement resolvable for many edged layouts', () => {
+    let seed = 19
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    const origins = ['corner', 'center', 'balanced'] as const
+    const offsets = [0, 0.5, 0.3333] as const
+    for (let i = 0; i < 150; i++) {
+      const sides = { bottom: rand() < 0.7, right: rand() < 0.7, top: rand() < 0.7, left: rand() < 0.7 }
+      const plan = computeLayout(
+        base({
+          surface: { width: 150 + Math.round(rand() * 1800), height: 100 + Math.round(rand() * 1200) },
+          tile: { width: 30 + Math.round(rand() * 220), height: 30 + Math.round(rand() * 220) },
+          joint: [0, 1.5, 3][i % 3],
+          layout: { origin: origins[i % 3], rowOffset: offsets[(i >> 2) % 3] },
+          edges: { profiled: sides, band: 2 + Math.round(rand() * 40), boundaryMatters: rand() < 0.5, tabs: null },
+        }),
+      )
+      const ids = plan.pieces.map((p) => p.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      const labels = plan.pieces.map((p) => p.label)
+      expect(new Set(labels).size).toBe(labels.length)
+      const known = new Set(ids)
+      for (const p of plan.placements) expect(known.has(p.pieceId)).toBe(true)
+      expect(plan.pieces.reduce((n, p) => n + p.count, 0)).toBe(plan.placements.length)
+      for (const p of plan.pieces) {
+        for (const d of Object.values(p.edges.profiled)) expect(d).toBeGreaterThanOrEqual(0)
+        // An id without a suffix is a piece no edge shapes, and the other way round.
+        expect(p.id === 'full' || /^p(-[\d.]+){4}$/.test(p.id)).toBe(!hasEdges(p.edges))
+      }
+      // The interior whole tile, when the wall has one, is still A.
+      const interior = plan.pieces.find((p) => p.kind === 'full' && !hasEdges(p.edges))
+      if (interior) expect(interior).toMatchObject({ id: 'full', mark: 'A' })
+      // Built from its code point, so this file carries no em-dash of its own.
+      expect(plan.pieces.map((p) => p.label).join(' ')).not.toContain(String.fromCharCode(0x2014))
+    }
+  })
+
+  it('says how many models the border adds when there are many', () => {
+    const plan = computeLayout(
+      base({
+        surface: { width: 1250, height: 640 },
+        tile: { width: 100, height: 100 },
+        layout: { origin: 'center', rowOffset: 0.3333 },
+        edges: { profiled: ALL, band: 12, boundaryMatters: true, tabs: null },
+      }),
+    )
+    const note = plan.warnings.find((w) => w.code === 'many-pieces')
+    expect(note?.message).toMatch(new RegExp(`needs ${plan.pieces.length} different models, \\d+ of them border versions`))
+    expect(note?.message).toContain('A straight grid or the corner origin needs fewer.')
+
+    // Already a straight grid from the corner: the advice says where the models come from instead.
+    const straight = computeLayout(
+      base({ surface: { width: 1210, height: 610 }, tile: { width: 150, height: 150 }, edges: { profiled: ALL, band: 20, boundaryMatters: true, tabs: null } }),
+    )
+    const straightNote = straight.warnings.find((w) => w.code === 'many-pieces')
+    expect(straight.pieces.length).toBeGreaterThan(12)
+    expect(straightNote?.message).not.toContain('straight grid')
+    expect(straightNote?.message).toContain('Each border piece is its own model')
+  })
+})
+
+describe('computeLayout with tabs', () => {
+  const tabbed = (over: Partial<DesignConfig> = {}): DesignConfig => ({ ...structuredClone(DEFAULT_CONFIG), lock: 'tabs', ...over })
+  const summary = (plan: LayoutPlan) => plan.pieces.map((p) => [p.mark, p.id, p.label, p.count])
+  const pieceOf = (plan: LayoutPlan, pieceId: string) => plan.pieces.find((p) => p.id === pieceId) as PieceSpec
+  /** Where a back feature sits along its side, piece-local mm: the middle of its ring across the joint. */
+  const alongOf = (feature: BackFeature): number => {
+    const ring = feature.levels[0].ring
+    const along: number[] = []
+    for (let k = 1; k < ring.length; k += 2) along.push(ring[k])
+    return Math.round(((Math.min(...along) + Math.max(...along)) / 2) * 100) / 100
+  }
+  /**
+   * The invariant the whole feature rests on: every tab really stands opposite a socket at its own height.
+   * Read off the fixings themselves, so the layout's mask is held to what the mesher is then handed.
+   */
+  const expectEveryTabMated = (config: DesignConfig, plan: LayoutPlan) => {
+    for (let i = 0; i < plan.placements.length; i++) {
+      const here = pieceOf(plan, plan.placements[i].pieceId)
+      const next = plan.placements[i + 1]
+      const beside = next && next.row === plan.placements[i].row ? pieceOf(plan, next.pieceId) : undefined
+      const tabs = pieceTabs(config, here).map(alongOf)
+      expect(hasSide(here.edges.tabs, 1), `${here.id} carries tabs`).toBe(tabs.length > 0)
+      if (tabs.length === 0) continue
+      expect(beside, `${here.id} has a tile to its right`).toBeDefined()
+      const sockets = pieceSockets(config, beside as PieceSpec).map(alongOf)
+      for (const at of tabs) expect(sockets, `${here.id} tab at ${at} into ${(beside as PieceSpec).id}`).toContain(at)
+    }
+  }
+
+  it('splits a tabbed wall into the nine the keys need, and cuts no tab on the right column', () => {
+    const config = tabbed()
+    const plan = computeLayout(layoutInputOf(config))
+    // The same nine boundary classes keys cost: the tab mask follows the right boundary bit, so it adds none.
+    // The tile that carries a tab is the wall's ordinary tile, so it stays A and the piles read in order.
+    expect(summary(plan)).toEqual([
+      ['A', 'full-t2', 'Full tile', 12],
+      ['B', 'full-b1-t2', 'Full tile, bottom border', 6],
+      ['C', 'full-b8-t2', 'Full tile, left border', 2],
+      ['D', 'full-b4-t2', 'Full tile, top border', 6],
+      ['E', 'full-b2-t0', 'Full tile, right border', 2],
+      ['F', 'full-b9-t2', 'Full tile, bottom-left corner', 1],
+      ['G', 'full-b12-t2', 'Full tile, top-left corner', 1],
+      ['H', 'full-b3-t0', 'Full tile, bottom-right corner', 1],
+      ['I', 'full-b6-t0', 'Full tile, top-right corner', 1],
+    ])
+    expect(computeLayout(layoutInputOf(tabbed({ lock: 'keys' }))).pieces).toHaveLength(9)
+    // The hand is the fixings' own: the layout may not import TAB_SIDE, so this holds its copy equal.
+    expect(pieceOf(plan, 'full-t2').edges.tabs).toBe(sideBit(TAB_SIDE))
+    // Nothing is cut on the wall's two vertical edges: no tab on the right column, no socket on the left.
+    for (const id of ['full-b2-t0', 'full-b3-t0', 'full-b6-t0']) {
+      expect(pieceTabs(config, pieceOf(plan, id)), id).toEqual([])
+    }
+    for (const id of ['full-b8-t2', 'full-b9-t2', 'full-b12-t2']) {
+      expect(pieceSockets(config, pieceOf(plan, id)), id).toEqual([])
+    }
+    expect(pieceTabs(config, pieceOf(plan, 'full-t2'))).toHaveLength(2)
+    expectEveryTabMated(config, plan)
+  })
+
+  it('leaves the whole tile before a cut too narrow for a socket without a tab, and labels it', () => {
+    // 1205 mm of wall: the ninth column is a 5 mm cut, which prints but cannot hold a socket.
+    const config = tabbed({ surface: { width: 1205, height: 600 } })
+    const plan = computeLayout(layoutInputOf(config))
+    const cut = plan.pieces.find((p) => p.width === 5) as PieceSpec
+    expect(cut.edges.tabs).toBe(0)
+    // The interior class splits in two: the tile before the cut is its own model, and says why.
+    const noTab = pieceOf(plan, 'full-t0')
+    expect(noTab.label).toBe('Full tile, no tab')
+    expect(noTab.count).toBe(2)
+    expect(pieceOf(plan, 'full-t2').label).toBe('Full tile')
+    // Twelve models where keys need nine: the tab mask is the only thing telling the two piles apart.
+    expect(plan.pieces).toHaveLength(12)
+    expect(computeLayout(layoutInputOf(tabbed({ surface: { width: 1205, height: 600 }, lock: 'keys' }))).pieces).toHaveLength(9)
+    // Only a piece with a tile to its right is ever called "no tab": the right column simply has none.
+    expect(plan.pieces.filter((p) => p.label.includes('no tab')).map((p) => p.id)).toEqual(['full-t0', 'full-b1-t0', 'full-b4-t0'])
+    expectEveryTabMated(config, plan)
+  })
+
+  it('reads the printed box against the bed, the tab included, and says so', () => {
+    const bed = { name: 'Bambu Lab A1 mini', width: 180, depth: 180 }
+    // 175 mm fits the bed; 175 plus the 8 mm tab does not.
+    const tile = { width: 175, height: 175, thickness: 4 }
+    const nominal = computeLayout(layoutInputOf(tabbed({ tile, lock: 'none' }), bed))
+    expect(nominal.warnings.filter((w) => w.code === 'exceeds-bed')).toEqual([])
+    const printed = computeLayout(layoutInputOf(tabbed({ tile }), bed))
+    expect(printed.warnings.find((w) => w.code === 'exceeds-bed')?.message).toBe(
+      'A 175 × 175 mm tile prints 183 mm wide with its tab, which does not fit the 180 × 180 mm bed of the Bambu Lab A1 mini.',
+    )
+    // Without tabs the note is the one it always was.
+    const big = computeLayout(layoutInputOf(tabbed({ tile: { width: 300, height: 150, thickness: 4 }, lock: 'none' }), bed))
+    expect(big.warnings.find((w) => w.code === 'exceeds-bed')?.message).toBe(
+      'A 300 × 150 mm tile does not fit the 180 × 180 mm bed of the Bambu Lab A1 mini.',
+    )
+  })
+
+  it('never offers a tile size whose printed box misses the bed', () => {
+    const bed = { name: 'Bambu Lab A1 mini', width: 180, depth: 180 }
+    const surface = { width: 1050, height: 700 }
+    // 175 mm covers this wall exactly and fits the bed, so it is the offer until the tab is counted.
+    expect(recommendedTile(surface, 0, { bed })?.width).toBe(175)
+    const presets = tilePresets(surface, 0, { bed, grow: 8 })
+    expect(presets.recommended?.width).not.toBe(175)
+    for (const fit of [presets.recommended, presets.square]) {
+      if (!fit) continue
+      expect(fit.width + 8, `${fit.width} × ${fit.height} printed`).toBeLessThanOrEqual(bed.width)
+    }
+  })
+})
+
+describe('edge helpers', () => {
+  it('lists the sides an edge shapes, in side order', () => {
+    expect(edgeSides({ boundary: 0, tabs: 0, profiled: {} })).toEqual([])
+    expect(edgeSides({ boundary: 8, tabs: 0, profiled: { top: 0 } })).toEqual([2, 3])
+    expect(edgeSides({ boundary: 1, tabs: 0, profiled: { bottom: 4, right: 10 } })).toEqual([0, 1])
+  })
+
+  it('finds the whole tile the plan is read from', () => {
+    const plain = computeLayout(base({ surface: { width: 1000, height: 800 } }))
+    expect(basePiece(plain.pieces)?.id).toBe('full')
+    const edged = computeLayout(base({ surface: { width: 1200, height: 600 }, edges: { profiled: null, band: 0, boundaryMatters: true, tabs: null } }))
+    expect(basePiece(edged.pieces)?.id).toBe('full')
+    // One row profiled top and bottom: every whole tile is a border version, and none is the base.
+    const strip = computeLayout(
+      base({
+        surface: { width: 900, height: 150 },
+        edges: { profiled: { bottom: true, right: true, top: true, left: true }, band: 12, boundaryMatters: false, tabs: null },
+      }),
+    )
+    expect(strip.pieces.filter((p) => p.kind === 'full').length).toBeGreaterThan(1)
+    expect(basePiece(strip.pieces)).toBeUndefined()
+    // A lone whole model is the base whatever shapes it.
+    const single = computeLayout(
+      base({ surface: { width: 900, height: 150 }, edges: { profiled: { bottom: true, right: false, top: true, left: false }, band: 12, boundaryMatters: false, tabs: null } }),
+    )
+    expect(single.pieces).toHaveLength(1)
+    expect(basePiece(single.pieces)?.label).toBe('Full tile, top and bottom borders')
   })
 })

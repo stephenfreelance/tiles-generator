@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '../config'
-import { computeLayout } from '../layout'
+import { computeLayout, layoutInputOf } from '../layout'
 import type { DesignConfig } from '../types'
 import { buildPlanModel } from './planModel'
 import { renderPlanSheet, type SheetInfo } from './planSheet'
@@ -72,6 +72,36 @@ describe('renderPlanSheet', () => {
     expect(svg.match(/class="tile cut"/g)).toHaveLength(plan.partialCount)
     expect(svg.match(/class="tile full"/g) ?? []).toHaveLength(plan.fullCount)
     for (const piece of plan.pieces) expect(svg).toContain(`data-mark="${piece.mark}"`)
+  })
+
+  it('letters every piece but the base tile, whole border versions included', () => {
+    const config = design({
+      surface: { width: 1200, height: 600 },
+      lock: 'keys',
+      perimeter: { ...DEFAULT_CONFIG.perimeter, profile: 'chamfer', width: 4, drop: 2, fade: 8, sides: { top: true, bottom: true, left: false, right: false } },
+    })
+    const plan = computeLayout(layoutInputOf(config))
+    const svg = renderPlanSheet(buildPlanModel(config, plan), info)
+    assertWellFormed(svg)
+    // Every piece is still a whole tile, drawn plain.
+    expect(svg.match(/class="tile full"/g)).toHaveLength(plan.placements.length)
+    const letters = [...svg.matchAll(/<text class="mark whole"[^>]*>([A-Z]+)<\/text>/g)].map((m) => m[1])
+    const base = plan.pieces.find((p) => p.id === 'full')!
+    expect(letters).toHaveLength(plan.placements.length - base.count)
+    expect(new Set(letters)).toEqual(new Set(plan.pieces.filter((p) => p !== base).map((p) => p.mark)))
+    expect(letters).not.toContain(base.mark)
+    expect(svg).toContain(`.mark.whole{fill:`)
+    const words = svg.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+    expect(words).toContain('Lettered whole tiles are border versions')
+  })
+
+  it('draws a design without edges exactly as before: whole tiles unlettered, no border note', () => {
+    const { plan, svg } = sheetFor(design({ surface: { width: 1000, height: 800 } }))
+    expect(svg).not.toContain('mark whole')
+    // Not even the style rule for one: a default sheet stays byte for byte what it was.
+    expect(svg).not.toContain('.mark.whole')
+    expect(svg).not.toContain('border versions')
+    expect((svg.match(/<text class="mark"/g) ?? []).length).toBe(plan.partialCount)
   })
 
   it('stays legible for a 60 by 40 tile wall', () => {

@@ -1,7 +1,5 @@
-// The one sentence the hero says about the visitor's wall, and the words section 2 uses for the edges
-// that take the cuts. Both are derived from the plan, never typed, so the page can only ever claim
-// what computeLayout worked out; a test pins the exact strings.
-import type { WallSide } from '@/core/plan/planModel'
+// The one sentence the hero says about the visitor's wall. It is derived from the plan, never typed, so
+// the page can only ever claim what computeLayout worked out; a test pins the exact strings.
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { formatNumber, formatSize } from '@/core/units'
 
@@ -29,23 +27,4 @@ export function fitLine(config: DesignConfig, plan: LayoutPlan): string {
     return `${wall}: ${pieces}, ${models}.`
   }
   return `${wall}: ${plural(total, 'tile')}, ${count(plan.fullCount)} whole and ${count(plan.partialCount)} cut, ${models}.`
-}
-
-/** The sides read as a tiler names them: the uprights are edges, the level ones are the top and bottom. */
-const SIDE_TEXT: Record<WallSide, string> = {
-  top: 'the top',
-  right: 'the right edge',
-  bottom: 'the bottom',
-  left: 'the left edge',
-}
-
-/**
- * "the right edge and the bottom", for "On your wall the cuts fall along ...".
- * The order is the caller's: wallCutSides already lists them clockwise from the top.
- */
-export function cutSidesText(sides: readonly WallSide[]): string {
-  // A cut that sits against no wall edge (a dropped sliver moved it inboard) leaves the list empty.
-  if (sides.length === 0) return 'the edges'
-  const words = sides.map((side) => SIDE_TEXT[side])
-  return words.length === 1 ? words[0] : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`
 }

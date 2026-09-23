@@ -20,12 +20,13 @@ const NAV: { to: string; label: string; prefetch?: () => void }[] = [
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Tessera · 3D-printable relief tiles',
   '/download': 'Download files · Tessera',
+  '/fit-test': 'Fit test · Tessera',
   '/history': 'Saved designs · Tessera',
 }
 
 /**
  * The workbench every screen is built on: a dark espresso bar carrying the name, the screens to move
- * between and the undo tools, then the screen's own work below it.
+ * between and, in the studio only, the undo tools, then the screen's own work below it.
  */
 export function AppShell() {
   const { pathname } = useLocation()
@@ -44,7 +45,8 @@ export function AppShell() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isTypingTarget(event.target)) return
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+      // Undo belongs to the bench it edits: elsewhere it would change a design the screen does not show.
+      if (isStudio && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         if (event.shiftKey) redo()
         else undo()
@@ -58,7 +60,7 @@ export function AppShell() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo])
+  }, [isStudio, undo, redo])
 
   return (
     <div className={styles.app} data-fill={isStudio || undefined}>
@@ -101,29 +103,33 @@ export function AppShell() {
         </nav>
 
         <div className={styles.tools}>
-          <IconButton
-            size="sm"
-            icon={<Undo2 />}
-            aria-label="Undo"
-            shortcut={[MOD_KEY, 'Z']}
-            tooltipSide="bottom"
-            className={styles.barTool}
-            disabled={!canUndo}
-            onClick={undo}
-          />
-          <IconButton
-            size="sm"
-            icon={<Redo2 />}
-            aria-label="Redo"
-            shortcut={['Shift', MOD_KEY, 'Z']}
-            tooltipSide="bottom"
-            className={styles.barTool}
-            disabled={!canRedo}
-            onClick={redo}
-          />
+          {isStudio && (
+            <>
+              <IconButton
+                size="sm"
+                icon={<Undo2 />}
+                aria-label="Undo"
+                shortcut={[MOD_KEY, 'Z']}
+                tooltipSide="bottom"
+                className={styles.barTool}
+                disabled={!canUndo}
+                onClick={undo}
+              />
+              <IconButton
+                size="sm"
+                icon={<Redo2 />}
+                aria-label="Redo"
+                shortcut={['Shift', MOD_KEY, 'Z']}
+                tooltipSide="bottom"
+                className={styles.barTool}
+                disabled={!canRedo}
+                onClick={redo}
+              />
+            </>
+          )}
           <span ref={helpRef} className={styles.help}>
             <HelpTip label="Keyboard shortcuts" side="bottom" cap="?">
-              <ShortcutsHelp />
+              <ShortcutsHelp isStudio={isStudio} />
             </HelpTip>
           </span>
         </div>

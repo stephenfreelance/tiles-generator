@@ -1,0 +1,112 @@
+@use '@/styles/mixins' as *;
+
+// Two columns of questions under the band's heading, capped so a line of answer stays readable. No
+// content-visibility: skipped content is out of find-in-page and out of the accessibility tree.
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 0 clamp(var(--s-5), 4vw, var(--s-8));
+  // No cap: the band rules off at the same right-hand edge as sections 03 and 04.
+  border-top: 1px solid var(--hairline);
+
+  @media (max-width: 48rem) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: grid;
+  min-width: 0;
+}
+
+.question {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  min-height: 3.25rem;
+  padding: var(--s-3) 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  cursor: pointer;
+  list-style: none;
+
+  // Safari still draws its own triangle from the shadow DOM; the chevron below replaces it.
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::after {
+    content: '';
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid var(--ink-3);
+    border-bottom: 2px solid var(--ink-3);
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform var(--t-fast) var(--ease-out);
+  }
+
+  &:hover {
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    @include focus-ring-inset;
+  }
+
+  @media (max-width: 48rem) {
+    min-height: 2.75rem;
+    padding: var(--s-2) 0;
+  }
+}
+
+.question[open] .head::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.answer {
+  max-width: 72ch;
+  padding: 0 0 var(--s-4);
+  color: var(--ink-2);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+
+  @media (max-width: 48rem) {
+    padding-bottom: var(--s-3);
+  }
+}
+
+.facts {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0 0 var(--s-3);
+  list-style: none;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+
+  > li {
+    position: relative;
+    padding-left: var(--s-5);
+    text-wrap: pretty;
+  }
+
+  > li::before {
+    content: '';
+    position: absolute;
+    top: 0.55em;
+    left: 0;
+    width: 0.75rem;
+    height: 2px;
+    background: var(--accent);
+  }
+}

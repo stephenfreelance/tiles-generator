@@ -13,10 +13,12 @@ export function usePieceAssets(
   pieces: readonly PieceSpec[],
   tileWidth: number,
   tileHeight: number,
+  /** How far a tab stands out past its piece (meshMatchesPiece): 0 on a wall that cuts none. */
+  tabGrow = 0,
 ): Map<string, PieceAssets> {
   const assets = useMemo(
-    () => buildPieceAssets(preview, pieces, { width: tileWidth, height: tileHeight }),
-    [preview, pieces, tileWidth, tileHeight],
+    () => buildPieceAssets(preview, pieces, { width: tileWidth, height: tileHeight }, tabGrow),
+    [preview, pieces, tileWidth, tileHeight, tabGrow],
   )
   useEffect(() => () => disposePieceAssets(assets), [assets])
   return assets

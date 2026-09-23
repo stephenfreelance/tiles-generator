@@ -1,6 +1,7 @@
-// Four printed pieces of the visitor's own wall, laid in their real positions and rendered in the
-// color they picked: the relief runs straight across every joint. The panel assembles itself once on
-// entry, and re-lays itself one piece at a time on a recolor, working out from the setting-out corner.
+// Four printed pieces from the corner of a wall, laid in their real positions and rendered in the relief
+// and color the visitor picked: the relief runs straight across every joint. The panel assembles itself
+// once on entry, and re-lays itself one piece at a time on a recolor, working out from the setting-out
+// corner.
 import { AnimatePresence, m, stagger, useReducedMotion, type Variants } from 'motion/react'
 import { useMemo, useState } from 'react'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
@@ -62,21 +63,11 @@ export interface JointProofProps {
   /** The fragment to lay: the page passes cornerDetail(plan). */
   plan: LayoutPlan
   label: string
-  /** Chip size in px. The kit asks for the same one, so the four shades are one set, not two. */
+  /** Chip size in px. The kit and the hero ask for the same one, so the shades are one set, not three. */
   sizePx?: number
-  /** The piece the legend, the plan and this panel are all highlighting. */
-  activePieceId?: string | null
-  onActivePiece?: (id: string | null) => void
 }
 
-export function JointProof({
-  config,
-  plan,
-  label,
-  sizePx = PROOF_CHIP_PX,
-  activePieceId = null,
-  onActivePiece,
-}: JointProofProps) {
+export function JointProof({ config, plan, label, sizePx = PROOF_CHIP_PX }: JointProofProps) {
   const items = useMemo<ChipItem[]>(
     () => plan.pieces.map((piece) => ({ key: piece.id, config, crop: piece.crop })),
     [plan.pieces, config],
@@ -118,11 +109,6 @@ export function JointProof({
             // Undefined inherits the wall's own initial, which is the hidden the stagger lays from.
             initial={assembled ? 'shown' : undefined}
             custom={startOffset(cell, wall.columnCount, wall.rowCount)}
-            data-active={piece.id === activePieceId || undefined}
-            data-dim={(activePieceId !== null && piece.id !== activePieceId) || undefined}
-            // The keyboard path to the same highlight is the legend, which carries every mark in text.
-            onPointerEnter={() => onActivePiece?.(piece.id)}
-            onPointerLeave={() => onActivePiece?.(null)}
           >
             {/* Motion owns the cell's transform, so the lift and the dim live one element in. */}
             <div className={styles.piece} style={{ borderRadius: cornerRadii(cell.edge) }}>

@@ -44,11 +44,10 @@ const exampleName = (label: string): string => label.replace(/\s+\d.*$/, '')
  */
 export function WallFields({ widthMm, heightMm, onWall, onExample, exampleIndex }: WallFieldsProps) {
   const autoId = useId()
-  const hintId = `wall-hint${autoId}`
   const samplesId = `wall-samples${autoId}`
 
   return (
-    <fieldset className={styles.block} aria-describedby={hintId}>
+    <fieldset className={styles.block}>
       <legend className={styles.legend}>Your wall</legend>
       {/* Hidden from the tree because the legend above already names the group: this is the printed head. */}
       <p className={styles.head} aria-hidden="true">
@@ -116,11 +115,6 @@ export function WallFields({ widthMm, heightMm, onWall, onExample, exampleIndex 
           })}
         </div>
       </div>
-
-      {/* The tile size is captioned under the wall itself, so this says the one thing the fields cannot. */}
-      <p id={hintId} className={styles.hint}>
-        In the studio you pick the tile size, or Tessera works out one that needs no cuts.
-      </p>
     </fieldset>
   )
 }

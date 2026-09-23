@@ -1,16 +1,19 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { CHIP_SHADE_BUDGET_BYTES, reliefShadeBytes, reliefShadeKey } from '@/core/textures/hillshade'
-import type { CropRect, DesignConfig } from '@/core/types'
+import type { CropRect, DesignConfig, PieceEdges } from '@/core/types'
 import { geometryClient } from '@/workers/geometryClient'
 import type { ChipImage } from '@/workers/protocol'
 import { isAbortError } from './abort'
-import { ChipCache, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
-import { cropKey, geometryKey } from './geometryKey'
+import { ChipCache, chipCacheKey, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
+
+export { chipCacheKey }
 
 export interface ChipItem {
   key: string
   config: DesignConfig
   crop?: CropRect
+  /** A piece's edges: a border piece shows its perimeter profile. */
+  edges?: PieceEdges
 }
 
 const CHIP_CACHE_SIZE = 120
@@ -23,10 +26,6 @@ const inflight = new Map<string, SharedRender>()
 // A quarter of the worker's budget is left as headroom: it also keeps shades from batches the page
 // cancelled, and overlapping requests reorder its recency, so the page must forget first.
 const shades = new ShadeLedger(CHIP_SHADE_BUDGET_BYTES * 0.75)
-
-/** Chip identity: the relief, the color, the piece shape and the pixel size. */
-export const chipCacheKey = (item: Pick<ChipItem, 'config' | 'crop'>, sizePx: number): string =>
-  `${geometryKey(item.config)}|${item.config.color}|${cropKey(item.crop)}|${sizePx}`
 
 /** ImageData needs pixels on a plain ArrayBuffer; worker results always are, but stay safe. */
 function toImageData(chip: ChipImage): ImageData {
@@ -71,6 +70,7 @@ interface PendingChip {
   shadeKey: string
   config: DesignConfig
   crop?: CropRect
+  edges?: PieceEdges
 }
 
 /** Renders one batch in the worker and stores PNG URLs; concurrent strips share (and hold) it. */
@@ -78,7 +78,11 @@ function renderBatch(batch: PendingChip[], sizePx: number): SharedRender {
   const controller = new AbortController()
   const promise = geometryClient
     .request(
-      { kind: 'chips', sizePx, items: batch.map((c) => ({ key: c.cacheKey, config: c.config, crop: c.crop })) },
+      {
+        kind: 'chips',
+        sizePx,
+        items: batch.map((c) => ({ key: c.cacheKey, config: c.config, crop: c.crop, edges: c.edges })),
+      },
       { signal: controller.signal },
     )
     .then(async (result) => {
@@ -130,8 +134,8 @@ export function useTextureChips(base: DesignConfig, items: ChipItem[], sizePx: n
       const running = inflight.get(key)
       if (running && !running.cancelled) waiting.add(running)
       else {
-        const shadeKey = reliefShadeKey(item.config, { sizePx, crop: item.crop })
-        todo.set(key, { cacheKey: key, shadeKey, config: item.config, crop: item.crop })
+        const shadeKey = reliefShadeKey(item.config, { sizePx, crop: item.crop, edges: item.edges })
+        todo.set(key, { cacheKey: key, shadeKey, config: item.config, crop: item.crop, edges: item.edges })
       }
     }
 

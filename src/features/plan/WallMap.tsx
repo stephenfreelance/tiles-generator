@@ -5,7 +5,7 @@ import { VisuallyHidden } from '@/ui'
 import { cx } from '@/ui/cx'
 import { mapDescription } from './planCopy'
 import { useElementSize } from './useElementSize'
-import { layoutWallMap, planLayoutKey, type MapChip, type MapTile } from './wallMapGeometry'
+import { clipMarkPath, keyMarkPath, layoutWallMap, planLayoutKey, type MapChip, type MapClip, type MapKey, type MapTile } from './wallMapGeometry'
 import styles from './WallMap.module.scss'
 
 /** Strokes are centred on a rect's edge, so an inset of half a stroke keeps every joint visible. */
@@ -89,6 +89,51 @@ function Chip({ chip, selected }: { chip: MapChip; selected: boolean }) {
   )
 }
 
+/** The fixings over the tiles: clips as small bars on their pockets, keys as small marks. Neither takes a click. */
+function Fixings({ clips, clipPx, keys, keyPx }: { clips: MapClip[]; clipPx: number; keys: MapKey[]; keyPx: number }) {
+  if (clips.length === 0 && keys.length === 0) return null
+  return (
+    <g className={styles.fixings}>
+      {clips.length > 0 && <path className={styles.clips} d={clips.map((c) => clipMarkPath(c, clipPx)).join('')} />}
+      {keys.length > 0 && <path className={styles.keys} d={keys.map((k) => keyMarkPath(k, keyPx)).join('')} />}
+    </g>
+  )
+}
+
+/** The caption's key to the fixings, drawn with the same strokes as the map. */
+function FixingsLegend({ clips, keys }: { clips: boolean; keys: boolean }) {
+  if (!clips && !keys) return null
+  return (
+    <span className={styles.legend}>
+      {/* On clips the start marker reads SO, as on the setting-out plan, so the caption says what it is. */}
+      {clips && (
+        <span className={styles.legendItem}>
+          <svg className={styles.legendMark} viewBox="0 0 18 10" aria-hidden="true" focusable="false">
+            <circle className={styles.dot} cx={9} cy={5} r={3.5} />
+          </svg>
+          SO, the setting-out point
+        </span>
+      )}
+      {clips && (
+        <span className={styles.legendItem}>
+          <svg className={styles.legendMark} viewBox="0 0 18 10" aria-hidden="true" focusable="false">
+            <path className={styles.clips} d={clipMarkPath({ x: 9, y: 5, upright: false }, 14)} />
+          </svg>
+          Wall clips
+        </span>
+      )}
+      {keys && (
+        <span className={styles.legendItem}>
+          <svg className={styles.legendMark} viewBox="0 0 18 10" aria-hidden="true" focusable="false">
+            <path className={styles.keys} d={keyMarkPath({ x: 9, y: 5, upright: false }, 12)} />
+          </svg>
+          Key
+        </span>
+      )}
+    </span>
+  )
+}
+
 /**
  * The wall drawn to the rail's width: whole tiles in the tile color's tint, cuts hatched, a letter for
  * every piece and the point to start from. Choosing a piece fades the rest of the wall.
@@ -151,6 +196,8 @@ function WallMapView({ model, selectedPieceId, onSelect, className }: WallMapPro
               </g>
             )}
 
+            <Fixings clips={geometry.clips} clipPx={geometry.clipPx} keys={geometry.keys} keyPx={geometry.keyPx} />
+
             {start.lines.map((l, i) => (
               <line key={i} className={styles.level} {...l} />
             ))}
@@ -191,7 +238,7 @@ function WallMapView({ model, selectedPieceId, onSelect, className }: WallMapPro
                   y={start.pill.y + start.pill.height / 2}
                   textAnchor="middle"
                 >
-                  Start
+                  {start.word}
                 </text>
               </g>
             )}
@@ -205,6 +252,7 @@ function WallMapView({ model, selectedPieceId, onSelect, className }: WallMapPro
           {formatNumber(model.width)} × {formatNumber(model.height)} mm wall, sizes in mm
         </span>
         {geometry?.widened && <span className={styles.captionNote}>Thin strips drawn wider so you can see them</span>}
+        <FixingsLegend clips={model.clips.length > 0} keys={model.keys.length > 0} />
       </div>
       <VisuallyHidden id={descId}>{mapDescription(model)}</VisuallyHidden>
     </div>

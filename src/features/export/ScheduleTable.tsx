@@ -31,7 +31,7 @@ export function ScheduleTable({
   onDownloadPiece,
 }: ScheduleTableProps) {
   const items = useMemo<ChipItem[]>(
-    () => plan.pieces.map((piece) => ({ key: piece.id, config, crop: piece.crop })),
+    () => plan.pieces.map((piece) => ({ key: piece.id, config, crop: piece.crop, edges: piece.edges })),
     [plan.pieces, config],
   )
   const chips = useTextureChips(config, items, CHIP_PX)

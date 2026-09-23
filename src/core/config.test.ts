@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_COLOR } from './colors'
-import { DEFAULT_CONFIG, LIMITS, normalizeConfig, sameConfig } from './config'
+import { cutsRelief, DEFAULT_CONFIG, DEFAULT_PERIMETER, LIMITS, normalizeConfig, PERIMETER_PROFILES, sameConfig } from './config'
 import { DEFAULT_PRINTER_ID } from './printers'
 
 // normalizeConfig is the only door into the app for untrusted data (localStorage, history entries,
@@ -166,5 +166,91 @@ describe('sameConfig', () => {
   it('sees a single changed measurement', () => {
     const a = normalizeConfig({ joint: 2 })
     expect(sameConfig(a, normalizeConfig({ joint: 2.5 }))).toBe(false)
+  })
+})
+
+describe('normalizeConfig edges and fixings', () => {
+  it('loads a design saved before edge shapes with a 0 mm edge as square, and any other as chamfer', () => {
+    expect(normalizeConfig({ ...DEFAULT_CONFIG, jointEdge: undefined, bevel: 0 }).jointEdge).toBe('square')
+    expect(normalizeConfig({ ...DEFAULT_CONFIG, jointEdge: undefined, bevel: 0.5 }).jointEdge).toBe('chamfer')
+    // A chosen shape is kept even at size 0: the maker picked it.
+    expect(normalizeConfig({ ...DEFAULT_CONFIG, jointEdge: 'round', bevel: 0 }).jointEdge).toBe('round')
+  })
+
+  it('gives a design saved before the fixings every one of them off', () => {
+    const { perimeter, lock, mount, fit, ...old } = DEFAULT_CONFIG
+    void perimeter
+    void lock
+    void mount
+    void fit
+    const loaded = normalizeConfig(old)
+    expect(loaded.perimeter.profile).toBe('none')
+    expect(loaded.lock).toBe('none')
+    expect(loaded.mount).toBe('glue')
+    expect(loaded.fit).toBe('standard')
+  })
+
+  it('reads the keys switch of a design saved before the tabs, and refuses an unknown lock', () => {
+    const { lock, ...noLock } = DEFAULT_CONFIG
+    void lock
+    // `joins` was a boolean: true was Keys, false was Side by side. No store version bump is needed, exactly
+    // as the colorId to color rename needed none, because every path out of storage normalizes on read.
+    expect(normalizeConfig({ ...noLock, joins: true }).lock).toBe('keys')
+    expect(normalizeConfig({ ...noLock, joins: false }).lock).toBe('none')
+    expect(normalizeConfig(noLock).lock).toBe('none')
+    // A lock of its own wins over the legacy switch, and anything unknown reads as nothing locked.
+    expect(normalizeConfig({ ...noLock, lock: 'tabs', joins: true }).lock).toBe('tabs')
+    expect(normalizeConfig({ ...noLock, lock: 'dowels' }).lock).toBe('none')
+    expect(normalizeConfig({ ...noLock, lock: 'dowels', joins: true }).lock).toBe('keys')
+    expect(DEFAULT_CONFIG.lock).toBe('none')
+  })
+
+  it('clamps perimeter numbers to the chosen profile and refuses unknown values', () => {
+    const wild = normalizeConfig({
+      ...DEFAULT_CONFIG,
+      perimeter: { profile: 'frame', sides: { top: 'yes' }, width: 999, drop: -3, fade: 99, land: 'up' },
+      mount: 'magnets',
+      fit: 'tight',
+    })
+    expect(wild.perimeter).toEqual({
+      profile: 'frame',
+      sides: { bottom: true, right: true, top: true, left: true },
+      width: 30,
+      drop: 0,
+      fade: 30,
+      land: 'valleys',
+    })
+    expect(wild.mount).toBe('glue')
+    expect(wild.fit).toBe('standard')
+  })
+
+  it('lets only the profiles that drop to the rim cut the relief, and starts them there', () => {
+    const land = (profile: string, value: unknown) =>
+      normalizeConfig({ ...DEFAULT_CONFIG, perimeter: { ...DEFAULT_PERIMETER, profile, land: value } }).perimeter.land
+    for (const profile of ['chamfer', 'bullnose', 'ogee'] as const) {
+      expect(cutsRelief(profile)).toBe(true)
+      expect(PERIMETER_PROFILES[profile].land).toBe('cut')
+      expect(land(profile, 'cut')).toBe('cut')
+      // A design saved before the cut keeps the land it printed with.
+      expect(land(profile, 'peaks')).toBe('peaks')
+      expect(land(profile, 'valleys')).toBe('valleys')
+      expect(land(profile, 'up')).toBe('cut')
+    }
+    // Margin and frame flatten the relief; a cut there falls back to their own land, as does none.
+    for (const profile of ['margin', 'frame', 'none'] as const) {
+      expect(cutsRelief(profile)).toBe(false)
+      expect(land(profile, 'cut')).toBe('valleys')
+      expect(land(profile, 'peaks')).toBe('peaks')
+    }
+    // The default design stays the plain wall it was.
+    expect(DEFAULT_CONFIG.perimeter).toMatchObject({ profile: 'none', land: 'valleys' })
+  })
+
+  it('reads a cut back unchanged, time after time', () => {
+    for (const profile of ['chamfer', 'bullnose', 'ogee'] as const) {
+      const once = normalizeConfig({ ...DEFAULT_CONFIG, perimeter: { ...DEFAULT_PERIMETER, profile, land: 'cut' } })
+      expect(normalizeConfig(once)).toEqual(once)
+      expect(normalizeConfig(JSON.parse(JSON.stringify(once)))).toEqual(once)
+    }
   })
 })

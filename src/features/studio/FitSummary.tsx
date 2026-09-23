@@ -9,12 +9,14 @@ const FIGURES = /(\d[\d,.]*)/
 
 export interface FitSummaryProps {
   plan: LayoutPlan
+  /** Files of the wall's parts besides the tiles (wall clips, keys): the line counts them apart. */
+  partFiles?: number
   className?: string
 }
 
 /** The fit in one sentence, figures inked heavier than the words. */
-export function FitSummary({ plan, className }: FitSummaryProps) {
-  const { sentence } = fitSummary(plan)
+export function FitSummary({ plan, partFiles = 0, className }: FitSummaryProps) {
+  const { sentence } = fitSummary(plan, partFiles)
   return (
     <p className={cx(styles.summaryText, className)}>
       {sentence.split(FIGURES).map((part, index) =>

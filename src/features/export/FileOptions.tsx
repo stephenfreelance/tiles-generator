@@ -4,6 +4,7 @@ import type { DesignConfig, ExportFormat, ExportQuality, LayoutPlan } from '@/co
 import { Button, HelpTip, Segmented } from '@/ui'
 import { Disclosure } from './Disclosure'
 import styles from './FileOptions.module.scss'
+import { heavyDownloadFix } from './heavyDownload'
 import { estimateDownloadBytes, formatBytes, LARGE_DOWNLOAD_BYTES } from './sizes'
 
 const FORMATS = [
@@ -32,6 +33,8 @@ export interface FileOptionsProps {
   disabled: boolean
   onFormatChange: (format: ExportFormat) => void
   onQualityChange: (quality: ExportQuality) => void
+  /** Opens the list of pieces, where each one downloads on its own. */
+  onShowPieces: () => void
 }
 
 export function FileOptions({
@@ -42,9 +45,12 @@ export function FileOptions({
   disabled,
   onFormatChange,
   onQualityChange,
+  onShowPieces,
 }: FileOptionsProps) {
   const bytes = estimateDownloadBytes(plan, config, format, quality)
   const heavy = bytes > LARGE_DOWNLOAD_BYTES
+  // Only a switch that makes the download lighter is offered: on standard STL already it would do nothing.
+  const fix = heavy ? heavyDownloadFix(format, quality, { chosen: bytes, standardStl: estimateDownloadBytes(plan, config, 'stl', 'standard') }) : null
 
   return (
     <div className={styles.options}>
@@ -77,7 +83,7 @@ export function FileOptions({
       </Disclosure>
 
       {/* Stays out of the disclosure: it prevents a real failure, a file the slicer takes minutes to open. */}
-      {heavy && (
+      {fix === 'standard-stl' && (
         <div className={styles.warning} role="status">
           <TriangleAlert className={styles.warningIcon} aria-hidden="true" />
           <p className={styles.warningText}>
@@ -93,6 +99,18 @@ export function FileOptions({
             }}
           >
             Use standard STL
+          </Button>
+        </div>
+      )}
+      {fix === 'one-at-a-time' && (
+        <div className={styles.warning} role="status">
+          <TriangleAlert className={styles.warningIcon} aria-hidden="true" />
+          <p className={styles.warningText}>
+            This download is around {formatBytes(bytes)}. If your browser or your slicer struggles with it, download the
+            pieces one at a time instead: each has its own file under See every piece.
+          </p>
+          <Button size="sm" onClick={onShowPieces}>
+            Show every piece
           </Button>
         </div>
       )}

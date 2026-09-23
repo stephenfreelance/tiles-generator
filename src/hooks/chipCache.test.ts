@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ChipCache, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
+import { DEFAULT_CONFIG, DEFAULT_PERIMETER } from '@/core/config'
+import type { DesignConfig, PieceEdges } from '@/core/types'
+import { ChipCache, chipCacheKey, chipEdgesKey, nextShown, planBatches, ShadeLedger, SharedRender } from './chipCache'
 
 /** Two texture chips in one colour, as the picker keys them. */
 const inColour = (colour: string) => [
@@ -188,3 +190,37 @@ describe('ChipCache', () => {
     expect(revoked).toEqual(['blob:a'])
   })
 })
+
+describe('chipCacheKey', () => {
+  const crop = { x0: 0, y0: 0, x1: 150, y1: 40 }
+  const bordered: DesignConfig = { ...DEFAULT_CONFIG, perimeter: { ...DEFAULT_PERIMETER, profile: 'margin' } }
+  const edges = (profiled: PieceEdges['profiled'], boundary = 0): PieceEdges => ({ boundary, tabs: 0, profiled })
+
+  it('tells border pieces apart when the design has a profile', () => {
+    const keys = [
+      chipCacheKey({ config: bordered, crop }, 96),
+      chipCacheKey({ config: bordered, crop, edges: edges({ bottom: 0 }) }, 96),
+      chipCacheKey({ config: bordered, crop, edges: edges({ bottom: 0, left: 0 }) }, 96),
+      chipCacheKey({ config: bordered, crop, edges: edges({ bottom: 6 }) }, 96),
+      chipCacheKey({ config: bordered, crop, edges: edges({ top: 0 }) }, 96),
+    ]
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
+  it('ignores edges nothing shapes: no profile, or only the back', () => {
+    const plain = chipCacheKey({ config: DEFAULT_CONFIG, crop }, 96)
+    expect(chipCacheKey({ config: DEFAULT_CONFIG, crop, edges: edges({ bottom: 0 }) }, 96)).toBe(plain)
+    expect(chipCacheKey({ config: bordered, crop, edges: edges({ bottom: 0 }, 5) }, 96)).toBe(
+      chipCacheKey({ config: bordered, crop, edges: edges({ bottom: 0 }) }, 96),
+    )
+    expect(chipEdgesKey(DEFAULT_CONFIG, edges({ bottom: 0 }))).toBe('')
+  })
+
+  it('moves with a band the surface clamps, which the geometry key leaves out', () => {
+    const narrow = { ...bordered, surface: { width: 50, height: 600 }, perimeter: { ...bordered.perimeter, width: 30 } }
+    const wide = { ...narrow, surface: { width: 500, height: 600 } }
+    const border = { crop, edges: edges({ left: 0 }) }
+    expect(chipCacheKey({ ...border, config: narrow }, 96)).not.toBe(chipCacheKey({ ...border, config: wide }, 96))
+  })
+})
+

@@ -31,7 +31,11 @@ export function printerById(id: string): PrinterPreset {
 const PLATE_MARGIN = 5
 const PLATE_GAP = 4
 
-/** How many pieces of a given size fit on one plate, trying both orientations. */
+/**
+ * How many pieces of a given size fit on one plate, trying both orientations. The size is the PRINTED box,
+ * which its caller works out: a tile carrying a tab takes the tab's projection more of the plate than it
+ * measures, and 8 mm of it against a 4 mm gap loses a whole column.
+ */
 export function piecesPerPlate(width: number, height: number, bed: PrinterBed): number {
   const usableW = bed.width - 2 * PLATE_MARGIN
   const usableD = bed.depth - 2 * PLATE_MARGIN

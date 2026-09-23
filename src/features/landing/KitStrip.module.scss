@@ -1,87 +1,57 @@
 @use '@/styles/mixins' as *;
 @use './glaze' as *;
 
+// The zip laid out on the bench: one row of parts standing on one line, each with its name under it.
+// auto-fill rather than auto-fit, so a wall that prints from one model keeps its parts at the size a
+// wall of four has, instead of stretching three things across the whole plate.
 .kit {
   display: grid;
-  // The plate that holds this only centres what it is given, and a grid is content-wide under that:
-  // without this the whole kit shrinks to one narrow column in the middle of its own plate.
+  grid-template-columns: repeat(auto-fill, minmax(min(10.5rem, 100%), 1fr));
+  gap: var(--s-6) var(--s-5);
   width: 100%;
-  gap: var(--s-5);
-
-  // Wide enough for the folder to stand beside the list it belongs to; below this it sits under it.
-  @media (min-width: 68rem) {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-  }
-}
-
-.files {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--s-4) var(--s-3);
   margin: 0;
   padding: 0;
   list-style: none;
+
+  // Two to a row on a phone: 9rem is what two columns of a 390 px screen leave, less the gutter.
+  @media (max-width: 48rem) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5) var(--s-4);
+  }
 }
 
-// One printed model, lying on the band as its own plate: the panel's own light and a soft shadow
-// rather than a hairline box, which is what the plan drawing beside it does. On the lit band the
-// panel is 1.07:1 away from what it is lying on, so the shadow is the whole of the edge.
-.model {
-  position: relative;
+.item {
   display: grid;
-  grid-template-rows: auto auto;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0 var(--s-3);
-  padding: var(--s-3);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-
-  // The chip and the count each stand against both lines of text.
-  .thumb,
-  .count {
-    grid-row: 1 / 3;
-  }
-
-  .what {
-    grid-row: 1;
-    align-self: end;
-  }
-
-  .detail {
-    grid-row: 2;
-    align-self: start;
-  }
+  grid-template-rows: auto;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
 }
 
-.thumb {
-  @include glaze;
-
+// The square every part stands in. The parts share its bottom edge, so a row of them reads as things
+// on one surface, and share its scale, so the tile is the largest and every cut its true fraction.
+.stage {
   position: relative;
   display: block;
-  width: 4.5rem;
   aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  background: var(--panel-2);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.1);
+  margin-bottom: var(--s-3);
 }
 
-.model:hover .thumb::after {
-  background-position: 160% 160%;
-}
-
-// The window the piece is seen through: its real proportions, at the family's scale, so the four
-// windows compare. It is centered by position rather than by grid, so its percentage size always has
-// a definite box to read.
+// The piece itself, at its true size in the family. Positioned rather than laid by grid, so its
+// percentage size always has a definite box to read.
 .piece {
+  @include glaze;
+
   position: absolute;
-  top: 50%;
-  left: 50%;
+  bottom: 0;
+  left: 0;
   overflow: hidden;
-  transform: translate(-50%, -50%);
+  border-radius: 6px;
+  background: var(--panel-2);
+  // A white tile on a warm panel needs an edge; the shadow is what stands it on the band.
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.08),
+    var(--shadow-md);
 
   // The sample is centered in a square chip, so the image overflows the piece it is cropped to.
   > img {
@@ -96,6 +66,10 @@
   }
 }
 
+.item:hover .piece::after {
+  background-position: 160% 160%;
+}
+
 .pending {
   display: block;
   width: 100%;
@@ -103,15 +77,17 @@
   background: var(--panel-2);
 }
 
-// The drawing mark, tabbed into the chip's own corner. Red only where red means cut.
+// The drawing mark, tabbed into the piece's own corner. Red only where red means cut.
 .mark {
   position: absolute;
   z-index: 2;
-  top: var(--s-3);
-  left: var(--s-3);
+  top: 0;
+  left: 0;
   padding: 1px 6px;
   border: 1px solid var(--hairline);
-  border-radius: calc(var(--radius-md) - 1px) 0 8px 0;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 6px;
   background: var(--panel);
   color: var(--ink);
   font-size: var(--text-2xs);
@@ -124,16 +100,59 @@
   background: var(--cut-soft);
 }
 
+// A document is a sheet of paper standing in the same square: portrait, on the same line.
+.sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 58%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.sheetDrawing {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sheetInk {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 0.7;
+}
+
+.sheetFaint {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+
+.sheetCut {
+  fill: var(--cut-soft);
+  stroke: var(--cut);
+  stroke-width: 0.7;
+}
+
 .what {
-  font-size: var(--text-md);
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: 650;
   line-height: 1.3;
 }
 
 .detail {
   @include tabular;
 
-  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--s-2);
+  color: var(--ink-2);
   font-size: var(--text-sm);
   line-height: 1.4;
 }
@@ -143,12 +162,11 @@
 
   display: inline-flex;
   align-items: center;
-  padding: 2px var(--s-2);
+  padding: 0 var(--s-2);
   border-radius: 999px;
   background: var(--panel-2);
   color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 650;
 }
 
 // The count while the odometer's chunk is still coming: the same figures, at the same height as the
@@ -159,47 +177,47 @@
   height: 1.5em;
 }
 
-// The two documents are text rows, not chips: they stay on the band with the plates lifted off it
-// around them, and the rule above them is what says the zip holds these as well.
-.document {
-  display: grid;
-  grid-column: 1 / -1;
-  gap: 1px;
-  padding: var(--s-3) var(--s-3) 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.zip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s-4);
-
-  @media (min-width: 68rem) {
-    flex-direction: column;
-    gap: var(--s-2);
-  }
-}
-
-// Shadows are dropped by the system palette, so a plate comes back as the box it was drawn against.
-@include forced-colors {
-  .model {
-    border: 1px solid CanvasText;
-  }
-}
-
-// Every name in the zip, standing still: the fan shows three of them, this answers the file count.
-.names {
+// The file the part prints from, exactly as the zip names it. It is the label's other half, so it sits
+// right under it rather than in a list of its own.
+.file {
   @include tabular;
 
-  display: grid;
-  gap: var(--s-1);
-  margin: 0;
-  padding: 0;
-  color: var(--ink-2);
+  margin-top: var(--s-1);
+  color: var(--ink-3);
   font-size: var(--text-xs);
   line-height: 1.4;
-  list-style: none;
   overflow-wrap: anywhere;
+}
+
+// The parts are set down one after the other once the band is reached, from a start already on the
+// page (lower and fainter, never hidden), so a trigger that never fires still leaves the zip readable.
+// Reduced motion never sees the start state at all.
+@include motion-safe {
+  .item {
+    opacity: 0.3;
+    transform: translateY(10px);
+    transition:
+      opacity 520ms var(--ease-out) calc(140ms + var(--i, 0) * 70ms),
+      transform 520ms var(--ease-out) calc(140ms + var(--i, 0) * 70ms);
+  }
+
+  [data-lit] .item {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media print {
+  .item {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+// Shadows are dropped by the system palette, so a part comes back as the box it was drawn against.
+@include forced-colors {
+  .piece,
+  .sheet {
+    border: 1px solid CanvasText;
+  }
 }

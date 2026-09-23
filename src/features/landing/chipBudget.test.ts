@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { CHIP_SHADE_BUDGET_BYTES, reliefShadeBytes } from '@/core/textures/hillshade'
 import { PAGE_SHADE_BUDGET_BYTES, PATTERN_CHIP_PX, PROOF_CHIP_PX, standingShadeBytes } from './chipBudget'
 
-/** What the page stands on: 23 pattern samples, and four pieces shared by the corner detail and the kit. */
+/** What the page stands on: 23 pattern samples, and four pieces shared by the hero, the proof and the kit. */
 const PATTERNS = 23
 const PIECES = 4
+/** The concept wall's cut pieces, once the visitor's own wall is another size: its whole tile is shared. */
+const CONCEPT_CUTS = 3
 
 describe('chipBudget', () => {
   it('is the ledger useTextureChips already keeps, not a second one', () => {
@@ -22,6 +24,14 @@ describe('chipBudget', () => {
     const headroom = PAGE_SHADE_BUDGET_BYTES - standingShadeBytes(PATTERNS, PIECES)
     expect(headroom).toBe(1_204_224)
     expect(headroom).toBeGreaterThanOrEqual(reliefShadeBytes(PROOF_CHIP_PX))
+  })
+
+  it('keeps the concept wall beside a resized one inside the worker cache, if not inside the mirror', () => {
+    const worst = standingShadeBytes(PATTERNS, PIECES + CONCEPT_CUTS)
+    expect(worst).toBe(20_324_352)
+    // Past the mirror, the page only batches those chips as cold; the worker still tints them.
+    expect(worst).toBeGreaterThan(PAGE_SHADE_BUDGET_BYTES)
+    expect(worst).toBeLessThanOrEqual(CHIP_SHADE_BUDGET_BYTES)
   })
 
   it('counts each set at its own size', () => {

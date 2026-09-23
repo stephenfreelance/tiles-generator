@@ -24,8 +24,9 @@ export function cornerDetail(plan: LayoutPlan): LayoutPlan {
     .map((placement) => ({ ...placement, row: ys.indexOf(placement.y), col: xs.indexOf(placement.x) }))
   const used = new Set(placements.map((placement) => placement.pieceId))
   const pieces = plan.pieces.filter((piece) => used.has(piece.id))
-  const fullId = pieces.find((piece) => piece.kind === 'full')?.id
-  const fullCount = placements.filter((placement) => placement.pieceId === fullId).length
+  // Keys or a border profile make several whole models (the interior tile and its border versions).
+  const fullIds = new Set(pieces.filter((piece) => piece.kind === 'full').map((piece) => piece.id))
+  const fullCount = placements.filter((placement) => fullIds.has(placement.pieceId)).length
   return {
     pieces,
     placements,

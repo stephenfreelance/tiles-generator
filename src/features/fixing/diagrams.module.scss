@@ -1,0 +1,126 @@
+@use '@/styles/mixins' as *;
+
+// The fixing drawings. Everything is currentColor, drawn at a few opacities, so a drawing inks itself in
+// its container's text color; the printed part it is about takes --diagram-part. A container can set
+// either to recolor a drawing without reaching into it.
+//
+// No size of its own: the SVG fills its container's width and keeps the viewBox's proportions, so the
+// page decides how big a drawing is. vector-effect keeps every line one weight at any size.
+
+.diagram {
+  --part: var(--diagram-part, var(--accent));
+
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram :where(path, rect, line) {
+  vector-effect: non-scaling-stroke;
+}
+
+// The wall cut through: light hatching up to a firm face line.
+.hatch {
+  stroke: currentcolor;
+  stroke-opacity: 0.32;
+  stroke-width: 0.8;
+}
+
+.face {
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+// A tile and a screw: the solid things, told apart by how much ink they carry.
+.tile {
+  fill: currentcolor;
+  fill-opacity: 0.09;
+  stroke: currentcolor;
+  stroke-width: 1.1;
+}
+
+.screw {
+  fill: currentcolor;
+  fill-opacity: 0.55;
+  stroke: none;
+}
+
+// An empty pocket: recessed, so darker than the back it is cut into.
+.pocket {
+  fill: currentcolor;
+  fill-opacity: 0.3;
+  stroke: currentcolor;
+  stroke-opacity: 0.5;
+  stroke-width: 0.8;
+}
+
+// The printed part the drawing is about.
+.part {
+  fill: var(--part);
+  stroke: currentcolor;
+  stroke-width: 0.9;
+}
+
+// Lifted off the back, so it sits over the drawing with a little shadow under it.
+.lifted {
+  filter: drop-shadow(1.5px 2.5px 1.5px rgb(46 36 27 / 0.3));
+}
+
+// An edge hidden behind a nearer one, drawn the way a draughtsman does: dashed.
+.hidden {
+  fill: none;
+  stroke: currentcolor;
+  stroke-dasharray: 2 1.6;
+  stroke-opacity: 0.7;
+  stroke-width: 0.8;
+}
+
+.arrow {
+  stroke: currentcolor;
+  stroke-width: 1.4;
+
+  > path {
+    fill: none;
+  }
+}
+
+// The small notches that tell the fit test's parts apart.
+.tick {
+  stroke: currentcolor;
+  stroke-width: 1.4;
+}
+
+// A line the step is about (the start line): drawn in the part's colour, firmer than the rest.
+.mark {
+  stroke: var(--part);
+  stroke-width: 2.4;
+}
+
+// The small cross-sections of an edge profile.
+.profile {
+  fill: currentcolor;
+  fill-opacity: 0.18;
+  stroke: currentcolor;
+  stroke-width: 1.1;
+}
+
+// The system palette takes the accent away, so the part keeps its shape and gets a solid fill instead.
+@include forced-colors {
+  .part {
+    fill: CanvasText;
+  }
+
+  .mark {
+    stroke: CanvasText;
+  }
+
+  .pocket,
+  .tile,
+  .profile {
+    fill: Canvas;
+  }
+}

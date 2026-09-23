@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONFIG } from '../config'
+import { DEFAULT_CONFIG, DEFAULT_PERIMETER } from '../config'
 import { DEFAULT_COLOR } from '../colors'
 import { applyBevel, effectiveBevel } from '../geometry/heightfield'
-import type { CropRect, DesignConfig } from '../types'
+import { resolvePerimeter } from '../geometry/profiles'
+import type { CropRect, DesignConfig, PieceEdges } from '../types'
 import { reliefShadeKey, renderReliefChip, shadeReliefChip, tintReliefChip, type ReliefChip } from './hillshade'
 import { createHeightField, TEXTURES } from './registry'
 
@@ -260,5 +261,54 @@ describe('shadeReliefChip + tintReliefChip', () => {
         if (!inside) expect(chip.data[o] + chip.data[o + 1] + chip.data[o + 2]).toBe(0)
       }
     }
+  })
+
+  it('keys and shades the joint edge and, on a border piece, the perimeter profile', () => {
+    const base = specimen('arches')
+    const bevelled = { ...base, bevel: 1 }
+    const bordered = { ...bevelled, perimeter: { ...DEFAULT_PERIMETER, profile: 'bullnose' as const, width: 6, drop: 3, land: 'peaks' as const } }
+    const bottom: PieceEdges = { boundary: 0, tabs: 0, profiled: { bottom: 0 } }
+    const opts = (edges?: PieceEdges) => ({ sizePx: 32, edges })
+    const cases: [string, DesignConfig, PieceEdges?][] = [
+      ['round joint', { ...bevelled, jointEdge: 'round' }],
+      ['square joint', { ...bevelled, jointEdge: 'square' }],
+      ['border piece', bordered, bottom],
+      ['spilled border piece', bordered, { boundary: 0, tabs: 0, profiled: { bottom: 4 } }],
+      ['corner piece', bordered, { boundary: 0, tabs: 0, profiled: { bottom: 0, left: 0 } }],
+      ['another profile', { ...bordered, perimeter: { ...bordered.perimeter, profile: 'ogee' } }, bottom],
+      ['a wider profile', { ...bordered, perimeter: { ...bordered.perimeter, width: 9 } }, bottom],
+    ]
+    const baseKey = reliefShadeKey(bevelled, opts())
+    const keys = cases.map(([, config, edges]) => reliefShadeKey(config, opts(edges)))
+    expect(new Set([baseKey, ...keys]).size).toBe(cases.length + 1)
+    const baseShade = shadeReliefChip(bevelled, opts())
+    for (const [label, config, edges] of cases) expect(shadeReliefChip(config, opts(edges)), label).not.toEqual(baseShade)
+
+    // A profile only shapes the pieces on the edge, and edges only matter with a profile.
+    expect(reliefShadeKey(bordered, opts())).toBe(baseKey)
+    expect(shadeReliefChip(bordered, opts())).toEqual(baseShade)
+    expect(reliefShadeKey(bevelled, opts(bottom))).toBe(baseKey)
+    expect(shadeReliefChip(bevelled, opts(bottom))).toEqual(baseShade)
+    // The boundary mask shapes the back only, which a chip never shows.
+    expect(reliefShadeKey(bordered, opts({ boundary: 5, tabs: 0, profiled: { bottom: 0 } }))).toBe(reliefShadeKey(bordered, opts(bottom)))
+  })
+
+  it('keys a profile that cuts the relief apart from one that fills it, even when every number matches', () => {
+    const base = { ...specimen('arches'), bevel: 1 }
+    // Both sides of a 16 mm wide surface: a 6 mm band leaves no room for a fade, so the peaks land has
+    // none either, and the two resolve to the very same width, drop, land and top.
+    const narrow = { ...base, surface: { width: 16, height: 600 } }
+    const perimeter = { ...DEFAULT_PERIMETER, profile: 'bullnose' as const, width: 6, drop: 3 }
+    const peaks = { ...narrow, perimeter: { ...perimeter, land: 'peaks' as const } }
+    const cut = { ...narrow, perimeter: { ...perimeter, land: 'cut' as const } }
+    const left: PieceEdges = { boundary: 0, tabs: 0, profiled: { left: 0 } }
+    const opts = { sizePx: 32, crop: { x0: 0, y0: 0, x1: 16, y1: 150 }, edges: left }
+    const numbers = (config: DesignConfig) => {
+      const e = resolvePerimeter(config)
+      return e && [e.profile, e.w, e.h, e.F, e.L, e.Zf]
+    }
+    expect(numbers(cut)).toEqual(numbers(peaks))
+    expect(reliefShadeKey(cut, opts)).not.toBe(reliefShadeKey(peaks, opts))
+    expect(shadeReliefChip(cut, opts)).not.toEqual(shadeReliefChip(peaks, opts))
   })
 })

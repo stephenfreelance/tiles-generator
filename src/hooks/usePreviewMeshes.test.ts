@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_CONFIG } from '@/core/config'
+import { DEFAULT_CONFIG, normalizeConfig } from '@/core/config'
+import { tabLimits } from '@/core/fixing/capability'
 import type { DesignConfig, MeshData, PieceSpec } from '@/core/types'
 import type { PreviewRequest } from '@/workers/protocol'
-import { previewStatus, runPreviewBuild, type PreviewBuildRequest, type PreviewBuildState } from './usePreviewMeshes'
+import {
+  previewBackFeatures,
+  previewRequestKey,
+  previewTabGrow,
+  previewStatus,
+  runPreviewBuild,
+  type PreviewBuildRequest,
+  type PreviewBuildState,
+} from './usePreviewMeshes'
 
 const { requestMock } = vi.hoisted(() => ({ requestMock: vi.fn() }))
 vi.mock('@/workers/geometryClient', () => ({ geometryClient: { request: requestMock, terminateAll: vi.fn() } }))
@@ -18,6 +27,7 @@ const piece = (width: number, height: number): PieceSpec => ({
   width,
   height,
   count: 1,
+  edges: { boundary: 0, tabs: 0, profiled: {} },
 })
 
 const requestFor = (sizeMm: number, key: string): PreviewBuildRequest => ({
@@ -138,6 +148,37 @@ describe('runPreviewBuild', () => {
     expect(sink.state.version).toBe(3)
   })
 
+  it('asks for the backs the request says, and for them when it says nothing', async () => {
+    requestMock.mockResolvedValue({ pieces: [{ pieceId: 'full', mesh: mesh() }] })
+    const sink = collect()
+
+    await runPreviewBuild({ ...requestFor(120, 'wall'), backFeatures: false }, 'viewport', new AbortController().signal, sink.report)
+    await runPreviewBuild({ ...requestFor(120, 'tile'), backFeatures: true }, 'viewport', new AbortController().signal, sink.report)
+    await runPreviewBuild(requestFor(120, 'older'), 'viewport', new AbortController().signal, sink.report)
+
+    expect(sentRequests().map((r) => r.backFeatures)).toEqual([false, true, true])
+  })
+
+  // A tab is a back feature, so it is meshed only where the backs are. The viewport's footprint guard
+  // reads this number: ask for a tab on a wall built without one and every mesh is refused, which shows
+  // as an empty 3D view and nothing else, so the two rules are pinned together here.
+  it('expects a tab to stand past the tile only in the view that meshes the backs', () => {
+    const tabbed = normalizeConfig({ ...DEFAULT_CONFIG, lock: 'tabs' })
+    const reach = tabLimits(tabbed)?.projection ?? 0
+    expect(reach).toBeGreaterThan(0)
+    expect(previewBackFeatures('tile')).toBe(true)
+    expect(previewTabGrow(tabbed, 'tile')).toBe(reach)
+    expect(previewBackFeatures('surface')).toBe(false)
+    expect(previewTabGrow(tabbed, 'surface')).toBe(0)
+    // Nothing stands past a tile on a wall that cuts no tab, whichever view asks.
+    for (const detail of ['tile', 'surface'] as const) {
+      expect(previewTabGrow(DEFAULT_CONFIG, detail)).toBe(0)
+      expect(previewTabGrow(normalizeConfig({ ...DEFAULT_CONFIG, lock: 'keys' }), detail)).toBe(0)
+      // Tabs asked for but a joint too wide to hide one: the mesher cuts none, so none is expected.
+      expect(previewTabGrow(normalizeConfig({ ...DEFAULT_CONFIG, lock: 'tabs', joint: 3 }), detail)).toBe(0)
+    }
+  })
+
   it('reports nothing once the build is aborted', async () => {
     const controller = new AbortController()
     requestMock.mockImplementation(() => {
@@ -190,5 +231,24 @@ describe('previewStatus', () => {
 
   it('is never pending when there is nothing to build', () => {
     expect(previewStatus(state(), 'tile-150', false)).toEqual({ pending: false, current: false })
+  })
+})
+
+describe('previewRequestKey', () => {
+  const passes = [{ pieces: [piece(150, 150)], cellMm: 2, normalMapTexelMm: 0 }]
+
+  it('leaves the backs out of the whole wall, which the camera never sees behind, and keeps them on the tile', () => {
+    expect(previewBackFeatures('surface')).toBe(false)
+    expect(previewBackFeatures('tile')).toBe(true)
+  })
+
+  it('keys the backs, so meshes without pockets never pass for a tile view with them', () => {
+    const wall = previewRequestKey('surface', 'geometry', passes)
+    const tile = previewRequestKey('tile', 'geometry', passes)
+    expect(wall).not.toBe(tile)
+    expect(wall).toContain('fronts')
+    expect(tile).toContain('backs')
+    expect(previewRequestKey('tile', 'geometry', passes)).toBe(tile)
+    expect(previewRequestKey('tile', 'other', passes)).not.toBe(tile)
   })
 })

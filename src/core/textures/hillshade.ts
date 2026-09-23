@@ -2,8 +2,9 @@
 // that the worker hands to ImageData. The point is to make a 96 px chip look like a lit object.
 
 import { DEFAULT_COLOR, parseHex } from '../colors'
-import { applyBevel, effectiveBevel } from '../geometry/heightfield'
-import type { CropRect, DesignConfig } from '../types'
+import { resolveJointEdge, resolvePerimeter, shapingEdges, topShaper } from '../geometry/profiles'
+import { SIDE_NAMES } from '../sides'
+import type { CropRect, DesignConfig, PieceEdges } from '../types'
 import { createHeightField } from './registry'
 
 /** Specular strength of printed PLA: a faint glint, the one printed look every color shares. */
@@ -49,6 +50,8 @@ export interface ReliefChip {
 export interface ReliefChipOptions {
   sizePx: number
   crop?: CropRect
+  /** How the piece meets the surface edge: a border piece shows its perimeter profile. */
+  edges?: PieceEdges
 }
 
 /**
@@ -83,7 +86,34 @@ export const PAGE_SHADE_BUDGET_BYTES = CHIP_SHADE_BUDGET_BYTES * 0.75
 export const reliefShadeBytes = (sizePx: number): number => chipSize(sizePx) ** 2 * 3 * Float64Array.BYTES_PER_ELEMENT
 
 /**
- * Identity of a shade: everything shadeReliefChip reads (the height field's inputs, the bevel, the
+ * The edge shapes a chip shows, as key parts: the joint edge always, and the perimeter profile as the
+ * piece actually prints it (resolved, so a clamp that moves with the surface is keyed too) only when
+ * the piece is a border piece.
+ */
+function edgeKeyParts(config: DesignConfig, edges: PieceEdges | undefined): unknown[] {
+  const joint = resolveJointEdge(config)
+  const shaping = shapingEdges(config, edges)
+  const perimeter = Object.keys(shaping).length ? resolvePerimeter(config) : null
+  return [
+    joint.profile,
+    perimeter
+      ? [
+          perimeter.profile,
+          perimeter.w,
+          perimeter.h,
+          perimeter.F,
+          perimeter.L,
+          perimeter.Zf,
+          SIDE_NAMES.map((name) => shaping[name] ?? null),
+          // A cut and a peaks land clamped to no fade share every number above, not their top.
+          perimeter.cut,
+        ]
+      : null,
+  ]
+}
+
+/**
+ * Identity of a shade: everything shadeReliefChip reads (the height field's inputs, the edges, the
  * piece and the box), and deliberately not the colour, name or printer.
  */
 export function reliefShadeKey(config: DesignConfig, opts: ReliefChipOptions): string {
@@ -110,6 +140,7 @@ export function reliefShadeKey(config: DesignConfig, opts: ReliefChipOptions): s
     texture.invert,
     texture.rotate,
     params,
+    ...edgeKeyParts(config, opts.edges),
   ])
 }
 
@@ -123,7 +154,8 @@ export function shadeReliefChip(config: DesignConfig, opts: ReliefChipOptions): 
   const field = createHeightField(config)
   const depth = field.depth
   const thickness = config.tile.thickness
-  const bevel = effectiveBevel(config)
+  // The mesher's own shaper, so a chip shows the joint edge and the border profile that get printed.
+  const shape = topShaper(config, opts.edges)
 
   // Fit the piece into the box, keeping its aspect; everything outside stays transparent.
   const pxPerMm = size / Math.max(pieceW, pieceH)
@@ -145,12 +177,11 @@ export function shadeReliefChip(config: DesignConfig, opts: ReliefChipOptions): 
   for (let row = 0; row < bh; row++) {
     // Image rows run down the chip, tile y runs up it.
     const yMm = crop.y1 - (row - 0.5) * mmPerPx
-    const edgeY = Math.min(yMm - crop.y0, crop.y1 - yMm)
+    const bottom = yMm - crop.y0
+    const top = crop.y1 - yMm
     for (let col = 0; col < bw; col++) {
       const xMm = crop.x0 + (col - 0.5) * mmPerPx
-      const edgeX = Math.min(xMm - crop.x0, crop.x1 - xMm)
-      const z = thickness + field(xMm, yMm)
-      heights[row * bw + col] = applyBevel(z, Math.min(edgeX, edgeY), thickness, bevel)
+      heights[row * bw + col] = shape(thickness + field(xMm, yMm), bottom, crop.x1 - xMm, top, xMm - crop.x0)
     }
   }
 
@@ -231,7 +262,7 @@ export function tintReliefChip(shade: ReliefShade, hex: string): ReliefChip {
 
 /**
  * Renders the tile (or one cut piece) as a lit relief inside a sizePx box, transparent around the
- * piece. The chamfer comes from the mesh helper itself, so a chip shows the piece that gets printed.
+ * piece. The edges come from the mesher's own shaper, so a chip shows the piece that gets printed.
  */
 export function renderReliefChip(config: DesignConfig, opts: ReliefChipOptions): ReliefChip {
   return tintReliefChip(shadeReliefChip(config, opts), config.color)

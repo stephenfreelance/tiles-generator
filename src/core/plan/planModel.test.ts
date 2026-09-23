@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '../config'
-import { computeLayout } from '../layout'
+import { accessoryParts, wallParts } from '../fixing/accessories'
+import { joinPlan } from '../fixing/joins'
+import { mountPlan } from '../fixing/mount'
+import { tabPlan } from '../fixing/tabs'
+import { computeLayout, layoutInputOf } from '../layout'
 import type { DesignConfig } from '../types'
-import { buildPlanModel, chainLabels, tileAtPoint, type DimensionChain } from './planModel'
+import { buildPlanModel, chainLabels, isLettered, tileAtPoint, type DimensionChain } from './planModel'
 
 const design = (over: Partial<DesignConfig> = {}): DesignConfig => ({ ...structuredClone(DEFAULT_CONFIG), ...over })
 
@@ -48,6 +52,19 @@ describe('buildPlanModel', () => {
     expect(joints.every((j) => j.length === 2)).toBe(true)
     expect(pieces.reduce((s, p) => s + p.length, 0) + 2 * joints.length).toBeCloseTo(1000, 2)
     expect(model.chains.rows.items.filter((i) => i.kind === 'tile' || i.kind === 'cut')).toHaveLength(plan.rows)
+  })
+
+  it('measures a tabbed wall on the nominal tile, not on the printed box', () => {
+    // The tab makes the file wider than the tile, but nothing is set out from it: the chains still close.
+    const config = design({ lock: 'tabs', surface: { width: 1200, height: 600 } })
+    const plan = computeLayout(layoutInputOf(config))
+    const model = buildPlanModel(config, plan)
+    expect(model.tile).toEqual({ width: 150, height: 150 })
+    expectContiguous(model.chains.columns[0])
+    expectContiguous(model.chains.rows)
+    expect(sum(model.chains.columns[0])).toBeCloseTo(1200, 2)
+    expect(sum(model.chains.rows)).toBeCloseTo(600, 2)
+    expect(model.legend.every((row) => row.width === 150 && row.height === 150)).toBe(true)
   })
 
   it('marks cut widths separately from full widths along each axis', () => {
@@ -184,6 +201,48 @@ describe('buildPlanModel', () => {
   })
 })
 
+describe('buildPlanModel with border versions', () => {
+  const profiled = (sides: DesignConfig['perimeter']['sides']) =>
+    design({
+      surface: { width: 1200, height: 600 },
+      perimeter: { ...DEFAULT_CONFIG.perimeter, profile: 'chamfer', width: 4, drop: 2, fade: 8, sides },
+    })
+
+  it('carries each piece edges onto its tiles and its legend row', () => {
+    const config = profiled({ top: true, bottom: true, left: false, right: false })
+    const plan = computeLayout(layoutInputOf(config))
+    const model = buildPlanModel(config, plan)
+    const byId = new Map(plan.pieces.map((p) => [p.id, p]))
+    for (const t of model.tiles) expect(t.edges).toBe(byId.get(t.pieceId)!.edges)
+    expect(model.legend.map((r) => [r.mark, r.edges])).toEqual(plan.pieces.map((p) => [p.mark, p.edges]))
+    // Border versions are whole tiles: not cuts, but lettered on the drawing all the same.
+    expect(model.tiles.filter((t) => t.cut)).toHaveLength(0)
+    expect(model.basePieceId).toBe('full')
+    expect(model.legend.filter((r) => isLettered(model, r)).map((r) => r.label)).toEqual([
+      'Full tile, bottom border',
+      'Full tile, top border',
+    ])
+  })
+
+  it('letters nothing but cuts on a design without edges', () => {
+    const config = design({ surface: { width: 1000, height: 800 } })
+    const model = buildPlanModel(config, planFor(config))
+    expect(model.basePieceId).toBe('full')
+    for (const t of model.tiles) expect(isLettered(model, t)).toBe(t.cut)
+  })
+
+  it('letters every whole tile when none is the interior one', () => {
+    // One row, profiled all round: every whole tile meets an edge, so each is told apart.
+    const config = design({
+      surface: { width: 900, height: 150 },
+      perimeter: { ...DEFAULT_CONFIG.perimeter, profile: 'chamfer', width: 4, drop: 2, fade: 8 },
+    })
+    const model = buildPlanModel(config, computeLayout(layoutInputOf(config)))
+    expect(model.basePieceId).toBeNull()
+    expect(model.tiles.every((t) => isLettered(model, t))).toBe(true)
+  })
+})
+
 describe('chainLabels', () => {
   const config = design({ surface: { width: 9000, height: 6000 }, layout: { origin: 'balanced', rowOffset: 0 } })
   const model = buildPlanModel(config, planFor(config))
@@ -203,5 +262,195 @@ describe('chainLabels', () => {
     expect(grouped[0].text).toBe(`${fullItems.length} × 150`)
     expect(labels.filter((l) => l.cut)).toHaveLength(chain.items.filter((i) => i.kind === 'cut').length)
     expect(labels.length).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('the fixings on the plan', () => {
+  const modelOf = (config: DesignConfig) => {
+    const plan = computeLayout(layoutInputOf(config))
+    return { plan, model: buildPlanModel(config, plan) }
+  }
+
+  it('adds nothing to a glued wall without keys', () => {
+    const { model } = modelOf(design())
+    expect(model).toMatchObject({
+      clips: [],
+      unclippedPieceIds: [],
+      keys: [],
+      unkeyedSeams: 0,
+      unkeyedPieceIds: [],
+      locks: 0,
+      unlockedPieceIds: [],
+      accessories: [],
+    })
+  })
+
+  // Nothing is measured, marked or set out for a tab: every tile carries its own, exactly as it carries its
+  // own clips. So the plan gains no symbol and no legend row, only the order the tabs force and the count.
+  it('counts the joints a tab locks and the pieces it leaves, and draws nothing for either', () => {
+    const config = design({ lock: 'tabs', tile: { width: 100, height: 100, thickness: 4 }, surface: { width: 410, height: 300 } })
+    const plan = computeLayout(layoutInputOf(config))
+    const model = buildPlanModel(config, plan)
+    const tab = tabPlan(config, plan)
+    expect(tab.tabs).toBeGreaterThan(0)
+    expect(model.locks).toBe(tab.joints)
+    expect(model.unlockedPieceIds).toEqual(tab.unlockedPieceIds)
+    // No clip and no key is placed, so nothing new is drawn and the printed-parts list stays empty.
+    expect(model).toMatchObject({ clips: [], unclippedPieceIds: [], keys: [], unkeyedPieceIds: [], accessories: [] })
+    // The "no tab" variant is its own legend row with its own mark, which is what tells the two piles apart.
+    expect(model.legend.some((row) => row.label === 'Full tile, no tab')).toBe(true)
+  })
+
+  it('keeps the glued setting-out for a tabbed wall, and replaces its order with the tabs own', () => {
+    const config = design({ lock: 'tabs', tile: { width: 100, height: 100, thickness: 4 }, surface: { width: 410, height: 300 } })
+    const plan = computeLayout(layoutInputOf(config))
+    const model = buildPlanModel(config, plan)
+    const marks = model.legend.filter((row) => model.unlockedPieceIds.includes(row.pieceId)).map((row) => row.mark)
+    expect(marks).toHaveLength(3)
+    expect(model.settingOut.notes).toEqual([
+      'Set out from the bottom-left corner: the first whole tile sits in the corner.',
+      "Set each row from left to right, fitting the cut pieces as you reach them: each tile's socket goes over the tab of the tile already up. Nothing is set out for the tabs.",
+      `Pieces ${marks.slice(0, -1).join(', ')} and ${marks[2]} have no room for a socket, so no tab locks them: glue them to the tiles beside them.`,
+    ])
+    // The glued fitting order is left out, because a tabbed row cannot leave its cuts for last.
+    expect(model.settingOut.notes.some((note) => note.includes('Fix the full tiles first'))).toBe(false)
+    // Nothing is left of the clips' or the keys' own setting-out either.
+    expect(model.settingOut.notes.join(' ')).not.toMatch(/start line|face down|batten/i)
+  })
+
+  it('keeps the clips setting-out on a tabbed wall on clips, and adds the order to it', () => {
+    const config = design({ lock: 'tabs', mount: 'clips', surface: { width: 1200, height: 600 } })
+    const plan = computeLayout(layoutInputOf(config))
+    const notes = buildPlanModel(config, plan).settingOut.notes
+    expect(notes[0]).toContain('The start line is the bottom edge of the tiles')
+    expect(notes).toContain('Press the tiles on from the bottom row up, fitting the cut pieces as you reach them: each tile carries its own clips (see MOUNTING in the README).')
+    expect(notes.at(-1)).toBe("Set each row from left to right: each tile's socket goes over the tab of the tile already up. Nothing is set out for the tabs.")
+  })
+
+  it('carries every key site of the join plan, and the key file with its count', () => {
+    const config = design({ lock: 'keys' })
+    const { plan, model } = modelOf(config)
+    const joins = joinPlan(config, plan)
+    expect(model.keys).toEqual(joins.sites)
+    expect(model.keys).toHaveLength(104)
+    expect(model.unkeyedSeams).toBe(joins.unkeyedSeams)
+    expect(model.unkeyedPieceIds).toEqual(joins.unkeyedPieceIds)
+    const key = model.accessories.find((a) => a.group === 'join')
+    expect(key).toMatchObject({ mark: 'K1', group: 'join', count: 110, label: 'Key, 15.8 mm' })
+  })
+
+  // The catalogue, not the download: the fit test prints from its own page, and planCopy lists the wall's own.
+  it("lists the wall's own printed parts, in print order, and never the fit test", () => {
+    const config = design({ lock: 'keys', mount: 'clips' })
+    const { plan, model } = modelOf(config)
+    // The plan sets out the wall, so it lists what goes on the wall: the fit test prints from its own page.
+    expect(model.accessories.map((a) => a.group)).toEqual(['mount', 'join'])
+    expect(model.accessories.map((a) => a.id)).toEqual(wallParts(config, plan).map((a) => a.id))
+    expect(model.accessories.map((a) => a.count)).toEqual(wallParts(config, plan).map((a) => a.count))
+    expect(accessoryParts(config, plan).some((a) => a.group === 'fit-test')).toBe(true)
+  })
+
+  // 1000 x 800 from the corner leaves a 50 mm bottom cut, so the glue notes lay the whole rows first.
+  const cutBelow = { surface: { width: 1000, height: 800 }, layout: { origin: 'corner' as const, rowOffset: 0 as const } }
+
+  it('keeps the glue order on the sheet of a glued wall', () => {
+    const notes = modelOf(design(cutBelow)).model.settingOut.notes.join(' ')
+    expect(notes).toContain('50 mm up from the bottom edge')
+    expect(notes).toContain('Fix the full tiles first, then the cuts at the edges.')
+  })
+
+  it('sends a wall on clips to the start line and the bottom row first, never the full tiles first', () => {
+    for (const lock of ['none', 'keys'] as const) {
+      const config = design({ ...cutBelow, mount: 'clips', lock })
+      const { model } = modelOf(config)
+      expect(model.clips.length).toBeGreaterThan(0)
+      const notes = model.settingOut.notes.join(' ')
+      expect(notes).not.toContain('Fix the full tiles first')
+      expect(notes).not.toContain('first full-height row sits on it')
+      expect(notes).not.toContain('the strip below it is the bottom cut')
+      expect(notes).toContain('The start line is the bottom edge of the tiles')
+      expect(notes).toContain('batten')
+      expect(notes).toContain('from the bottom row up')
+      expect(notes).toContain('see MOUNTING in the README')
+      expect(notes.includes('left to right'), lock).toBe(lock === 'keys')
+      expect(notes).not.toMatch(/rail|snap|gauge|mounting-plan/i)
+    }
+  })
+
+  it('has keyed tiles set into a panel face down, then put up on a level line', () => {
+    const config = design({ ...cutBelow, lock: 'keys' })
+    const notes = modelOf(config).model.settingOut.notes.join(' ')
+    expect(notes).not.toContain('Fix the full tiles first')
+    expect(notes).not.toContain('first full-height row sits on it')
+    expect(notes).toContain('face down')
+    expect(notes).toContain('bottom edge')
+    expect(notes).not.toContain('mounting-plan.svg')
+  })
+
+  it('still sets a keyed or clipped wall out on its centre lines, with the running bond shift', () => {
+    const config = design({ surface: { width: 1000, height: 800 }, layout: { origin: 'center', rowOffset: 0.5 }, mount: 'clips' })
+    const notes = modelOf(config).model.settingOut.notes.join(' ')
+    expect(notes).toContain('Snap a vertical line at')
+    expect(notes).toContain('half a tile')
+    expect(notes).toContain('The start line is the bottom edge of the tiles')
+  })
+
+  it('gives the glue notes when the keys asked for cannot be placed', () => {
+    // A 3 mm plate leaves no room for a key notch: the wall is glued whatever the switch says.
+    const config = design({ ...cutBelow, lock: 'keys', tile: { ...DEFAULT_CONFIG.tile, thickness: 3 } })
+    const { plan, model } = modelOf(config)
+    expect(joinPlan(config, plan).keys).toBe(0)
+    expect(model.settingOut.notes).toEqual(modelOf(design(cutBelow)).model.settingOut.notes)
+  })
+
+  it('gives the glue notes when the clips asked for cannot be placed', () => {
+    // A 3 mm plate cannot hold a clip pocket: the wall is glued whatever the choice says.
+    const thin = { ...DEFAULT_CONFIG.tile, thickness: 3 }
+    const config = design({ ...cutBelow, mount: 'clips', tile: thin })
+    const { model } = modelOf(config)
+    expect(model).toMatchObject({ clips: [], unclippedPieceIds: [], accessories: [] })
+    expect(model.settingOut.notes).toEqual(modelOf(design({ ...cutBelow, tile: thin })).model.settingOut.notes)
+  })
+
+  it('places every clip of the mount plan, bottom to top, only when the wall goes up on them', () => {
+    const config = design({ mount: 'clips' })
+    const { plan, model } = modelOf(config)
+    const mount = mountPlan(config, plan)
+    expect(mount.clips).toBeGreaterThan(0)
+    expect(model.clips).toEqual(mount.sites)
+    expect(model.unclippedPieceIds).toEqual(mount.unmountedPieceIds)
+    // Surface coordinates, inside the wall, in reading order from the bottom.
+    for (const clip of model.clips) {
+      expect(clip.x).toBeGreaterThan(0)
+      expect(clip.x).toBeLessThan(model.width)
+      expect(clip.y).toBeGreaterThan(0)
+      expect(clip.y).toBeLessThan(model.height)
+    }
+    for (let i = 1; i < model.clips.length; i++) {
+      const [a, b] = [model.clips[i - 1], model.clips[i]]
+      expect(a.y < b.y || (a.y === b.y && a.x < b.x)).toBe(true)
+    }
+    // Each clip lies on the tile it belongs to.
+    for (const clip of model.clips) {
+      const tile = model.tiles.find((t) => t.pieceId === clip.pieceId && clip.x > t.x && clip.x < t.x + t.w && clip.y > t.y && clip.y < t.y + t.h)
+      expect(tile, `${clip.pieceId} at ${clip.x}, ${clip.y}`).toBeDefined()
+    }
+    expect(model.accessories.find((a) => a.group === 'mount')).toMatchObject({ mark: 'C1', kind: 'clip' })
+    expect(modelOf(design()).model.clips).toEqual([])
+  })
+
+  it('names the pieces too small for a clip, and none when no piece takes one', () => {
+    // 1000 x 612 from the corner leaves a 12 mm strip along the bottom: too short for a clip either way.
+    const config = design({ surface: { width: 1000, height: 612 }, layout: cutBelow.layout, mount: 'clips' })
+    const { plan, model } = modelOf(config)
+    expect(model.unclippedPieceIds).toEqual(mountPlan(config, plan).unmountedPieceIds)
+    expect(model.unclippedPieceIds.length).toBeGreaterThan(0)
+    for (const id of model.unclippedPieceIds) expect(model.clips.some((c) => c.pieceId === id)).toBe(false)
+    // Tiles too small for any clip: the wall is glued, so nothing is "without" a clip.
+    const tiny = design({ mount: 'clips', tile: { width: 32, height: 32, thickness: 4 } })
+    const small = modelOf(tiny).model
+    expect(small.clips).toEqual([])
+    expect(small.unclippedPieceIds).toEqual([])
+    expect(small.settingOut.notes).toEqual(modelOf(design({ tile: { width: 32, height: 32, thickness: 4 } })).model.settingOut.notes)
   })
 })

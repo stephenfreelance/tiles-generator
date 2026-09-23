@@ -34,19 +34,39 @@ export interface WallGrid {
 
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0)
 
+/** The column and row tracks of a laid-out wall, in millimetres, with the pieces they were read from. */
+function wallTracks(plan: LayoutPlan) {
+  const pieceById = new Map(plan.pieces.map((piece) => [piece.id, piece]))
+  const xs = [...new Set(plan.placements.map((placement) => placement.x))].sort((a, b) => a - b)
+  const ys = [...new Set(plan.placements.map((placement) => placement.y))].sort((a, b) => b - a)
+  const at = (axis: 'x' | 'y', value: number): PieceSpec | undefined =>
+    pieceById.get(plan.placements.find((placement) => placement[axis] === value)?.pieceId ?? '')
+  return {
+    pieceById,
+    xs,
+    ys,
+    widths: xs.map((x) => at('x', x)?.width ?? 1),
+    heights: ys.map((y) => at('y', y)?.height ?? 1),
+  }
+}
+
+/**
+ * The wall's own proportions, width over height, without building the cells for them: the hero's frame
+ * takes its aspect from this, so the box the wall is fitted into is the shape of the wall itself.
+ */
+export function wallRatio(plan: LayoutPlan): number {
+  const { widths, heights } = wallTracks(plan)
+  const height = sum(heights)
+  return height > 0 ? sum(widths) / height : 1
+}
+
 /**
  * The plan as a grid of real millimetres, plus the order it is laid in. Column and row tracks follow
  * the millimetres, so the pieces meet exactly as they will on the wall; rows run top to bottom, since
  * surface coordinates put the largest y at the top.
  */
 export function buildWallGrid(plan: LayoutPlan): WallGrid {
-  const pieceById = new Map(plan.pieces.map((piece) => [piece.id, piece]))
-  const xs = [...new Set(plan.placements.map((placement) => placement.x))].sort((a, b) => a - b)
-  const ys = [...new Set(plan.placements.map((placement) => placement.y))].sort((a, b) => b - a)
-  const at = (axis: 'x' | 'y', value: number): PieceSpec | undefined =>
-    pieceById.get(plan.placements.find((placement) => placement[axis] === value)?.pieceId ?? '')
-  const widths = xs.map((x) => at('x', x)?.width ?? 1)
-  const heights = ys.map((y) => at('y', y)?.height ?? 1)
+  const { pieceById, xs, ys, widths, heights } = wallTracks(plan)
   const model = { width: sum(widths), height: sum(heights) }
   const origin = cornerSettingOut(model)
 

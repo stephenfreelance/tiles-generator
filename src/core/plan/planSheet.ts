@@ -1,6 +1,15 @@
 // Renders a PlanModel as a print-ready A3 drafting sheet (SVG string, units = paper mm).
 // Kept free of the texture registry so it stays testable on its own; planSvg adds the lookups.
-import { chainLabels, dimText, tileAtPoint, type ChainLabel, type DimensionChain, type PlanModel } from './planModel'
+import {
+  chainLabels,
+  dimText,
+  isLettered,
+  tileAtPoint,
+  type ChainLabel,
+  type DimensionChain,
+  type PlanModel,
+  type PlanTile,
+} from './planModel'
 
 /** Title-block values, already formatted by the caller. */
 export interface SheetInfo {
@@ -99,6 +108,18 @@ export function renderPlanSheet(model: PlanModel, info: SheetInfo): string {
   const X = (x: number) => ox + x / denom
   const Y = (y: number) => oy + ph - y / denom
 
+  // Marks: every piece but the base tile carries its letter, too small a letter is left to the legend.
+  const marks: { t: PlanTile; size: number }[] = []
+  for (const t of model.tiles) {
+    if (!isLettered(model, t)) continue
+    const short = Math.min(t.w, t.h) / denom
+    const size = Math.min(3.2, short * 0.6, (t.w / denom) / (t.mark.length * CHAR_EM + 0.2))
+    // Below ~1 mm a letter prints as a smudge; the legend still lists the piece.
+    if (size >= 1) marks.push({ t, size })
+  }
+  // Only a sheet that letters a whole border version needs its ink rule: a default sheet stays as it was.
+  const wholeMarks = marks.some(({ t }) => !t.cut)
+
   out.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${SHEET_W}mm" height="${SHEET_H}mm" viewBox="0 0 ${SHEET_W} ${SHEET_H}" font-family="${FONT}">`,
     `<title>${esc(info.title)}: setting-out plan</title>`,
@@ -110,6 +131,8 @@ export function renderPlanSheet(model: PlanModel, info: SheetInfo): string {
     `.dim{font-size:${CHAIN_FONT}px}`,
     `.cutdim{font-size:${CHAIN_FONT}px;fill:${RED}}`,
     `.mark{font-weight:700;fill:${RED};paint-order:stroke;stroke:${SHEET};stroke-width:.5px;stroke-linejoin:round}`,
+    // A whole tile that is a border version keeps its outline and gets its letter in ink.
+    ...(wholeMarks ? [`.mark.whole{fill:${INK}}`] : []),
     '</style>',
     '</defs>',
     `<rect width="${SHEET_W}" height="${SHEET_H}" fill="${SHEET}"/>`,
@@ -117,7 +140,7 @@ export function renderPlanSheet(model: PlanModel, info: SheetInfo): string {
     `<line x1="${COLUMN_X}" y1="${FRAME}" x2="${COLUMN_X}" y2="${SHEET_H - FRAME}" stroke="${INK}" stroke-width="0.35"/>`,
   )
 
-  // Tiles: full ones outlined, cuts hatched in red pencil with their mark.
+  // Tiles: full ones outlined, cuts hatched in red pencil; every piece but the base tile carries its mark.
   out.push(`<g fill="none" stroke="${INK}" stroke-width="0.18">`)
   for (const t of model.tiles) {
     if (t.cut) continue
@@ -133,14 +156,9 @@ export function renderPlanSheet(model: PlanModel, info: SheetInfo): string {
     )
   }
   out.push('</g>', '<g text-anchor="middle">')
-  for (const t of model.tiles) {
-    if (!t.cut) continue
-    const short = Math.min(t.w, t.h) / denom
-    const size = Math.min(3.2, short * 0.6, (t.w / denom) / (t.mark.length * CHAR_EM + 0.2))
-    // Below ~1 mm a letter prints as a smudge; the legend still lists the piece.
-    if (size < 1) continue
+  for (const { t, size } of marks) {
     out.push(
-      `<text class="mark" x="${n(X(t.x + t.w / 2))}" y="${n(Y(t.y + t.h / 2) + size * 0.36)}" font-size="${n(size)}">${esc(t.mark)}</text>`,
+      `<text class="${t.cut ? 'mark' : 'mark whole'}" x="${n(X(t.x + t.w / 2))}" y="${n(Y(t.y + t.h / 2) + size * 0.36)}" font-size="${n(size)}">${esc(t.mark)}</text>`,
     )
   }
   out.push('</g>')
@@ -387,6 +405,9 @@ function rightColumn(model: PlanModel, info: SheetInfo, denom: number): string {
     soNote(model),
     model.joint > 0 ? `Joints ${dimText(model.joint)} mm throughout.` : 'Butt joints: tiles touch.',
     'Hatched pieces are printed cuts: the letter matches the file name. No cutting on site.',
+    ...(model.legend.some((row) => row.kind === 'full' && isLettered(model, row))
+      ? ['Lettered whole tiles are border versions, printed for their place on the edge: match the letter.']
+      : []),
   ]
   const noteSize = 2.1
   const lineH = 2.9

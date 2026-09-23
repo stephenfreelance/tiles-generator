@@ -3,10 +3,10 @@
 // jsdom (see CLAUDE.md, "Testing policy"), so this is the second gate after vitest.
 //
 //   npm run dev                     # in another terminal
-//   npm run shots                   # all four routes, desktop and mobile, into test-output/shots
+//   npm run shots                   # all five routes, desktop and mobile, into test-output/shots
 //   npm run shots -- --og           # regenerate public/og-cover.png (the 1200x630 share card)
 //   npm run shots -- --icons        # regenerate public/apple-touch-icon.png from public/favicon.svg
-//   npm run shots -- --motion       # the same eight route shots with motion left on, into shots-motion
+//   npm run shots -- --motion       # the same ten route shots with motion left on, into shots-motion
 //   npm run shots -- --url http://localhost:4173   # point at `npm run preview` instead
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -28,6 +28,7 @@ const ROUTES = [
   ['landing', '/'],
   ['studio', '/studio'],
   ['download', '/download'],
+  ['fit-test', '/fit-test'],
   ['history', '/history'],
 ]
 const VIEWPORTS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } }
@@ -67,7 +68,7 @@ async function captureRoutes(context, { dir = outDir, still = true } = {}) {
 }
 
 // Every default shot is a reduced-motion end state, which is the one state nobody needs to review. These
-// are the same eight frames with motion left on, in their own folder, so the two sets diff against each
+// are the same ten frames with motion left on, in their own folder, so the two sets diff against each
 // other and the landing's transitions are visible at all. Reduce also zeroes --t-fast/med/slow in
 // _tokens.scss, so the difference is real even where the motion is pure CSS.
 async function captureMotion(browser) {

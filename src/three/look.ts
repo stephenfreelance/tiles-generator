@@ -1,5 +1,6 @@
 // Every tuning knob of the 3D preview lives here so a visual pass can adjust the look in one file.
 // Units: millimetres for lengths, degrees for angles, milliseconds for durations unless noted.
+import { contrastRatio } from '@/core/accent'
 
 /** Quality tier: 0 = low (no post, standard materials), 1 = medium, 2 = high. */
 export type Tier = 0 | 1 | 2
@@ -225,6 +226,25 @@ export const LOOK = {
     maxInstances: 5000,
     /** Longest a thumbnail capture waits for the wave on screen to settle. */
     captureWaitMaxMs: 3000,
+  },
+
+  /** Turning the single tile over to show its back (flip.ts). */
+  flip: {
+    /** One half turn, front to back or back to front. Under reduced motion the turn is instant. */
+    durationMs: 720,
+    /** Longest frame step the turn takes: after an idle loop the first delta is seconds long. */
+    maxStepMs: 34,
+  },
+
+  /**
+   * The printed keys and clips seated in the single tile's back (the Back view, seatedSet.ts). They
+   * render in the interface's own ink on a light tile and in its panel color on a dark one (partColor
+   * below), never in the accent: the accent follows the tile color, so accent parts would vanish into
+   * the tile they sit in. `ink` and `panel` are the --ink and --panel tokens (seatedSet.test.ts).
+   */
+  parts: {
+    ink: '#241C14',
+    panel: '#FFFDF8',
   },
 
   highlight: {
@@ -476,3 +496,12 @@ export const LOOK = {
     overshootFraction: 0.2,
   },
 } as const
+
+/**
+ * The neutral the seated parts render in on a tile of `tileHex`: whichever of LOOK.parts.ink and
+ * LOOK.parts.panel stands further from it by WCAG contrast, so ink on a light tile, panel on a dark one.
+ */
+export function partColor(tileHex: string): string {
+  const { ink, panel } = LOOK.parts
+  return contrastRatio(ink, tileHex) >= contrastRatio(panel, tileHex) ? ink : panel
+}

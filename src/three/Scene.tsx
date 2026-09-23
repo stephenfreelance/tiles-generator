@@ -1,6 +1,7 @@
 import { ContactShadows } from '@react-three/drei'
 import { addTail, useFrame, useThree } from '@react-three/fiber'
-import { lazy, Suspense, useEffect, useMemo, type Ref } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import type * as THREE from 'three'
 import { heroPiece } from '@/hooks/previewLod'
 import type { LayoutOrigin, LayoutPlan, LengthUnit, Placement } from '@/core/types'
 import type { PreviewPiece } from '@/workers/protocol'
@@ -8,9 +9,12 @@ import { Backdrop } from './Backdrop'
 import { CameraRig, type CameraRigHandle } from './CameraRig'
 import { sheetBackground } from './colorMath'
 import { Dimensions } from './Dimensions'
+import { flipPose, stepFlip, type FlipExtent, type TileFace } from './flip'
 import { LOOK, type Presentation, type Tier } from './look'
 import type { TileMaterialSet } from './materials'
 import { useSceneServices } from './sceneServices'
+import { SeatedParts } from './SeatedParts'
+import type { SeatedSet } from './seatedSet'
 import { annotationMarginMm, BACKDROP_LAYER, computeFraming, objectComposition, OVERLAY_LAYER, stageFor, stageRotationX, type ViewMode } from './stage'
 import { StudioLights } from './StudioLights'
 import { TileField } from './TileField'
@@ -34,6 +38,8 @@ export interface Shown {
   joint: number
   /** Relief depth above the base plate, mm. */
   depth: number
+  /** How far a tab stands out past its piece's right side, mm; 0 on a wall that cuts none. */
+  tabGrow: number
   origin: LayoutOrigin
 }
 
@@ -78,6 +84,94 @@ function MaterialDriver({ set }: { set: TileMaterialSet }) {
 }
 
 /**
+ * Lays the turning group at `progress`: the axis through the middle of the width and thickness. What turns
+ * on the back (`extent`) only counts once it shows, so face up the tile rests exactly where it always has.
+ */
+function poseFlip(group: THREE.Group, back: THREE.Group | null, progress: number, width: number, thickness: number, extent: FlipExtent | null) {
+  const showsBack = progress > 0
+  const { angle, axisZ } = flipPose(progress, width, thickness, showsBack && extent ? extent : undefined)
+  group.position.set(width / 2, 0, axisZ)
+  group.rotation.set(0, angle, 0)
+  if (back) back.visible = showsBack
+}
+
+/**
+ * Turns the single tile over so its back (the key notches and clip pockets) faces the light: a half turn
+ * about its upright axis, the way a tile is turned over on the bench, lifted so it never cuts the floor.
+ * At rest face up the two groups cancel exactly, so the front view is the view it always was. `instant`
+ * lands on the asked face at once: reduced motion, or a view that is not the single tile. `back` (the
+ * printed parts seated in the tile's back) turns with the tile and shows from the moment the turn starts
+ * until the tile lands face up again; `extent` is its box, which the turn lifts clear of the floor.
+ */
+function TileFlip({
+  face,
+  width,
+  thickness,
+  instant,
+  onTurning,
+  back,
+  extent = null,
+  children,
+}: {
+  face: TileFace
+  width: number
+  thickness: number
+  instant: boolean
+  /** Told when a turn starts and when it lands, so the key light can cover the tile on its edge. */
+  onTurning: (turning: boolean) => void
+  back?: ReactNode
+  extent?: FlipExtent | null
+  children: ReactNode
+}) {
+  const ref = useRef<THREE.Group>(null)
+  const backRef = useRef<THREE.Group>(null)
+  const progressRef = useRef(face === 'back' ? 1 : 0)
+  const invalidate = useThree((state) => state.invalidate)
+  const services = useSceneServices()
+  // Read by the frame loop, which must not wait on a render to see the parts that are there now.
+  const extentRef = useRef(extent)
+  const hasBack = Boolean(back)
+
+  useLayoutEffect(() => {
+    extentRef.current = extent
+    if (!ref.current) return
+    poseFlip(ref.current, backRef.current, progressRef.current, width, thickness, extent)
+    services.shadows.mark()
+    invalidate()
+  }, [width, thickness, extent, hasBack, services, invalidate])
+
+  // The loop is on demand: asking for the other face has to ask for the frame that starts the turn.
+  useEffect(() => {
+    invalidate()
+  }, [face, instant, invalidate])
+
+  useFrame((_, delta) => {
+    const group = ref.current
+    if (!group) return
+    const current = progressRef.current
+    const next = stepFlip(current, face, Math.min(delta * 1000, LOOK.flip.maxStepMs), instant)
+    if (next === current) return
+    const atRest = (value: number) => value === 0 || value === 1
+    if (atRest(current) && !atRest(next)) onTurning(true)
+    else if (atRest(next) && !atRest(current)) onTurning(false)
+    progressRef.current = next
+    poseFlip(group, backRef.current, next, width, thickness, extentRef.current)
+    services.shadows.mark()
+    services.motion.bump(performance.now())
+    invalidate()
+  })
+
+  return (
+    <group ref={ref}>
+      <group position={[-width / 2, 0, -thickness / 2]}>
+        {children}
+        {back ? <group ref={backRef}>{back}</group> : null}
+      </group>
+    </group>
+  )
+}
+
+/**
  * Quality tiers, chosen by the app's own governor from frames rendered while something moves. Its
  * verdicts live in SceneServices, so a remounted scene keeps them.
  */
@@ -115,8 +209,12 @@ export interface SceneProps {
   rigRef: Ref<CameraRigHandle>
   /** Presentation preset. Omitted or 'studio': today's scene, exactly. */
   presentation?: Presentation
+  /** Which face of the single tile is up. Omitted, or any view but the single tile: the front. */
+  face?: TileFace
   /** The object presentation's arrival waits at frame 0 until this is true. Omitted: it plays at once. */
   arrivalReady?: boolean
+  /** The printed parts seated in the single tile's back, drawn while its back shows. Omitted: none. */
+  parts?: SeatedSet | null
   onTierChange: (update: (tier: Tier) => Tier) => void
 }
 
@@ -137,7 +235,9 @@ export function Scene({
   wave,
   rigRef,
   presentation = 'studio',
+  face = 'front',
   arrivalReady = true,
+  parts = null,
   onTierChange,
 }: SceneProps) {
   // The mode that was built, not the one just asked for: the meshes on screen belong to it.
@@ -156,7 +256,7 @@ export function Scene({
     [mode, hero, shown.plan.placements],
   )
 
-  const assets = usePieceAssets(shown.pieces, pieces, shown.tile.width, shown.tile.height)
+  const assets = usePieceAssets(shown.pieces, pieces, shown.tile.width, shown.tile.height, shown.tabGrow)
   const activeNormalMaps = useMemo(() => new Set([...assets.values()].map((asset) => asset.normalMap)), [assets])
   const reliefTop = useMemo(() => {
     let top = shown.tile.thickness + shown.depth
@@ -166,8 +266,15 @@ export function Scene({
 
   const width = mode === 'tile' ? (hero?.width ?? shown.tile.width) : shown.surface.width
   const height = mode === 'tile' ? (hero?.height ?? shown.tile.height) : shown.surface.height
+  // Only the single tile turns over, so only it ever shows the parts in its back.
+  const seated = mode === 'tile' && hero ? parts : null
+  // On its edge the tile stands as tall as it is wide, keys standing out past its sides included.
+  const turnSpan = seated ? Math.max(width, seated.extent.maxX) - Math.min(0, seated.extent.minX) : width
 
   const materials = useTileMaterials(color, tier, showLayerLines, activeNormalMaps)
+  // While the single tile turns over it stands up to its own width off the floor, far above the
+  // relief the key light's shadow camera is fitted to.
+  const [turning, setTurning] = useState(false)
 
   // Quantized so a one-pixel resize does not re-frame the view.
   const aspect = Math.round((size.width / Math.max(1, size.height)) * 20) / 20
@@ -222,6 +329,7 @@ export function Scene({
         width={width}
         height={height}
         reliefTop={reliefTop}
+        castTop={turning ? turnSpan : undefined}
         lightAngle={lightAngle}
         tier={tier}
         presentation={presentation}
@@ -243,18 +351,28 @@ export function Scene({
           poolScale={object ? LOOK.object.poolScale : undefined}
         />
         <group position={[-width / 2, -height / 2, 0]}>
-          <TileField
-            assets={assets}
-            pieces={pieces}
-            placements={placements}
-            materials={materials}
-            wave={wave}
-            highlightPieceId={highlightPieceId}
-            revealCuts={revealCuts}
-            cutHatch={object ? LOOK.object.waveCutHatch : undefined}
-            reduced={reduced}
-            stage={stage}
-          />
+          <TileFlip
+            face={mode === 'tile' ? face : 'front'}
+            width={width}
+            thickness={reliefTop}
+            instant={reduced || mode !== 'tile'}
+            onTurning={setTurning}
+            back={seated ? <SeatedParts set={seated} color={color} width={width} height={height} wave={wave} /> : null}
+            extent={seated?.extent ?? null}
+          >
+            <TileField
+              assets={assets}
+              pieces={pieces}
+              placements={placements}
+              materials={materials}
+              wave={wave}
+              highlightPieceId={highlightPieceId}
+              revealCuts={revealCuts}
+              cutHatch={object ? LOOK.object.waveCutHatch : undefined}
+              reduced={reduced}
+              stage={stage}
+            />
+          </TileFlip>
           {showDimensions && (
             <Dimensions mode={mode} width={width} height={height} thickness={shown.tile.thickness} relief={shown.depth} unit={unit} />
           )}
@@ -266,7 +384,9 @@ export function Scene({
           scale={Math.hypot(width, height) * LOOK.contact.scale}
           far={Math.max(1, reliefTop * LOOK.contact.farHeightMultiple)}
           blur={LOOK.contact.blur}
-          opacity={LOOK.contact.opacity}
+          // Captured only up to `far` above the floor, it draws the insides of a tile standing on its edge
+          // as stray marks: the soft ground shadow sits the turn out and lands with the tile.
+          opacity={turning ? 0 : LOOK.contact.opacity}
           resolution={LOOK.contact.resolution[tier]}
           color={LOOK.contact.color}
         />

@@ -4,7 +4,9 @@ import { normalizeConfig } from '@/core/config'
 import { computeLayout } from '@/core/layout'
 import { DEFAULT_TEXTURE_ID, textureById } from '@/core/textures/registry'
 import type { LayoutPlan } from '@/core/types'
+import { cornerDetail } from './cornerDetail'
 import {
+  conceptConfig,
   EXAMPLE_WALLS,
   LANDING_BASE,
   LANDING_DESIGN_START,
@@ -24,7 +26,7 @@ const shape = (plan: LayoutPlan) => plan.pieces.map((piece) => [piece.mark, piec
 
 describe('the landing wall', () => {
   it('starts on the wall the page owns: the base size, the default relief and the default color', () => {
-    expect(START).toEqual({ widthMm: 1000, heightMm: 700, textureId: DEFAULT_TEXTURE_ID, color: DEFAULT_COLOR, nudgedMm: 0 })
+    expect(START).toEqual({ widthMm: 1000, heightMm: 700, textureId: DEFAULT_TEXTURE_ID, color: DEFAULT_COLOR })
     expect(LANDING_BASE.surface).toEqual({ width: 1000, height: 700 })
     expect(LANDING_BASE.surfaceUnit).toBe('cm')
     expect(LANDING_BASE.tile).toEqual({ width: 150, height: 150, thickness: 4 })
@@ -113,38 +115,10 @@ describe('sizing the wall', () => {
     expect(landingDesignStep(START, { type: 'wall' })).toBe(START)
   })
 
-  it('takes the centimeter back off, exactly, whichever way the wall was nudged', () => {
-    const exact = step(START, { type: 'example', index: 2 })
-    expect(planOf(exact).exact).toBe(true)
-
-    const nudged = landingDesignStep(exact, { type: 'nudge' })
-    expect(nudged).toMatchObject({ widthMm: 2410, nudgedMm: 10 })
-    const cut = planOf(nudged)
-    expect(cut.exact).toBe(false)
-    // The centimeter lands as a 10 mm strip down the right edge, which the layout calls fragile.
-    expect(shape(cut)).toEqual([
-      ['A', 'Full tile', 150, 150, 128],
-      ['B', 'Right edge', 10, 150, 8],
-    ])
-    expect(cut.warnings.map((warning) => warning.code)).toEqual(['thin-cut'])
-
-    const back = landingDesignStep(nudged, { type: 'unnudge' })
-    expect(back).toEqual(exact)
-    expect(landingDesignStep(back, { type: 'unnudge' })).toBe(back)
-  })
-
-  it('clears the nudge when the wall is resized, so the fit line and the button cannot disagree', () => {
-    const nudged = step(START, { type: 'example', index: 2 }, { type: 'nudge' })
-    expect(landingDesignStep(nudged, { type: 'wall', widthMm: 800 }).nudgedMm).toBe(0)
-    expect(landingDesignStep(nudged, { type: 'example', index: 0 }).nudgedMm).toBe(0)
-  })
-
-  it('records only what the clamp let through at the top of the range', () => {
-    const wide = step(START, { type: 'wall', widthMm: LANDING_WALL_LIMITS.max - 4 })
-    const nudged = landingDesignStep(wide, { type: 'nudge' })
-    expect(nudged).toMatchObject({ widthMm: LANDING_WALL_LIMITS.max, nudgedMm: 4 })
-    expect(landingDesignStep(nudged, { type: 'unnudge' })).toEqual(wide)
-    expect(landingDesignStep(nudged, { type: 'nudge' })).toBe(nudged)
+  it('hands back the same state when the wall does not change, so nothing re-renders', () => {
+    expect(landingDesignStep(START, { type: 'wall', widthMm: START.widthMm, heightMm: START.heightMm })).toBe(START)
+    expect(landingDesignStep(START, { type: 'example', index: 0 })).toBe(START)
+    expect(landingDesignStep(START, { type: 'wall', widthMm: 99_999 })).not.toBe(START)
   })
 })
 
@@ -194,8 +168,6 @@ describe('the design the page draws with', () => {
   const EVENTS: LandingEvent[] = [
     { type: 'wall', widthMm: 9000, heightMm: 10 },
     { type: 'example', index: 2 },
-    { type: 'nudge' },
-    { type: 'unnudge' },
     { type: 'texture', textureId: 'fluted' },
     { type: 'color', hex: '#abc' },
     { type: 'specimen', index: 4 },
@@ -235,5 +207,36 @@ describe('the design the page draws with', () => {
     const before = { ...START }
     for (const event of EVENTS) landingDesignStep(START, event)
     expect(START).toEqual(before)
+  })
+})
+
+describe('the concept wall of section 01', () => {
+  it('keeps the starting wall whatever the visitor sizes, in their relief and color', () => {
+    const visitor = step(START, { type: 'example', index: 2 }, { type: 'specimen', index: 3 })
+    const concept = conceptConfig(visitor)
+    expect(concept.surface).toEqual(LANDING_BASE.surface)
+    expect(concept.texture.id).toBe(LANDING_SPECIMENS[3].textureId)
+    expect(concept.color).toBe(LANDING_SPECIMENS[3].color)
+    expect(concept).toEqual(normalizeConfig(concept))
+  })
+
+  it('is the very design the page draws while the wall is untouched, so its chips are cache hits', () => {
+    expect(conceptConfig(START)).toEqual(landingConfig(START))
+    const recolored = step(START, { type: 'color', hex: '#D7263D' })
+    expect(conceptConfig(recolored)).toEqual(landingConfig(recolored))
+  })
+
+  it('always shows a cut on both edges, even when the visitor sized a wall that divides exactly', () => {
+    const exact = step(START, { type: 'example', index: 2 })
+    expect(planOf(exact).exact).toBe(true)
+    const corner = cornerDetail(landingPlan(conceptConfig(exact)))
+    expect(corner.placements).toHaveLength(4)
+    expect(corner.pieces.map((piece) => [piece.mark, piece.kind])).toEqual([
+      ['A', 'full'],
+      ['B', 'edge'],
+      ['C', 'edge'],
+      ['D', 'corner'],
+    ])
+    expect([corner.fullCount, corner.partialCount]).toEqual([1, 3])
   })
 })

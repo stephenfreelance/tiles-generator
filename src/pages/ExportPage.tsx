@@ -1,20 +1,29 @@
 // The handover: what you designed, one button that gives you all of it, and the detail behind it.
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, X } from 'lucide-react'
+import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, Link2, Paperclip, X } from 'lucide-react'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { studioIntent } from '@/app/prefetchStudio'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
 import { presetByHex } from '@/core/colors'
+import { wallParts } from '@/core/fixing/accessories'
+import { mountingGuide } from '@/core/fixing/guide'
+import { joinPlan } from '@/core/fixing/joins'
+import { mountPlan } from '@/core/fixing/mount'
+import { tabPlan } from '@/core/fixing/tabs'
+import type { AccessorySpec } from '@/core/fixing/types'
 import { planSvg } from '@/core/plan/planSvg'
 import { textureById } from '@/core/textures/registry'
 import type { PieceSpec } from '@/core/types'
+import { AccessoryTable } from '@/features/export/AccessoryTable'
 import { Disclosure } from '@/features/export/Disclosure'
 import { FileOptions } from '@/features/export/FileOptions'
+import { MountingGuide } from '@/features/export/MountingGuide'
 import { PrintNotes } from '@/features/export/PrintNotes'
 import { ScheduleTable } from '@/features/export/ScheduleTable'
 import { estimateDownloadBytes, formatBytes, formatGrams } from '@/features/export/sizes'
 import { testSwatch } from '@/features/export/testSwatch'
+import { partsTitle, zipContents, type ZipLineKind } from '@/features/export/zipContents'
 import { PENDING_DELAY_MS, useDelayedFlag } from '@/features/studio/useDelayedFlag'
 import { downloadBlob, geometryKey, useExport, useFilamentEstimate, useLayout } from '@/hooks'
 import { useDesign } from '@/state/designStore'
@@ -31,11 +40,22 @@ const VIEW_ASPECT_RANGE = { min: 0.8, max: 1.9 }
 /** A short debounce after the build lands; capture() itself waits for the re-lay wave to settle. */
 const CAPTURE_DELAY_MS = 600
 
-type JobKind = 'all' | 'piece' | 'swatch'
+type JobKind = 'all' | 'piece' | 'part' | 'swatch'
 
 interface Job {
   kind: JobKind
+  /** The tile piece, or the printed part, being written on its own. */
   pieceId?: string
+  partId?: string
+}
+
+/** What each line of the zip's contents is drawn with. */
+const CONTENT_ICONS: Record<ZipLineKind, ReactNode> = {
+  tiles: <Box className={styles.contentIcon} aria-hidden="true" />,
+  mount: <Paperclip className={styles.contentIcon} aria-hidden="true" />,
+  join: <Link2 className={styles.contentIcon} aria-hidden="true" />,
+  plan: <LayoutGrid className={styles.contentIcon} aria-hidden="true" />,
+  readme: <FileText className={styles.contentIcon} aria-hidden="true" />,
 }
 
 const wasCancelled = (error: unknown) => error instanceof Error && error.name === 'AbortError'
@@ -73,6 +93,9 @@ export function ExportPage() {
   const capturedFor = useRef<string | null>(null)
   const retryRef = useRef<(() => void) | null>(null)
   const testTileNoteId = useId()
+  const partsTitleId = useId()
+  const piecesId = useId()
+  const notesId = useId()
 
   const texture = textureById(config.texture.id)
   // A custom pick has no name of its own, so the pill says so in words and the hex carries the rest.
@@ -80,8 +103,20 @@ export function ExportPage() {
   const models = plan.pieces.length
   const tiles = plan.placements.length
   const signature = geometryKey(config)
-  const fileCount = models + 2
-  const bytes = estimateDownloadBytes(plan, config, format, quality)
+  // The wall's own printed parts and the plans that place them, computed from the same plan the worker is
+  // handed, so the rows, the guide and the zip always agree on what there is. The fit test is not among
+  // them: it is printed from its own page, before these files are worth printing.
+  const accessories = useMemo(() => wallParts(config, plan), [config, plan])
+  const mount = useMemo(() => mountPlan(config, plan), [config, plan])
+  const join = useMemo(() => joinPlan(config, plan), [config, plan])
+  const tab = useMemo(() => tabPlan(config, plan), [config, plan])
+  const guide = useMemo(
+    () => mountingGuide({ config, plan, mount, join, tab, accessories }),
+    [config, plan, mount, join, tab, accessories],
+  )
+  const contents = zipContents(config, plan, mount, join, tab, accessories, format)
+  const fileCount = contents.files
+  const bytes = estimateDownloadBytes(plan, config, format, quality, accessories)
   const midGrams = (estimate.totalGramsLow + estimate.totalGramsHigh) / 2
   // The preview frame is cut to the shape of the wall, so the render fills it.
   const viewAspect = Math.min(
@@ -131,7 +166,16 @@ export function ExportPage() {
     setJob({ kind: 'all' })
     announce(`Writing ${plural(fileCount, 'file', 'files')}.`)
     try {
-      const result = await run({ config, plan, format, quality, zip: true, planSvg: planSvg(config, plan) })
+      // The parts are named, never left to the worker's default: this zip holds the wall's parts only.
+      const result = await run({
+        config,
+        plan,
+        format,
+        quality,
+        accessoryIds: accessories.map((part) => part.id),
+        zip: true,
+        planSvg: planSvg(config, plan),
+      })
       if (result.zip) {
         downloadBlob(result.zip.data, result.zip.name, result.zip.mime)
         retryRef.current = null
@@ -140,6 +184,22 @@ export function ExportPage() {
       }
     } catch (failure) {
       reportFailure(failure, () => void downloadEverything())
+    } finally {
+      setJob(null)
+    }
+  }
+
+  async function downloadPart(part: AccessorySpec) {
+    setJob({ kind: 'part', partId: part.id })
+    try {
+      const result = await run({ config, plan, format, quality, pieceIds: [], accessoryIds: [part.id], zip: false })
+      const file = result.files[0]
+      if (file) {
+        downloadBlob(file.data, file.name, file.mime)
+        toast(`${file.name} is in your downloads.`, { tone: 'success' })
+      }
+    } catch (failure) {
+      reportFailure(failure, () => void downloadPart(part))
     } finally {
       setJob(null)
     }
@@ -159,6 +219,15 @@ export function ExportPage() {
     } finally {
       setJob(null)
     }
+  }
+
+  /** Opens "See every piece" and takes the focus there, where each piece has a download of its own. */
+  function showPieces() {
+    const pieces = document.getElementById(piecesId)
+    if (!(pieces instanceof HTMLDetailsElement)) return
+    pieces.open = true
+    pieces.scrollIntoView({ block: 'start' })
+    pieces.querySelector('summary')?.focus({ preventScroll: true })
   }
 
   function downloadPlan() {
@@ -212,10 +281,7 @@ export function ExportPage() {
   }
 
   const fraction = progress && progress.total > 0 ? progress.done / progress.total : null
-  const modelLine =
-    models === 1
-      ? `1 tile model (${format.toUpperCase()}), print ${plural(tiles, 'copy', 'copies')}`
-      : `${plural(models, 'tile model', 'tile models')} (${format.toUpperCase()}), ${plural(tiles, 'tile', 'tiles')} in all`
+  const fixings = guide.system !== 'glue'
 
   return (
     <div
@@ -244,6 +310,7 @@ export function ExportPage() {
       </header>
 
       <div className={styles.top}>
+        <div className={styles.left}>
         <section className={styles.design} aria-label="Your design">
           <div className={styles.preview}>
             <div className={styles.previewCanvas} data-pending={showPending || undefined}>
@@ -269,6 +336,39 @@ export function ExportPage() {
           </div>
         </section>
 
+        <section className={styles.facts} aria-label="What you are printing">
+          <p className={styles.fact}>
+            <span className={styles.factValue}>{plural(tiles, 'tile', 'tiles')}</span>
+            <span className={plan.exact ? `${styles.factNote} ${styles.factOk}` : styles.factNote}>
+              {plan.exact ? 'all whole' : `${plan.fullCount} whole, ${plan.partialCount} cut`}
+            </span>
+          </p>
+          <p className={styles.fact}>
+            <span className={styles.factValue}>{plural(models, 'model', 'models')}</span>
+            <span className={styles.factNote}>
+              {/* Files, like the models beside them: the parts in hand are counted in their own table. */}
+              {accessories.length > 0 ? `to print, plus ${plural(accessories.length, 'part file', 'part files')}` : 'to print'}
+            </span>
+          </p>
+          <p className={styles.fact}>
+            <span className={styles.factValue}>about {formatGrams(midGrams)}</span>
+            {/* The spool count covers the top of the estimate, so it reads as an instruction rather
+                than as arithmetic that does not add up against the figure above it. */}
+            <span className={styles.factNote}>buy {plural(estimate.spools, 'spool', 'spools')} of 1 kg</span>
+          </p>
+        </section>
+
+        {/* Under the counts rather than at the foot of the page: the advice belongs beside the render it
+            is about, and the left column ran out of content halfway down the download card beside it. */}
+        <section className={styles.notes} aria-labelledby={notesId}>
+          <h2 id={notesId} className={styles.sectionTitle}>
+            Before you print
+          </h2>
+          <PrintNotes fixings={fixings} parts={accessories.length > 0} />
+        </section>
+        </div>
+
+        <div className={styles.right}>
         <section className={styles.get} aria-label="Download">
           {busy ? (
             <div className={styles.progress}>
@@ -280,7 +380,9 @@ export function ExportPage() {
                     ? 'One 60 × 60 mm test tile'
                     : job?.kind === 'piece'
                       ? 'One piece on its own'
-                      : `${plural(fileCount, 'file', 'files')} into one zip`
+                      : job?.kind === 'part'
+                        ? 'One printed part on its own'
+                        : `${plural(fileCount, 'file', 'files')} into one zip`
                 }
               />
               <Button variant="ghost" leadingIcon={<X />} onClick={cancel}>
@@ -311,38 +413,13 @@ export function ExportPage() {
           )}
 
           <ul className={styles.contents}>
-            <li>
-              <Box className={styles.contentIcon} aria-hidden="true" />
-              <span>{modelLine}</span>
-            </li>
-            <li>
-              <LayoutGrid className={styles.contentIcon} aria-hidden="true" />
-              <span>A tiling plan (SVG), shows where every piece goes</span>
-            </li>
-            <li>
-              <FileText className={styles.contentIcon} aria-hidden="true" />
-              <span>A README, your settings and printing advice</span>
-            </li>
+            {contents.lines.map((line) => (
+              <li key={line.kind}>
+                {CONTENT_ICONS[line.kind]}
+                <span>{line.text}</span>
+              </li>
+            ))}
           </ul>
-        </section>
-
-        <section className={styles.facts} aria-label="What you are printing">
-          <p className={styles.fact}>
-            <span className={styles.factValue}>{plural(tiles, 'tile', 'tiles')}</span>
-            <span className={plan.exact ? `${styles.factNote} ${styles.factOk}` : styles.factNote}>
-              {plan.exact ? 'all whole' : `${plan.fullCount} whole, ${plan.partialCount} cut`}
-            </span>
-          </p>
-          <p className={styles.fact}>
-            <span className={styles.factValue}>{plural(models, 'model', 'models')}</span>
-            <span className={styles.factNote}>to print</span>
-          </p>
-          <p className={styles.fact}>
-            <span className={styles.factValue}>about {formatGrams(midGrams)}</span>
-            {/* The spool count covers the top of the estimate, so it reads as an instruction rather
-                than as arithmetic that does not add up against the figure above it. */}
-            <span className={styles.factNote}>buy {plural(estimate.spools, 'spool', 'spools')} of 1 kg</span>
-          </p>
         </section>
 
         <section className={styles.more} aria-label="Other ways to download">
@@ -362,6 +439,7 @@ export function ExportPage() {
             disabled={busy}
             onFormatChange={(next) => setPrefs({ exportFormat: next })}
             onQualityChange={(next) => setPrefs({ exportQuality: next })}
+            onShowPieces={showPieces}
           />
 
           <div className={styles.secondary}>
@@ -387,9 +465,10 @@ export function ExportPage() {
             </Button>
           </div>
         </section>
+        </div>
       </div>
 
-      <Disclosure label="See every piece" note={`${plural(models, 'model', 'models')} · ${plural(tiles, 'tile', 'tiles')}`}>
+      <Disclosure id={piecesId} label="See every piece" note={`${plural(models, 'model', 'models')} · ${plural(tiles, 'tile', 'tiles')}`}>
         <p className={styles.piecesNote}>
           Every cut carries the slice of pattern it replaces, so the relief runs on across each joint. Point at a row
           to find that piece in the picture.
@@ -406,10 +485,25 @@ export function ExportPage() {
         />
       </Disclosure>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Before you print</h2>
-        <PrintNotes />
-      </section>
+      {accessories.length > 0 && (
+        <section className={styles.parts} aria-labelledby={partsTitleId}>
+          <div className={styles.partsHead}>
+            <h2 id={partsTitleId} className={styles.sectionTitle}>
+              {partsTitle(accessories)}
+            </h2>
+            <p className={styles.partsNote}>Printed parts that are not tiles, each group in its own folder of the zip.</p>
+          </div>
+          <AccessoryTable
+            accessories={accessories}
+            format={format}
+            busyId={job?.kind === 'part' ? (job.partId ?? null) : null}
+            disabled={busy}
+            onDownload={downloadPart}
+          />
+        </section>
+      )}
+
+      <MountingGuide guide={guide} />
     </div>
   )
 }

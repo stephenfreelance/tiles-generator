@@ -68,7 +68,7 @@ jobs:
       # path so NotFoundPage can say so. A new route belongs in this list.
       - name: Add SPA fallbacks
         run: |
-          for route in studio download history; do cp dist/index.html "dist/$route.html"; done
+          for route in studio download fit-test history; do cp dist/index.html "dist/$route.html"; done
           cp dist/index.html dist/404.html
 
       - uses: actions/upload-pages-artifact@v5

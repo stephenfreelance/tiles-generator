@@ -1,4 +1,5 @@
 // Level of detail for the 3D preview: how fine the worker meshes each pass.
+import { basePiece } from '@/core/layout'
 import type { DesignConfig, LayoutPlan, PieceSpec } from '@/core/types'
 
 /** Top-surface triangles across every placed instance in the surface view. */
@@ -29,9 +30,16 @@ export const cellForBudget = (areaMm2: number, triangles: number) => Math.sqrt((
 export const topTriangles = (widthMm: number, heightMm: number, cellMm: number) =>
   2 * Math.ceil(widthMm / cellMm) * Math.ceil(heightMm / cellMm)
 
-/** The piece the tile view shows: the full tile, or the largest cut when there is none. */
+/**
+ * The piece the tile view shows: the base whole tile; when every whole tile is a border version, the
+ * one laid most often; the largest cut when there is no whole tile at all.
+ */
 export function heroPiece(plan: LayoutPlan): PieceSpec | undefined {
-  return plan.pieces.find((p) => p.kind === 'full') ?? [...plan.pieces].sort((a, b) => b.width * b.height - a.width * a.height)[0]
+  const base = basePiece(plan.pieces)
+  if (base) return base
+  const whole = plan.pieces.filter((p) => p.kind === 'full')
+  if (whole.length) return whole.reduce((best, p) => (p.count > best.count ? p : best))
+  return [...plan.pieces].sort((a, b) => b.width * b.height - a.width * a.height)[0]
 }
 
 /** A quick coarse pass for feedback, then the final pass; one pass when the final is already coarse. */

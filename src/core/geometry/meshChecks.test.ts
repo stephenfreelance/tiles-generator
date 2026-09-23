@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MeshData } from '../types'
-import { checkMesh, meshVolume, weldByPosition } from './meshChecks'
+import { checkMesh, componentCount, downwardArea, meshVolume, pinchedVertices, weldByPosition } from './meshChecks'
 
 /** Unit cube from 12 triangles, with every corner duplicated per face (as the tile meshes do). */
 function cube(size = 1, flipOne = false, dropOne = false): MeshData {
@@ -95,5 +95,70 @@ describe('checkMesh', () => {
     const check = checkMesh({ positions, indices, topIndexCount: 0 })
     expect(check.closed).toBe(false)
     expect(performance.now() - started).toBeLessThan(4000)
+  })
+})
+
+/** Concatenates meshes into one buffer, as a multi-part file would hold them. */
+function merge(...meshes: MeshData[]): MeshData {
+  const positions = new Float32Array(meshes.reduce((n, m) => n + m.positions.length, 0))
+  const indices = new Uint32Array(meshes.reduce((n, m) => n + m.indices.length, 0))
+  let p = 0
+  let i = 0
+  for (const m of meshes) {
+    positions.set(m.positions, p)
+    for (let k = 0; k < m.indices.length; k++) indices[i + k] = m.indices[k] + p / 3
+    p += m.positions.length
+    i += m.indices.length
+  }
+  return { positions, indices, topIndexCount: 0 }
+}
+
+function shifted(mesh: MeshData, dx: number, dz = 0): MeshData {
+  const positions = mesh.positions.slice()
+  for (let k = 0; k < positions.length; k += 3) {
+    positions[k] += dx
+    positions[k + 2] += dz
+  }
+  return { ...mesh, positions }
+}
+
+describe('downwardArea', () => {
+  it('counts faces looking down above the given height only', () => {
+    expect(downwardArea(cube(10), 0)).toBe(0)
+    expect(downwardArea(cube(10), -1)).toBe(100)
+    // A cube floating 5 mm up: its bottom is an overhang.
+    expect(downwardArea(shifted(cube(10), 0, 5), 0)).toBe(100)
+    expect(downwardArea(shifted(cube(10), 0, 5), 5)).toBe(0)
+  })
+
+  it('ignores faces tilted less than the threshold', () => {
+    // One triangle on a 45 degree slope, facing +x and down.
+    const slope: MeshData = {
+      positions: Float32Array.of(0, 0, 2, 0, 2, 2, 2, 0, 4),
+      indices: Uint32Array.of(0, 1, 2),
+      topIndexCount: 0,
+    }
+    const area = Math.hypot(2, 2) * 2 / 2
+    expect(downwardArea(slope, 0)).toBeCloseTo(area, 6)
+    expect(downwardArea(slope, 0, 0.75)).toBe(0)
+  })
+})
+
+describe('componentCount', () => {
+  it('counts separate solids, welded by position', () => {
+    expect(componentCount(cube(10))).toBe(1)
+    expect(componentCount(merge(cube(10), shifted(cube(10), 20)))).toBe(2)
+    // Touching along a face still leaves two closed shells sharing positions: one welded component.
+    expect(componentCount(merge(cube(10), shifted(cube(10), 10)))).toBe(1)
+    expect(componentCount({ positions: new Float32Array(0), indices: new Uint32Array(0), topIndexCount: 0 })).toBe(0)
+  })
+})
+
+describe('pinchedVertices', () => {
+  it('finds a vertex where two solids touch at a corner only', () => {
+    expect(pinchedVertices(cube(10))).toBe(0)
+    const corner = merge(cube(10), { ...cube(10), positions: cube(10).positions.map((v) => v + 10) })
+    expect(checkMesh(corner).manifold).toBe(true)
+    expect(pinchedVertices(corner)).toBe(1)
   })
 })

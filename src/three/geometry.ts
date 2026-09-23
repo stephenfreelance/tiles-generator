@@ -32,11 +32,22 @@ export function meshExtent(mesh: MeshData): MeshExtent {
 /**
  * True when a mesh has the footprint of `piece`. While the worker rebuilds, the previous meshes stay on
  * screen; this keeps an old full tile from being drawn at a new tile pitch.
+ *
+ * `growMm` is how far a tab stands out past its piece's right side (tabLimits().projection): a piece the
+ * layout gave a tab (`PieceEdges.tabs`) meshes that much wider than its tile, and every other piece meshes
+ * at the tile exactly. Both stay exact checks, so a tile size that moved by less than a tab's reach is
+ * still caught; without it every tabbed mesh is refused and the view goes silently empty.
  */
-export function meshMatchesPiece(mesh: MeshData, piece: Pick<PieceSpec, 'width' | 'height'>, toleranceMm = 0.06): boolean {
+export function meshMatchesPiece(
+  mesh: MeshData,
+  piece: Pick<PieceSpec, 'width' | 'height' | 'edges'>,
+  toleranceMm = 0.06,
+  growMm = 0,
+): boolean {
   if (mesh.positions.length < 9) return false
   const e = meshExtent(mesh)
-  return Math.abs(e.maxX - e.minX - piece.width) <= toleranceMm && Math.abs(e.maxY - e.minY - piece.height) <= toleranceMm
+  const grow = piece.edges.tabs === 0 ? 0 : growMm
+  return Math.abs(e.maxX - e.minX - piece.width - grow) <= toleranceMm && Math.abs(e.maxY - e.minY - piece.height) <= toleranceMm
 }
 
 /** Two material groups: 0 = top surface (first `topIndexCount` indices), 1 = walls and bottom. */
@@ -95,16 +106,17 @@ export interface PieceAssets {
   top: number
 }
 
-/** GPU-side assets for every preview piece that matches its plan piece. */
+/** GPU-side assets for every preview piece that matches its plan piece. `growMm`: meshMatchesPiece's own. */
 export function buildPieceAssets(
   preview: ReadonlyMap<string, PreviewPiece>,
   pieces: readonly PieceSpec[],
   tile: { width: number; height: number },
+  growMm = 0,
 ): Map<string, PieceAssets> {
   const assets = new Map<string, PieceAssets>()
   for (const piece of pieces) {
     const entry = preview.get(piece.id)
-    if (!entry || !meshMatchesPiece(entry.mesh, piece)) continue
+    if (!entry || !meshMatchesPiece(entry.mesh, piece, undefined, growMm)) continue
     assets.set(piece.id, {
       pieceId: piece.id,
       geometry: buildGeometry(entry.mesh, piece, tile),

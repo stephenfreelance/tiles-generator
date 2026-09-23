@@ -1,16 +1,17 @@
 import { Canvas, type RootState } from '@react-three/fiber'
 import { Component, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { presetByHex } from '@/core/colors'
 import type { DesignConfig, LayoutPlan, PieceSpec } from '@/core/types'
 import { formatSize } from '@/core/units'
 import { heroPiece } from '@/hooks/previewLod'
-import { usePreviewMeshes } from '@/hooks/usePreviewMeshes'
+import { previewTabGrow, usePreviewMeshes } from '@/hooks/usePreviewMeshes'
 import type { CameraRigHandle } from './CameraRig'
+import type { TileFace } from './flip'
 import { meshMatchesPiece } from './geometry'
 import { LOOK, type Presentation, type Tier } from './look'
 import { Scene, SceneBackground, type Shown } from './Scene'
 import { SceneServices, ServicesContext, usePrefersReducedMotion } from './sceneServices'
+import { seatedSetFor, tileViewLabel, type SeatedSet } from './seatedSet'
 import { settingOutPoint, waveAnimates, WaveDirector, waveSettleDelay, type WaveClock } from './wave'
 import styles from './TileViewport.module.scss'
 
@@ -41,6 +42,11 @@ export interface TileViewportProps {
   arrivalReady?: boolean
   /** Hold the cut-piece wash on whatever the pointer does. Omitted: the pointer alone decides. */
   revealCuts?: boolean
+  /**
+   * The single tile's face that is up: 'back' turns it over to show its key notches and clip pockets with
+   * the printed keys and clips seated in them. Read only in the 'tile' mode; omitted, the front.
+   */
+  face?: TileFace
   className?: string
   onPendingChange?: (pending: boolean) => void
 }
@@ -52,6 +58,8 @@ export interface TileViewportHandle {
    */
   capture(widthPx: number, options?: { maxWaitMs?: number }): Promise<string | null>
   resetView(): void
+  /** Moves keyboard focus onto the view, as tabbing to it would (a control that stood over it went away). */
+  focus(): void
 }
 
 type GlState = 'ok' | 'unsupported' | 'lost' | 'error'
@@ -175,6 +183,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     presentation = 'studio',
     arrivalReady = true,
     revealCuts: holdCuts = false,
+    face = 'front',
     className,
     onPendingChange,
   },
@@ -199,6 +208,9 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
 
   // The same piece the worker builds for the tile view, so the view never waits on a piece nobody asked for.
   const hero = useMemo(() => heroPiece(plan) ?? null, [plan])
+  // A tab meshes past its tile's right side, so the footprint guard has to expect exactly what this view's
+  // meshes carry; asking for a tab the whole wall was built without empties the view and says nothing.
+  const tabGrow = previewTabGrow(config, mode)
 
   // Only show geometry that matches the current plan, so an old tile size is never drawn at a new pitch.
   const needed: readonly PieceSpec[] = mode === 'tile' ? (hero ? [hero] : []) : plan.pieces
@@ -206,13 +218,19 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     needed.length > 0 &&
     needed.every((piece) => {
       const entry = preview.pieces.get(piece.id)
-      return entry !== undefined && meshMatchesPiece(entry.mesh, piece)
+      return entry !== undefined && meshMatchesPiece(entry.mesh, piece, undefined, tabGrow)
     })
   // A footprint match only means these meshes are safe to draw at this pitch. Changing the texture,
   // the relief depth, the thickness or the bevel keeps every footprint, so it cannot tell this
   // design's relief from the one before it: `current` is what says the meshes were built for the
   // design on the sheet.
   const showsThisDesign = ready && preview.current
+
+  // The keys and clips seated in the single tile's back. They are this design's, so they are committed
+  // only with meshes built for this design: the pockets and the parts in them never disagree on screen.
+  const seatedNow = useMemo(() => (mode === 'tile' && hero ? seatedSetFor(config, plan, hero) : null), [mode, hero, config, plan])
+  const [shownParts, setShownParts] = useState<SeatedSet | null>(null)
+  if (showsThisDesign && (seatedNow?.key ?? null) !== (shownParts?.key ?? null)) setShownParts(seatedNow)
 
   const [shown, setShown] = useState<Shown | null>(null)
   // The mode is committed with its meshes: switching to the whole wall keeps the tile on screen until
@@ -228,6 +246,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
       tile: { ...config.tile },
       joint: config.joint,
       depth: config.texture.depth,
+      tabGrow,
       origin: config.layout.origin,
     })
   }
@@ -388,7 +407,11 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
     rigRef.current?.reset()
   }, [])
 
-  useImperativeHandle(ref, () => ({ capture, resetView }), [capture, resetView])
+  const focus = useCallback(() => {
+    wrapperRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  useImperativeHandle(ref, () => ({ capture, resetView, focus }), [capture, resetView, focus])
 
   const handleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     const rig = rigRef.current
@@ -432,7 +455,7 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
 
   const description =
     mode === 'tile'
-      ? `3D view of one ${formatSize(config.tile.width, config.tile.height)} tile in ${presetByHex(config.color)?.name ?? `color ${config.color}`}`
+      ? tileViewLabel(config, hero, face, shownParts)
       : `3D elevation of a ${formatSize(config.surface.width, config.surface.height, config.surfaceUnit)} surface: ${plan.fullCount} full tiles and ${plan.partialCount} cut pieces`
 
   const classes = [styles.viewport, interactive ? styles.interactive : styles.static, className].filter(Boolean).join(' ')
@@ -493,7 +516,9 @@ export const TileViewport = forwardRef<TileViewportHandle, TileViewportProps>(fu
                   wave={wave}
                   rigRef={rigRef}
                   presentation={presentation}
+                  face={face}
                   arrivalReady={arrivalReady}
+                  parts={shownParts}
                   onTierChange={setTier}
                 />
               )}

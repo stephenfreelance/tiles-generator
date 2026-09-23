@@ -65,7 +65,7 @@ const clampTo = (value: number, [min, max]: [number, number]) => Math.min(max, M
 /**
  * Everything the other 95% never touch, one level deep and labelled with its own contents. The
  * changed count on the lid is what stops a design quietly drifting from the defaults with no way
- * for its maker to find out where.
+ * for its maker to find out where. The joint edge left for step 6: it is a choice about the object.
  */
 export function AdvancedPanel({ config, update }: CellProps) {
   const changes = advancedChanges(config)
@@ -73,7 +73,6 @@ export function AdvancedPanel({ config, update }: CellProps) {
   const texture = textureById(config.texture.id)
   const printer = printerById(config.printerId)
   const perPlate = piecesPerPlate(config.tile.width, config.tile.height, printer)
-  const maxBevel = Math.min(LIMITS.bevel.max, Math.min(config.tile.width, config.tile.height) / 8)
   const depthMin = Math.max(LIMITS.depth.min, texture.depthRange[0])
   const depthMax = Math.min(LIMITS.depth.max, texture.depthRange[1])
   const scaleMin = Math.max(LIMITS.scale.min, texture.scaleRange[0])
@@ -91,13 +90,13 @@ export function AdvancedPanel({ config, update }: CellProps) {
   return (
     <Disclosure
       label="Advanced"
-      description="Gaps, edges, layout, pattern detail and printer"
+      description="Gaps, layout, pattern detail and printer"
       // Saying "all standard" is as load-bearing as the changed count: a folded panel must never be
       // able to leave a design quietly away from its defaults with no sign on the lid.
       badge={total > 0 ? `${total} changed` : 'All standard'}
     >
       <div className={styles.advGroup}>
-        <SectionRule label="Gaps and edges" aside={resetAction('gaps')} />
+        <SectionRule label="Gaps" aside={resetAction('gaps')} />
         <SliderField
           label="Gap between tiles"
           value={config.joint}
@@ -109,18 +108,6 @@ export function AdvancedPanel({ config, update }: CellProps) {
           coalesceKey="joint"
           help="The gap you leave between tiles for grout or glue. The relief still lines up across it."
           onChange={(value, hint) => update((design) => ({ ...design, joint: value }), hint)}
-        />
-        <SliderField
-          label="Softened edge"
-          value={config.bevel}
-          defaultValue={DEFAULT_CONFIG.bevel}
-          min={LIMITS.bevel.min}
-          max={maxBevel}
-          step={0.1}
-          unit="mm"
-          coalesceKey="bevel"
-          help="A 45° cut around the top of every tile. It catches the light along each gap and forgives a millimetre of misalignment."
-          onChange={(value, hint) => update((design) => ({ ...design, bevel: value }), hint)}
         />
       </div>
 

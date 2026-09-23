@@ -1,5 +1,5 @@
 // Object-space normal map of a piece's top surface, for the preview material. Same sampler (and so the
-// same bevel) as the mesh, so the baked relief and the meshed relief agree at every joint.
+// same joint edge and perimeter profile) as the mesh, so the baked relief and the meshed relief agree.
 
 import type { HeightField } from '../textures/types'
 import type { DesignConfig, PieceSpec } from '../types'
@@ -19,7 +19,7 @@ export function bakeNormalMap(
   const step = Math.max(texelMm, 1e-3)
   const width = Math.min(MAX_TEXELS, Math.max(1, Math.ceil(w / step - 1e-9)))
   const height = Math.min(MAX_TEXELS, Math.max(1, Math.ceil(h / step - 1e-9)))
-  const sample = pieceTopSampler(config, field, { crop: piece.crop, width: w, height: h })
+  const sample = pieceTopSampler(config, field, { crop: piece.crop, width: w, height: h, edges: piece.edges })
   const dx = w / width
   const dy = h / height
   // Heights on the texel corners: each texel's gradient then comes from its own four corners, which

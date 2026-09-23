@@ -5,8 +5,6 @@
 
 /** Cap on cells per axis, so an absurd cellMm cannot allocate gigabytes. */
 const MAX_CELLS = 8192
-/** Cap on cells across one chamfer band. */
-const MAX_BAND_CELLS = 64
 
 export interface GridSurface {
   xs: Float64Array
@@ -26,48 +24,96 @@ export function float32Quantum(maxSize: number): number {
 const cellCount = (span: number, cellMm: number, min = 1) =>
   Math.min(MAX_CELLS, Math.max(min, Math.ceil(span / cellMm - 1e-9)))
 
-/**
- * Grid lines across one axis of a piece: uniform cells, plus break lines at the given distances from both
- * edges (where the chamfer meets the relief) so the bevel planes stay flat and the corner mitres run along
- * cell diagonals. Identical for every piece with the same size, cell and breaks, so neighbouring pieces
- * share their rim samples exactly.
- */
-export function axisLines(size: number, cellMm: number, breaks: number[], quantum: number): Float64Array {
-  const end = Math.fround(size)
-  const cell = Math.max(cellMm, 1e-3)
+/** Cells across one span between two breaks: cellMm wide, on the quantum lattice, at least one. */
+const spanSteps = (span: number, cell: number, quantum: number) =>
+  Math.max(1, Math.min(Math.round(span / quantum), cellCount(span, cell)))
+
+/** Breaks on the quantum lattice, strictly inside (0, end), sorted and without repeats. */
+function latticeOffsets(breaks: readonly number[], end: number, quantum: number): number[] {
   const offsets: number[] = []
   for (const b of breaks) {
     const q = Math.round(b / quantum) * quantum
-    if (q > 0 && !offsets.includes(q)) offsets.push(q)
+    if (q > 0 && q < end && !offsets.includes(q)) offsets.push(q)
   }
-  offsets.sort((a, b) => a - b)
-  const band = offsets.length ? offsets[offsets.length - 1] : 0
-  // A piece barely wider than two chamfers gets a plain uniform grid instead of overlapping bands.
-  if (band <= 0 || 2 * band >= end - 0.5 * cell) {
+  return offsets.sort((a, b) => a - b)
+}
+
+/** Lines from 0 through every offset, each span cut into cells on the quantum lattice. */
+function bandLines(offsets: readonly number[], cell: number, quantum: number): number[] {
+  const lines = [0]
+  let previous = 0
+  for (const offset of offsets) {
+    const span = offset - previous
+    const steps = spanSteps(span, cell, quantum)
+    for (let k = 1; k <= steps; k++) {
+      lines.push(k === steps ? offset : previous + Math.round((k * span) / steps / quantum) * quantum)
+    }
+    previous = offset
+  }
+  return lines
+}
+
+/**
+ * Grid lines across one axis of a piece: uniform cells, plus break lines at the given distances in from
+ * the low end (x = 0 or y = 0) and from the high end, where an edge profile creases, so its planes stay
+ * flat and the corner mitres run along cell diagonals. The low band is built from 0 and the high band as
+ * `end - offset`, so lines on both sides stay float32-exact. Identical for every piece with the same size,
+ * cell and breaks, so neighbouring pieces share their rim samples exactly.
+ *
+ * When the two bands overlap (a piece barely wider than its edges) the grid is uniform, as it always was
+ * for joint edges; with `union` (a perimeter profile crosses the axis) it keeps every break instead, each
+ * span subdivided to cellMm, so a narrow border cut still carries its profile's creases.
+ */
+export function axisLines(
+  size: number,
+  cellMm: number,
+  lowBreaks: readonly number[],
+  highBreaks: readonly number[],
+  quantum: number,
+  union = false,
+): Float64Array {
+  const end = Math.fround(size)
+  const cell = Math.max(cellMm, 1e-3)
+  const low = latticeOffsets(lowBreaks, end, quantum)
+  const high = latticeOffsets(highBreaks, end, quantum)
+  const lowBand = low.length ? low[low.length - 1] : 0
+  const highBand = high.length ? high[high.length - 1] : 0
+  const overlap = lowBand + highBand >= end - 0.5 * cell
+  if ((lowBand <= 0 && highBand <= 0) || (overlap && !union)) {
     const n = cellCount(end, cell, 2)
     const lines = new Float64Array(n + 1)
     for (let i = 0; i <= n; i++) lines[i] = Math.fround((i / n) * end)
     return lines
   }
-  const bandLines: number[] = [0]
-  let previous = 0
-  for (const offset of offsets) {
-    const span = offset - previous
-    const steps = Math.min(MAX_BAND_CELLS, Math.max(1, Math.min(Math.round(span / quantum), cellCount(span, cell))))
-    for (let k = 1; k <= steps; k++) {
-      bandLines.push(k === steps ? offset : previous + Math.round((k * span) / steps / quantum) * quantum)
-    }
-    previous = offset
-  }
-  const inner = cellCount(end - 2 * band, cell)
-  const count = bandLines.length
-  const lines = new Float64Array(2 * count + inner - 1)
-  for (let k = 0; k < count; k++) lines[k] = bandLines[k]
-  for (let i = 1; i < inner; i++) {
-    lines[count - 1 + i] = Math.fround(band + (i / inner) * (end - 2 * band))
-  }
-  for (let k = 0; k < count; k++) lines[count + inner - 1 + k] = end - bandLines[count - 1 - k]
+  if (overlap) return unionLines(end, cell, low, high, quantum)
+  const lowLines = bandLines(low, cell, quantum)
+  const highLines = bandLines(high, cell, quantum)
+  const middle = end - lowBand - highBand
+  const inner = cellCount(middle, cell)
+  const lines = new Float64Array(lowLines.length + inner - 1 + highLines.length)
+  let k = 0
+  for (const line of lowLines) lines[k++] = line
+  for (let i = 1; i < inner; i++) lines[k++] = Math.fround(lowBand + (i / inner) * middle)
+  for (let i = highLines.length - 1; i >= 0; i--) lines[k++] = end - highLines[i]
   return lines
+}
+
+/** Every break from both ends in one sorted list, each span cut into cells: bands that overlap. */
+function unionLines(end: number, cell: number, low: number[], high: number[], quantum: number): Float64Array {
+  const stops = [...new Set([0, ...low, ...high.map((q) => end - q), end])].sort((a, b) => a - b)
+  const lines = [0]
+  for (let s = 1; s < stops.length; s++) {
+    const a = stops[s - 1]
+    const b = stops[s]
+    const span = b - a
+    const steps = spanSteps(span, cell, quantum)
+    for (let k = 1; k < steps; k++) {
+      const line = a + Math.round((k * span) / steps / quantum) * quantum
+      if (line > lines[lines.length - 1] && line < b) lines.push(line)
+    }
+    lines.push(b)
+  }
+  return Float64Array.from(lines)
 }
 
 /** Samples the surface on the grid and picks, per cell, the diagonal that follows the surface best. */

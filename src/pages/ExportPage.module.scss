@@ -56,24 +56,27 @@
   gap: var(--s-2) var(--s-4);
 }
 
+// Two real columns, each packing its own children, rather than one grid of named areas: the areas tied
+// the counts strip to the render's row and left the left column stopping dead halfway down the
+// download card beside it. "Before you print" now closes that column.
 .top {
   display: grid;
-  grid-template-areas:
-    'design get'
-    'design more'
-    'facts more';
-  // `more` spans into the last row, so that row takes its extra height: a tall test tile well must not
-  // push the facts strip away from the render.
-  grid-template-rows: auto auto 1fr;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-5);
+}
+
+.left,
+.right {
+  display: grid;
   align-content: start;
-  gap: var(--s-4) var(--s-5);
+  gap: var(--s-4);
+  min-width: 0;
 }
 
 .design {
   display: grid;
   align-content: start;
-  grid-area: design;
   gap: var(--s-3);
 }
 
@@ -157,7 +160,6 @@
 .get {
   display: grid;
   align-content: start;
-  grid-area: get;
   gap: var(--s-2);
   padding: var(--s-4);
   border: 1px solid var(--hairline);
@@ -226,8 +228,6 @@
 // Three plain facts on one recessed strip, washed in the tile's own colour.
 .facts {
   display: grid;
-  grid-area: facts;
-  align-self: start; // the flexible last row can outgrow the strip
   grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid var(--hairline);
@@ -269,8 +269,13 @@
 .more {
   display: grid;
   align-content: start;
-  grid-area: more;
   gap: var(--s-4);
+}
+
+// The advice that closes the left column, under the counts it is about.
+.notes {
+  display: grid;
+  gap: var(--s-3);
 }
 
 .warnings {
@@ -347,8 +352,32 @@
   gap: var(--s-3);
 }
 
+// The printed parts that are not tiles: a panel of their own, open, because the fit test is the first
+// thing to print and nobody should have to find it.
+.parts {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.partsHead {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.partsNote {
+  max-width: 80ch;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 .sectionTitle {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: 650;
   letter-spacing: -0.008em;
 }
@@ -356,17 +385,8 @@
 // One column: the design, then the action, then the counts, in the order they are read.
 @media (max-width: 60rem) {
   .top {
-    grid-template-areas: none;
-    grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--s-4);
-  }
-
-  .design,
-  .get,
-  .facts,
-  .more {
-    grid-area: auto;
   }
 
   .title {

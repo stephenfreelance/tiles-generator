@@ -2,12 +2,16 @@
 // chip, so a color pick is a cheap tint only while the shades it needs are still in memory; past the
 // ledger they are re-rendered from scratch. The two sizes below are what makes the whole page fit:
 // 23 patterns and 4 pieces stand at 17,670,144 B against an 18,874,368 B budget.
+//
+// Section 01 lays its proof on a fixed concept wall rather than the visitor's, so once they resize, its
+// three cut pieces are three more shades. That overruns this mirror, which only makes the page batch
+// those chips as if they were cold; the worker's own cache, a third larger, still holds every one.
 import { reliefShadeBytes } from '@/core/textures/hillshade'
 
 /** The 23 pattern samples: the largest size at which the whole grid still fits the ledger. */
 export const PATTERN_CHIP_PX = 160
 
-/** The corner detail and the kit. Both ask for this one number, so their four shades are one set, not two. */
+/** The hero wall, the concept corner and the kit. All ask for this one number, so their shades are one set. */
 export const PROOF_CHIP_PX = 192
 
 // The number itself belongs to the ledger useTextureChips keeps, not to this page: passed through so

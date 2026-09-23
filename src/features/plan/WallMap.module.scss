@@ -110,6 +110,28 @@
   pointer-events: none;
 }
 
+// Clips and keys are hardware, so they are ink like the start marker; they step back with the tiles
+// when a piece is chosen.
+.fixings {
+  pointer-events: none;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.svg[data-selected] .fixings {
+  opacity: 0.35;
+}
+
+// A clip is an outlined bar, a key a solid dog-bone: told apart by shape and fill, not by color.
+.clips {
+  fill: var(--panel);
+  stroke: var(--ink);
+  stroke-width: 1.25;
+}
+
+.keys {
+  fill: var(--ink-2);
+}
+
 .leader,
 .leaderCut {
   stroke-width: 1.25;
@@ -256,6 +278,26 @@
   font-size: var(--text-xs);
 }
 
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-3);
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.legendMark {
+  width: 18px;
+  height: 10px;
+  flex: none;
+}
+
 // A forced palette drops the tint, the red and the accent: the hatch (translated for us), the
 // outlines and the system's own selected colour carry every state instead.
 @include forced-colors {
@@ -274,8 +316,17 @@
   .pillLeader,
   .guide,
   .leader,
-  .leaderCut {
+  .leaderCut,
+  .clips {
     stroke: CanvasText;
+  }
+
+  .clips {
+    fill: Canvas;
+  }
+
+  .keys {
+    fill: CanvasText;
   }
 
   .dot {

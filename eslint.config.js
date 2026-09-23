@@ -5,7 +5,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.impeccable'] },
+  // .claude holds agent scratch, including git worktrees: a second tsconfig there leaves
+  // typescript-eslint with two candidate roots and every file a parsing error.
+  { ignores: ['dist', 'node_modules', '.impeccable', '.claude'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

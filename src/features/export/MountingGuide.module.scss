@@ -1,0 +1,99 @@
+// "Putting it up": the section's head and the one card a glued wall gets. The numbered steps are laid out
+// by features/fit/GuideSteps.module.scss, which the fit-test page's guide shares.
+
+.root {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.head {
+  display: grid;
+  gap: var(--s-2);
+  max-width: 76ch;
+}
+
+.title {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.008em;
+}
+
+.lede {
+  color: var(--ink-2);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+// The glued card's drawing well, which the step list's own copy of these rules matches.
+.drawing {
+  position: relative;
+  grid-area: drawing;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+// Laid over the well rather than in it, so a tall section is fitted to the well (the viewBox keeps its
+// proportions and centres it) instead of stretching the well to its own height.
+.drawing .drawingSvg {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  width: calc(100% - var(--s-4));
+  height: calc(100% - var(--s-4));
+}
+
+// A glued wall has no steps: one card, the drawing beside the lede. The drawing's grid-area names an
+// area, so the card must name it too, or the drawing lands in an implicit column past the words.
+.glue {
+  display: grid;
+  grid-template-areas: 'drawing text';
+  grid-template-columns: 9rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-4);
+  max-width: 56rem;
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.glueText {
+  grid-area: text;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.glueNote {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+
+  &:hover {
+    color: var(--accent-hover);
+  }
+}
+
+@media (max-width: 32rem) {
+  .glue {
+    grid-template-areas:
+      'drawing'
+      'text';
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+
+  .drawing {
+    max-width: 12rem;
+  }
+}

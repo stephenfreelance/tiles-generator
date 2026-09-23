@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { Copy, Download, Pencil, Trash2 } from 'lucide-react'
 import { colorName } from '@/core/colors'
-import { computeLayout } from '@/core/layout'
+import { computeLayout, layoutInputOf } from '@/core/layout'
 import { textureById } from '@/core/textures/registry'
 import { formatLength, formatSize } from '@/core/units'
 import type { HistoryEntry } from '@/state/historyStore'
@@ -39,16 +39,8 @@ export function RegisterRow({ entry, onOpen, onFiles, onDuplicate, onDelete, onR
   const { config } = entry
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(config.name)
-  const plan = useMemo(
-    () =>
-      computeLayout({
-        surface: config.surface,
-        tile: config.tile,
-        joint: config.joint,
-        layout: config.layout,
-      }),
-    [config],
-  )
+  // The same input the studio lays out, so the model count here matches the studio's.
+  const plan = useMemo(() => computeLayout(layoutInputOf(config)), [config])
   const texture = textureById(config.texture.id)
 
   function commit() {

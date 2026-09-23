@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_PERIMETER } from '../config'
 import type { PieceSpec } from '../types'
 import { bakeNormalMap } from './normalMap'
 import { flatField, plateField, sineField, testConfig } from './testFields'
@@ -12,6 +13,7 @@ const piece: PieceSpec = {
   width: 150,
   height: 150,
   count: 1,
+  edges: { boundary: 0, tabs: 0, profiled: {} },
 }
 
 const normalAt = (map: { width: number; height: number; data: Uint8Array }, i: number, j: number) => {
@@ -64,5 +66,22 @@ describe('bakeNormalMap', () => {
     // The sine has slope 2.4/2 * 2pi * 2 / 150 = 0.1 at its steepest, so nx reaches about 0.1.
     expect(steepest).toBeGreaterThan(0.05)
     expect(steepest).toBeLessThan(0.3)
+  })
+
+  it('bakes the border profile of a border piece, as the mesh does', () => {
+    const margin = testConfig({ perimeter: { ...DEFAULT_PERIMETER, profile: 'margin', width: 8, land: 'valleys' } })
+    const field = sineField(2.4, 150, 150)
+    const border = { ...piece, edges: { boundary: 0, tabs: 0, profiled: { bottom: 0 } } }
+    const texelMm = 0.5
+    const plain = bakeNormalMap(margin, field, piece, texelMm)
+    const shaped = bakeNormalMap(margin, field, border, texelMm)
+    // 4 mm in from the bottom edge: on the relief for the interior tile, on the flat land for the border one.
+    const i = 20
+    const j = Math.round(4 / texelMm)
+    expect(Math.abs(normalAt(plain, i, j)[0])).toBeGreaterThan(0.02)
+    const [nx, ny, nz] = normalAt(shaped, i, j)
+    expect(nx).toBeCloseTo(0, 2)
+    expect(ny).toBeCloseTo(0, 2)
+    expect(nz).toBeCloseTo(1, 2)
   })
 })

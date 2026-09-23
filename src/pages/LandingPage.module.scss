@@ -1,6 +1,6 @@
 // The front page as a catalogue: one photograph of the visitor's wall filling the first screen, then
-// the plates it was cut from, the pieces it prints as, the patterns it can wear and the zip it leaves
-// in. Nothing here is a card. The object sits on the page, the plates are ruled off it, and the
+// how it is cut, the patterns it can wear, the zip it leaves in and the ways it goes up. Nothing here
+// is a card. The object sits on the page, the plates are ruled off it, and the
 // figures are set big enough to be read across a room.
 //
 // The page is one warm room lit at two levels: the floor the hero stands on, and a lit band over it.
@@ -36,18 +36,20 @@
 // ---------------------------------------------------------------------------------------------
 
 // The object is the first screen: a wall of printed tiles standing on the page with its own light
-// pooled behind it and its own shadow under it. No border, no card, no column. It is laid over the
-// whole screen and held clear of the type by its own left inset, so the words keep the left of the
-// first screen and the wall keeps everything the words do not take.
+// pooled behind it and its own shadow under it. No border, no card. Both halves share ONE grid: the
+// wall used to be absolutely positioned and took whatever the type column left over, so the type
+// stayed frozen at 27rem from 1024 px to 1920 px while the wall grew from 476 px to 1018 px and broke
+// out past the 88rem measure every band below it keeps to.
 .hero {
   position: relative;
   display: grid;
   grid-template-areas:
-    'lede'
-    'caption';
-  grid-template-columns: minmax(0, 27rem);
+    'lede object'
+    'caption object';
+  grid-template-columns: minmax(19rem, 30rem) minmax(0, 1fr);
   align-content: center;
-  gap: clamp(var(--s-4), 2vw, var(--s-6));
+  align-items: center;
+  gap: clamp(var(--s-4), 2vw, var(--s-6)) clamp(var(--s-6), 4vw, var(--s-8));
   min-height: max(40rem, calc(100dvh - var(--header-h)));
   padding: clamp(var(--s-4), 2.5vw, var(--s-7)) var(--gutter) clamp(var(--s-5), 3vw, var(--s-8));
   isolation: isolate;
@@ -77,18 +79,17 @@
   padding-top: clamp(var(--s-3), 2vw, var(--s-4));
 }
 
-// The column the object stands in: the full height of the first screen, and everything the type does
-// not take. The wall is a thing with proportions of its own, so it is fitted into this box rather than
-// bled to the edges of the window the way the old canvas was; the left inset is the type column plus a
-// gutter of air, which is what keeps the headline off the wall at every width in one declaration.
+// The column the object stands in: a cell of the hero's own grid, spanning both type rows. The wall is
+// capped rather than left to swallow the window, so past about 1500 px it stops growing and centres in
+// the space instead, which is what keeps it reading as a wall on a page and not as a backdrop.
 .heroObject {
-  position: absolute;
+  position: relative;
   z-index: 0;
-  // The right edge takes the page's own padding rather than its gutter: past 88rem the page stops
-  // growing its content and starts growing its gutters, and a photograph that stops growing with the
-  // window reads as a smaller object than the one before it.
-  inset: var(--s-4) var(--pad) var(--s-5) calc(var(--gutter) + 27rem + clamp(var(--s-5), 3vw, var(--s-7)));
+  grid-area: object;
   display: grid;
+  width: min(100%, 40rem);
+  justify-self: center;
+  align-self: center;
   min-width: 0;
   min-height: 0;
 }
@@ -179,11 +180,10 @@
     padding-bottom: var(--s-4);
   }
 
-  // Only the air above and below closes up. The left inset is what holds the wall clear of the type,
-  // so it is repeated rather than dropped: reset to 0 here, the wall stood over the hero's own column.
+  // The wall is a grid cell now, so the short-screen case only has to cap its height: nothing here
+  // repeats the hero's geometry, which used to live in two places and drift between them.
   .heroObject {
-    inset: var(--s-3) var(--pad) var(--s-3)
-      calc(var(--gutter) + 27rem + clamp(var(--s-5), 3vw, var(--s-7)));
+    width: min(100%, 34rem);
   }
 
   // Still the largest thing on the page, and still two beats: a size, not a step down in rank.
@@ -216,7 +216,8 @@
 //
 // The bands alternate by sibling chain rather than by :nth-of-type, because the hero and the close are
 // <section> as well and would shift a type index; each chain is one class deeper than the last, so the
-// cascade does the alternating. A fourth band is covered; a fifth would need one more line.
+// cascade does the alternating. Five bands are covered (01 to 04 and the questions); a sixth would need
+// one more rule.
 .section {
   --band: var(--lit);
   --band-from: var(--ground);
@@ -276,6 +277,12 @@
   --band-from: var(--lit);
 }
 
+// The questions: lit again, which is also what the close dissolves out of.
+.section + .section + .section + .section + .section {
+  --band: var(--lit);
+  --band-from: var(--ground);
+}
+
 // A running head: the plate number out in the margin, then the title and the argument for it side by
 // side. Two columns rather than one stack, so the heading can be set at a size worth reading instead
 // of at the size a paragraph running the width of the page would force on it.
@@ -312,6 +319,12 @@
   gap: var(--s-4) clamp(var(--s-6), 5vw, var(--s-9));
 }
 
+// A band with no number has no margin to keep for one: its heading starts where its content does.
+// Doubled, so the narrower screens' own number column below cannot come back over it.
+.plateHead.plateHeadBare {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 // Second only to the headline, and set from the same two beats: it has a column of its own now, so it
 // stays under the h1 at every width while reading as the title of the plate rather than as a label.
 .heading {
@@ -336,70 +349,11 @@
   text-wrap: pretty;
 }
 
-// The wall read as four figures, ruled top and bottom like a table of contents.
-// The wall read as four figures, ruled top and bottom like a table of contents. auto-fit rather than
-// four fixed tracks: a phone holds all four in one row at 4.5rem a column, and a narrower one drops to
-// three and then two instead of clipping a figure. The landing wall tops out at 2.5 m of 150 mm tiles,
-// so the largest count this row can ever hold is three digits, which fits the narrowest track it makes.
-.tally {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr));
-  gap: var(--s-3) clamp(var(--s-3), 2vw, var(--s-5));
-  margin: 0;
-  padding: clamp(var(--s-3), 1.5vw, var(--s-4)) 0;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.tallyItem {
-  display: grid;
-  gap: var(--s-1);
-  min-width: 0;
-}
-
-.tallyValue {
-  @include tabular;
-
-  order: -1;
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(2.125rem, 0.6rem + 3.9vw, 4.25rem);
-  font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: 0.92;
-}
-
-.tallyLabel {
-  @include label-caps(var(--text-xs));
-
-  color: var(--ink-3);
-  text-wrap: pretty;
-}
-
-// What the lede says, worked out for this wall: it reads as a reading off the drawing, not as copy.
-.cutLine {
-  @include tabular;
-
-  max-width: 60ch;
-  color: var(--ink);
-  font-size: clamp(1rem, 0.92rem + 0.4vw, 1.25rem);
-  font-weight: 650;
-  line-height: 1.45;
-  text-wrap: pretty;
-}
-
 .note {
   max-width: 70ch;
   color: var(--ink-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   line-height: 1.55;
-}
-
-// The plan beside the pieces it names. Two plates of one argument, so they keep one baseline.
-.plates {
-  display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
-  gap: clamp(var(--s-4), 2vw, var(--s-5)) var(--s-6);
 }
 
 // A plate: a caption ruled off the top, the work under it, a line under that. No border, no card.
@@ -412,9 +366,7 @@
   padding: 0;
 }
 
-// Ruled off with a border and nothing else. Drawing this rule in as its band is reached was tried and
-// dropped: the plan panel's own caption rule is not this page's to animate, so the two captions stood
-// side by side, one ruled and one not, for as long as the draw lasted.
+// Ruled off with a border and nothing else, like the captions of section 04's plates.
 .plateCaption {
   display: flex;
   flex-wrap: wrap;
@@ -423,15 +375,14 @@
   gap: var(--s-2) var(--s-4);
   padding-bottom: var(--s-2);
   // The app owns one rule, and it is the hairline: a 2 px ink rule here drew a black band across the
-  // page wherever two captions sat side by side. The plate still reads as a plate, ruled in the same
-  // line as the questions and the tally below it.
+  // page. The plate still reads as a plate, ruled in the same line as the questions further down.
   border-bottom: 1px solid var(--hairline);
   font-size: var(--text-md);
   font-weight: 650;
 }
 
-// An h3 on the download plates, a span on the figures: the caption row sets the type either way, so
-// the heading never arrives at the browser's own size.
+// An h3 on the download plate: the caption row sets the type, so the heading never arrives at the
+// browser's own size.
 .plateLabel {
   font-size: inherit;
   font-weight: inherit;
@@ -446,163 +397,86 @@
   font-weight: 600;
 }
 
-// No well: the drawing and the kit each lie on the band on a surface of their own, so this only has
-// to center what it holds, and only across. The room the old padding took is what pays for the taller
-// bands, and both plates now start at their own caption rule instead of floating in a shared height.
-.plateField {
-  display: grid;
-  align-items: start;
-  justify-items: center;
-  min-width: 0;
-}
-
 .plateFoot {
   max-width: 62ch;
   color: var(--ink-3);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 
-// Set on a plate's field where nothing inside it arrives under its own steam: the drawing on the plan
-// uncovers itself and the corner assembles itself, but the zip is a still life and would otherwise be
-// the one plate already finished when its band is reached. Only the objects move, never the caption
-// over them or the line under them, and the start state is inside motion-safe so a reader who asked
-// for less motion has the plate whole from the first frame.
-@include motion-safe {
-  .plateFieldLay {
-    opacity: 0;
-    transform: translateY(10px);
-    transition:
-      opacity 620ms var(--ease-out) 140ms,
-      transform 620ms var(--ease-out) 140ms;
-  }
+// The proof beside the note that sends the reader to the studio for their own wall's plan. Bottom
+// aligned and on a wider figure: centred against a 30rem figure this row left roughly 800 x 520 px of
+// the band empty under the note.
+.proof {
+  display: grid;
+  grid-template-columns: minmax(0, 36rem) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--s-4) clamp(var(--s-5), 4vw, var(--s-7));
+  padding-top: clamp(var(--s-3), 2vw, var(--s-5));
+}
 
-  [data-lit] .plateFieldLay {
-    opacity: 1;
-    transform: none;
-  }
+.proofFigure {
+  display: grid;
+  gap: var(--s-3);
+  margin: 0;
 }
 
 // The four pieces are 192 px chips. Past 2x they start to soften, which at this size they can carry:
-// the plate is the argument, and a fragment lost in the middle of its own field is not one. A phone
+// the corner is the proof, and a fragment lost in the middle of its own field is not one. A phone
 // column is nearly 2x on its own, so the drawing stops there rather than filling the gutters.
 .plateWall {
   width: 100%;
-  max-width: 30rem;
+  // Not past 36rem: PROOF_CHIP_PX is 192, so a wider box renders the widest piece past 1.8x and the
+  // relief starts to soften.
+  max-width: 36rem;
 
   @media (max-width: 48rem) {
     max-width: 20rem;
   }
 }
 
-// Under the two plates: a ruled table of what prints, not a legend floating in a card.
-.legend {
+.studioNote {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(21rem, 100%), 1fr));
-  gap: 0 var(--s-6);
-  max-width: 64rem;
-  // A grid item's automatic minimum is its min-content, and this grid's min-content is a track that
-  // ignores the 100% above: without this the list still sizes the page, phone or not.
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-// A real control, because the cross-highlight has to be reachable from the keyboard as well as the
-// hand: pointing at a row lights its piece, pressing it holds the light on after the hand moves off.
-.legendRow {
-  @include button-reset;
-  @include tabular;
-
-  display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) auto auto;
-  align-items: center;
+  align-self: end;
+  justify-items: start;
   gap: var(--s-3);
-  width: 100%;
-  padding: var(--s-3) var(--s-2);
-  box-shadow: inset 0 -1px 0 var(--hairline);
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: background-color var(--t-fast) var(--ease-out);
-
-  // Ink, not a surface color: the wash has to darken whichever band the legend is standing on, and
-  // a --panel fill is 1.07:1 on the lit one, which is no answer at all.
-  &:hover,
-  &[data-active] {
-    background: var(--wash);
-  }
-
-  // Pinned: the same fill plus a rule under it in the accent, so held and passed-over never read the
-  // same. The accent is what this app marks a selection with, and it is not a black line.
-  &[aria-pressed='true'] {
-    background: var(--wash);
-    box-shadow: inset 0 -2px 0 var(--accent);
-  }
-
-  &:focus-visible {
-    @include focus-ring-inset;
-  }
-
-  @include coarse-pointer {
-    min-height: 2.75rem;
-  }
+  max-width: 34rem;
+  padding-bottom: var(--s-5);
 }
 
-// The mark keeps the shape it has on the plan; a cut takes the red border and wash, never red text,
-// so the letter itself always reads at full strength.
-.legendMark {
-  display: grid;
-  place-items: center;
-  height: 1.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  font-weight: 700;
-}
-
-.legendRow[data-cut] .legendMark {
-  border-color: var(--cut);
-  background: var(--cut-soft);
-}
-
-.legendLabel {
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.legendSize {
-  color: var(--ink-2);
-}
-
-.legendCount {
+.studioText {
   color: var(--ink);
-  font-weight: 700;
+  font-size: clamp(1.0625rem, 0.95rem + 0.45vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
 }
 
-// The offer only a wall that divides exactly ever sees: one centimeter, and Tessera makes a cut.
-.nudge {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-3) var(--s-5);
-  max-width: 52rem;
-  padding-top: var(--s-4);
+// Under the kit, the width of the plate: what the files are, and what the zip gains with the fixings.
+.kitFoot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-2) var(--s-6);
+  padding-top: var(--s-3);
   border-top: 1px solid var(--hairline);
-}
-
-.nudgeNote {
-  flex: 1 1 26rem;
-  color: var(--ink-2);
+  color: var(--ink-3);
   font-size: var(--text-sm);
-  line-height: 1.55;
+  line-height: 1.5;
+
+  > p {
+    max-width: 62ch;
+    text-wrap: pretty;
+  }
+
+  @media (max-width: 48rem) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-// The joints switch sits above the samples it changes.
+// The joints switch sits above the samples it changes, and rules off at the same right-hand edge they
+// do: capped at 52rem it stopped 700 px short of the board below it and nothing lined up.
 .joints {
-  max-width: 52rem;
   padding: var(--s-3) 0;
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
@@ -614,104 +488,6 @@
   margin-top: var(--s-3);
   padding-top: var(--s-4);
   border-top: 1px solid var(--hairline);
-}
-
-// The zip beside the plate. Each keeps its own height: stretched to its neighbor's, the short one is
-// five lines of text over an empty screen.
-.deliver {
-  display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
-  align-items: start;
-  gap: clamp(var(--s-4), 2vw, var(--s-5)) var(--s-6);
-}
-
-.facts {
-  display: grid;
-  gap: var(--s-2);
-  margin: 0;
-  padding: 0 0 var(--s-3);
-  list-style: none;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-
-  > li {
-    position: relative;
-    padding-left: var(--s-5);
-    text-wrap: pretty;
-  }
-
-  > li::before {
-    content: '';
-    position: absolute;
-    top: 0.55em;
-    left: 0;
-    width: 0.75rem;
-    height: 2px;
-    background: var(--accent);
-  }
-}
-
-// No content-visibility here or on the kit: four native details and four cached chips save nothing
-// off screen, and skipped content is out of the accessibility tree and out of find-in-page. The plate
-// caption above rules this off, so the list starts on its first question rather than on a second line.
-.faq {
-  display: grid;
-}
-
-.question {
-  border-bottom: 1px solid var(--hairline);
-}
-
-.questionHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-4);
-  min-height: 3.25rem;
-  padding: var(--s-3) 0;
-  font-size: var(--text-lg);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  text-wrap: pretty;
-  cursor: pointer;
-  list-style: none;
-
-  // Safari still draws its own triangle from the shadow DOM; the chevron below replaces it.
-  &::-webkit-details-marker {
-    display: none;
-  }
-
-  &::after {
-    content: '';
-    flex: none;
-    width: 0.5rem;
-    height: 0.5rem;
-    border-right: 2px solid var(--ink-3);
-    border-bottom: 2px solid var(--ink-3);
-    transform: translateY(-2px) rotate(45deg);
-    transition: transform var(--t-fast) var(--ease-out);
-  }
-
-  &:hover {
-    color: var(--accent);
-  }
-
-  &:focus-visible {
-    @include focus-ring-inset;
-  }
-}
-
-.question[open] .questionHead::after {
-  transform: translateY(2px) rotate(225deg);
-}
-
-.answer {
-  max-width: 72ch;
-  padding: 0 0 var(--s-4);
-  color: var(--ink-2);
-  font-size: var(--text-md);
-  line-height: 1.6;
 }
 
 // The last band, and the only one below the floor: the bench lamp is behind us, the sentence is set as
@@ -809,21 +585,8 @@
   }
 }
 
-// A cut piece and a held row are both facts, not colors: in a forced palette each keeps a shape.
-@include forced-colors {
-  .legendRow[data-cut] .legendMark {
-    border-width: 2px;
-  }
-
-  .legendRow[data-active] {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
-  }
-}
-
 @media (max-width: 68rem) {
-  .plates,
-  .deliver {
+  .proof {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -858,20 +621,12 @@
     isolation: auto;
   }
 
-  // A definite height, not a floor: the wall is fitted into this box by reading both of its sides, and
-  // a box whose height comes from the wall inside it has no height to read.
-  //
-  // The height follows the width rather than being a flat cap, because at this breakpoint the object
-  // has the whole column and a cap sized for a phone leaves a tablet showing a stamp. 1.4 is about the
-  // shape of the walls this page lays (the three examples are 1.43, 1.5 and 2.0), and 7rem is the
-  // caption plus its keys on the line and a half they take on a phone: a wall squarer than 1.4 is
-  // letterboxed inside the box, a wider one leaves a little air under it, and neither can run off the
-  // bottom of the screen, because of the 58vh ceiling.
+  // No height to work out here any more: the frame carries the wall's own aspect ratio, so the object
+  // is as tall as the wall standing in it. The hardcoded 1.4 this replaces was a guess at the shape of
+  // the walls on offer and had stopped matching any of them.
   .heroObject {
-    position: static;
-    grid-area: object;
-    inset: auto;
-    height: min(58vh, calc((100vw - 2 * var(--pad)) / 1.4 + 7rem));
+    width: 100%;
+    max-width: none;
   }
 
   .heroLede {
@@ -914,42 +669,5 @@
   .colorHead {
     margin-top: 0;
     padding-top: var(--s-3);
-  }
-
-  // Padding, not reach: the row keeps the 44 px it is given wherever the pointer is coarse.
-  .legendRow {
-    padding: var(--s-2);
-  }
-
-  .questionHead {
-    min-height: 2.75rem;
-    padding: var(--s-2) 0;
-  }
-
-  .answer {
-    padding-bottom: var(--s-3);
-  }
-}
-
-// Two lines on the narrowest phones: the piece on the first, the size it prints at under it.
-@media (max-width: 22.5rem) {
-  .legendRow {
-    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-
-    .legendMark {
-      grid-row: 1 / 3;
-    }
-
-    .legendSize {
-      grid-column: 2;
-      grid-row: 2;
-      font-size: var(--text-xs);
-    }
-
-    .legendCount {
-      grid-column: 3;
-      grid-row: 1 / 3;
-    }
   }
 }

@@ -4,6 +4,8 @@ import { ChevronRight } from 'lucide-react'
 import styles from './Disclosure.module.scss'
 
 export interface DisclosureProps {
+  /** For a control elsewhere on the page that opens this one. */
+  id?: string
   /** Says what is inside, in full: "File options: format and detail". */
   label: string
   /** What it holds right now, read while closed: "STL, standard". */
@@ -14,9 +16,9 @@ export interface DisclosureProps {
 }
 
 /** A closed-by-default disclosure on a native <details>, so it is keyboard-operable as it stands. */
-export function Disclosure({ label, note, defaultOpen = false, children, className }: DisclosureProps) {
+export function Disclosure({ id, label, note, defaultOpen = false, children, className }: DisclosureProps) {
   return (
-    <details className={className ? `${styles.root} ${className}` : styles.root} open={defaultOpen || undefined}>
+    <details id={id} className={className ? `${styles.root} ${className}` : styles.root} open={defaultOpen || undefined}>
       <summary className={styles.summary}>
         <ChevronRight className={styles.chevron} aria-hidden="true" />
         <span className={styles.label}>{label}</span>

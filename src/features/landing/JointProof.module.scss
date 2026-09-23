@@ -48,13 +48,14 @@
   }
 }
 
-// Cross-highlight with the legend and the plan: physical, never a hue, so it reads on any tile color.
-// The lift is the only part of it that is motion, so it is the only part reduced motion drops.
-.cell[data-active] {
+// The piece under the hand comes off the wall: physical, never a hue, so it reads on any tile color.
+// Decoration only (the label says what the panel shows), so it is the pointer's alone. The lift is the
+// only part of it that is motion, so it is the only part reduced motion drops.
+.cell:hover {
   z-index: 1;
 }
 
-.cell[data-active] .piece {
+.cell:hover .piece {
   box-shadow:
     inset 0 0 0 1px rgb(0 0 0 / 0.08),
     var(--shadow-sm),
@@ -70,7 +71,7 @@
 // No further than this, because the wash takes each cut mark's halo with it and 0.78 still measures
 // over 3:1 on every preset. State rather than motion, so it is what carries the highlight under
 // reduced motion, where the lift is gone.
-.cell[data-dim] .piece {
+.wall:has(.cell:hover) .cell:not(:hover) .piece {
   opacity: 0.78;
 }
 
@@ -102,7 +103,7 @@
 // The assembly is an entrance, not the content: a panel skipped by scroll restoration, find-in-page
 // or a print job never intersects, and would otherwise print as four empty squares 10 px apart.
 @media print {
-  // The image keeps its own transform: that one is the centering, not the lift a pinned legend row left.
+  // The image keeps its own transform: that one is the centering, not the lift a hover left.
   .cell,
   .piece {
     opacity: 1 !important;
@@ -120,7 +121,7 @@
     border-width: 2px;
   }
 
-  .cell[data-active] .piece {
+  .cell:hover .piece {
     outline: 2px solid Highlight;
     outline-offset: -2px;
   }

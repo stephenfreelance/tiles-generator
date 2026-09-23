@@ -1,49 +1,47 @@
 // The front page runs Tessera instead of describing it: one wall, the visitor's own, photographed in
-// the hero and then laid out, cut, rendered, recolored and packed in front of them. Every number below
-// is a computeLayout result for that wall, so a reader who counts always finds the page agreeing with
-// itself. The hero is a product photograph and the sections under it are the plates of a catalogue.
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// the hero and then rendered, recolored and packed in front of them. Every number the page gives is a
+// computeLayout result for that wall, so a reader who counts always finds it agreeing with itself; the
+// one exception is section 01, which explains the cuts on a fixed wall that always has some. The hero
+// is a product photograph and the sections under it are the plates of a catalogue: how it cuts, the
+// patterns, the download and how the tiles go up, then the questions and the close.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { studioIntent } from '@/app/prefetchStudio'
-import { COLOR_PRESETS, parseHex } from '@/core/colors'
-import { buildPlanModel, wallCutSides } from '@/core/plan/planModel'
-import { PRINTERS } from '@/core/printers'
+import { parseHex } from '@/core/colors'
 import { TEXTURES, textureById } from '@/core/textures/registry'
-import { formatNumber, formatSize } from '@/core/units'
+import { formatNumber } from '@/core/units'
 import { ColorStrip } from '@/features/landing/ColorStrip'
 import { cornerDetail } from '@/features/landing/cornerDetail'
-import { CutPlanPanel } from '@/features/landing/CutPlanPanel'
-import { cutSidesText, fitLine } from '@/features/landing/fitLine'
+import { CutSteps } from '@/features/landing/CutConcept'
+import { fitLine } from '@/features/landing/fitLine'
+import { FixingSystems } from '@/features/landing/FixingSystems'
 import { HeroStage } from '@/features/landing/HeroStage'
 import { JointProof } from '@/features/landing/JointProof'
+import { zipFileNames } from '@/features/landing/kit'
 import { KitStrip } from '@/features/landing/KitStrip'
 import {
+  conceptConfig,
   EXAMPLE_WALLS,
   landingConfig,
   LANDING_DESIGN_START,
   LANDING_SPECIMENS,
 } from '@/features/landing/landingDesign'
 import { LandingMotion } from '@/features/landing/LandingMotion'
+import { Questions } from '@/features/landing/Questions'
 import { SpecimenStrip } from '@/features/landing/SpecimenStrip'
 import { useLandingDesign } from '@/features/landing/useLandingDesign'
 import { WallFields } from '@/features/landing/WallFields'
+import { useLayout } from '@/hooks'
 import { useDesign } from '@/state/designStore'
 import { useHistory } from '@/state/historyStore'
-import { Button, buttonClassName, Switch } from '@/ui'
+import { buttonClassName, Switch } from '@/ui'
 import { cx } from '@/ui/cx'
 import styles from './LandingPage.module.scss'
-
-// Lazy, exactly as KitStrip loads it: the rolling count is below the fold on every viewport, and a
-// second static import would drag the whole component into this chunk instead of its own.
-const Odometer = lazy(async () => ({ default: (await import('@/features/landing/Odometer')).Odometer }))
 
 /** Whole counts, grouped over a thousand, exactly as the fit line writes them. */
 const count = (value: number): string => formatNumber(value, 0)
 
 const plural = (value: number, noun: string): string => `${count(value)} ${noun}${value === 1 ? '' : 's'}`
-
-/** The two documents that travel with every zip, whatever the wall. */
-const EXTRA_FILES = 2
 
 /**
  * How long the wall has to hold still before the fit line is announced, milliseconds. A stepper held
@@ -57,14 +55,15 @@ const REACH_FRACTION = 0.88
 
 /**
  * True from the moment a band has been reached, and true forever after. The light it raises and the
- * plate it lays in are both decoration over content that is already on the page, so the worst a
- * missed trigger can do is leave a lamp off, and reduced motion never asks the question at all.
+ * plates it lays in are both decoration over content that is already on the page (the plates start
+ * lower and fainter, never hidden), so the worst a missed trigger can do is leave a lamp off, and
+ * reduced motion never asks the question at all.
  *
- * Measured against the window on arrival and on every scroll until it fires, exactly as CutPlanPanel
- * measures its own reveal: a jump (a restored scroll position, find-in-page, the skip link) can carry
- * a band past an IntersectionObserver without one callback, so the observer here only says that
- * something moved and the rect is what answers. The top edge alone is read, never the bottom, so a
- * band that was scrolled straight past counts as reached rather than waiting to be scrolled back to.
+ * Measured against the window on arrival and on every scroll until it fires: a jump (a restored scroll
+ * position, find-in-page, the skip link) can carry a band past an IntersectionObserver without one
+ * callback, so the observer here only says that something moved and the rect is what answers. The top
+ * edge alone is read, never the bottom, so a band that was scrolled straight past counts as reached
+ * rather than waiting to be scrolled back to.
  */
 function useReached<T extends HTMLElement>() {
   const ref = useRef<T>(null)
@@ -106,19 +105,6 @@ const NAME_CAP = 32
 const shortName = (name: string): string =>
   name.length > NAME_CAP ? `${name.slice(0, NAME_CAP - 1).trimEnd()}…` : name
 
-// The printer answer is read off the table rather than typed, so adding a printer cannot make the
-// page lie about the range it checks against.
-const bedArea = (bed: { width: number; depth: number }) => bed.width * bed.depth
-const SMALLEST_BED = PRINTERS.reduce((small, bed) => (bedArea(bed) < bedArea(small) ? bed : small))
-const LARGEST_BED = PRINTERS.reduce((large, bed) => (bedArea(bed) > bedArea(large) ? bed : large))
-
-const PLATE_FACTS = [
-  'Tiles print face up, flat on the plate.',
-  'The relief is a heightfield: no overhangs, so no supports.',
-  '0.12 to 0.2 mm layers, 3 walls, 15 % infill.',
-  'A brim helps the narrow cuts hold the plate.',
-]
-
 interface OpenActionsProps {
   /** The wall this page has built, as "/studio?d=...". Router-relative: Link adds the base. */
   href: string
@@ -155,30 +141,6 @@ function OpenActions({ href, hasWorkInProgress, savedName, sized }: OpenActionsP
   )
 }
 
-interface TallyProps {
-  entries: readonly { label: string; value: number }[]
-}
-
-/** The wall read as four figures, set big: the catalogue's running head for the plates under it. */
-function Tally({ entries }: TallyProps) {
-  return (
-    <dl className={styles.tally}>
-      {entries.map((entry) => (
-        // dt before dd, as the grammar of a description list wants it; the grid reads the figure first.
-        <div key={entry.label} className={styles.tallyItem}>
-          <dt className={styles.tallyLabel}>{entry.label}</dt>
-          <dd className={styles.tallyValue}>
-            {/* The figure itself is the fallback: a count is a fact before it is an animation. */}
-            <Suspense fallback={<span>{entry.value}</span>}>
-              <Odometer value={entry.value} />
-            </Suspense>
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
 export function LandingPage() {
   const navigate = useNavigate()
   const { state, config, plan, color, dispatch, studioHref, hasWorkInProgress } = useLandingDesign()
@@ -193,11 +155,6 @@ export function LandingPage() {
   // samples, the kit or the studio link: only the object reads this.
   const [previewTextureId, setPreviewTextureId] = useState<string | null>(null)
   const [showJoints, setShowJoints] = useState(false)
-  // The highlight the pointer or the keyboard is passing over, and the one a legend row pinned. The
-  // pointer wins while it is on something, so clicking a row holds its piece lit after the hand moves on.
-  const [pointedPieceId, setPointedPieceId] = useState<string | null>(null)
-  const [pinnedPieceId, setPinnedPieceId] = useState<string | null>(null)
-  const activePieceId = pointedPieceId ?? pinnedPieceId
   // The object, the accent and the fit line take every frame of a wheel drag. The 23 samples and the
   // kit chips are worker renders, so they follow the color only once the gesture behind it has settled.
   const [settledColor, setSettledColor] = useState(LANDING_DESIGN_START.color)
@@ -205,6 +162,8 @@ export function LandingPage() {
   const [cutsRef, cutsLit] = useReached<HTMLElement>()
   const [patternsRef, patternsLit] = useReached<HTMLElement>()
   const [deliverRef, deliverLit] = useReached<HTMLElement>()
+  const [fixingRef, fixingLit] = useReached<HTMLElement>()
+  const [questionsRef, questionsLit] = useReached<HTMLElement>()
   const [closeRef, closeLit] = useReached<HTMLElement>()
 
   const objectConfig = useMemo(
@@ -214,15 +173,20 @@ export function LandingPage() {
         : landingConfig({ ...state, textureId: previewTextureId }),
     [config, previewTextureId, state],
   )
-  // Identical to config between gestures, so the kit's chips stay the cache hits the corner detail made.
+  // Identical to config between gestures, so the kit's chips stay the cache hits the hero wall made.
   const settledConfig = useMemo(() => ({ ...config, color: settledColor }), [config, settledColor])
+  // Section 01's wall: always the starting one, in the visitor's relief and settled color. Untouched,
+  // it is the very design above, so its corner costs the worker nothing.
+  const concept = useMemo(
+    () => conceptConfig({ ...LANDING_DESIGN_START, textureId: state.textureId, color: settledColor }),
+    [state.textureId, settledColor],
+  )
+  const conceptPlan = useLayout(concept)
+  const detail = useMemo(() => cornerDetail(conceptPlan), [conceptPlan])
 
   // The one sentence the hero says about the wall, and the copy of it that reaches assistive tech.
   const fit = fitLine(config, plan)
   const settledFit = useSettled(fit, SETTLE_MS)
-
-  const detail = useMemo(() => cornerDetail(plan), [plan])
-  const cutSides = useMemo(() => wallCutSides(buildPlanModel(config, plan)), [config, plan])
 
   // A color picked further down the page puts a pairing on the object that no key offers, and a typed
   // size matches no example: both read as nothing pressed rather than as the nearest thing.
@@ -233,8 +197,7 @@ export function LandingPage() {
     (wall) => wall.widthMm === state.widthMm && wall.heightMm === state.heightMm,
   )
 
-  const fileCount = plan.pieces.length + EXTRA_FILES
-  const nudged = state.nudgedMm > 0
+  const fileCount = zipFileNames(plan).length
   // The wall as the page opened it is nobody's work: only a change to it earns the words "you sized".
   const sized = state.widthMm !== LANDING_DESIGN_START.widthMm || state.heightMm !== LANDING_DESIGN_START.heightMm
 
@@ -277,12 +240,9 @@ export function LandingPage() {
     [config.texture, navigate, studioHref],
   )
 
-  const tally = [
-    { label: plan.placements.length === 1 ? 'Tile on the wall' : 'Tiles on the wall', value: plan.placements.length },
-    { label: 'Whole', value: plan.fullCount },
-    { label: 'Cut to fit', value: plan.partialCount },
-    { label: plan.pieces.length === 1 ? 'Model to print' : 'Models to print', value: plan.pieces.length },
-  ]
+  // The studio link under section 01 follows the same rule as the invitation: a browser with a design
+  // of its own opens that design, and only a fresh one starts from the wall sized here.
+  const studioLink = hasWorkInProgress ? '/studio' : studioHref()
 
   return (
     <LandingMotion>
@@ -299,7 +259,7 @@ export function LandingPage() {
             </h1>
             <p className={styles.support}>
               Give Tessera your wall and it works out the tiling: the whole tiles, the cut pieces at the edges, and one
-              print-ready file for each kind. The relief runs on across every joint.
+              print-ready file for each kind.
             </p>
             <div className={styles.heroActions}>
               <OpenActions href={studioHref()} hasWorkInProgress={hasWorkInProgress} savedName={savedName} sized={sized} />
@@ -331,7 +291,7 @@ export function LandingPage() {
             <p className="visually-hidden" aria-live="polite">
               {settledFit}
             </p>
-            {/* The promise in one line; the question under the download plate answers it in full. */}
+            {/* The promise in one line; the Questions band answers it in full. */}
             <p className={styles.fact}>No account, nothing uploaded: it all happens in this browser.</p>
           </div>
 
@@ -354,82 +314,40 @@ export function LandingPage() {
             <div className={styles.plateTitle}>
               <h2 className={styles.heading}>Every cut continues the pattern</h2>
               <p className={styles.lede}>
-                A tile size rarely divides a wall. Tessera cuts the edge pieces out of the full tile, so a cut piece
-                carries exactly the slice of relief it replaces.
+                Walls are rarely a whole number of tiles. Tessera fills yours with whole tiles, then cuts the pieces that
+                finish each edge out of a whole tile, so the relief carries straight on across every joint.
               </p>
             </div>
           </header>
 
-          <Tally entries={tally} />
+          <CutSteps />
 
-          {/* Where the cuts land. The counts are the stat row's job, so this sentence never repeats one. */}
-          <p className={styles.cutLine}>
-            {plan.exact
-              ? 'Nothing to cut on this wall: the tiles run corner to corner.'
-              : `On your wall the cuts fall along ${cutSidesText(cutSides)}.`}
-          </p>
-
-          <div className={styles.plates}>
-            <CutPlanPanel config={config} plan={plan} activePieceId={activePieceId} onActivePiece={setPointedPieceId} />
-            <figure className={styles.plate}>
-              <figcaption className={styles.plateCaption}>
-                <span className={styles.plateLabel}>The pieces side by side</span>
-              </figcaption>
-              <div className={styles.plateField}>
-                <div className={styles.plateWall}>
-                  <JointProof
-                    config={config}
-                    plan={detail}
-                    label={`The corner of your wall as printed pieces: ${plural(detail.placements.length, 'tile')} laid where they go, ${plural(detail.pieces.length, 'model')} between them, with the relief running on across every joint.`}
-                    activePieceId={activePieceId}
-                    onActivePiece={setPointedPieceId}
-                  />
-                </div>
+          {/* One proof, on a wall that always has cuts, in the visitor's own relief and color. The plan
+              of their own wall is the studio's job, so the page points there instead of drawing it. */}
+          <div className={styles.proof}>
+            <figure className={styles.proofFigure}>
+              <div className={styles.plateWall}>
+                <JointProof
+                  config={concept}
+                  plan={detail}
+                  label={`The corner of a wall as ${plural(detail.placements.length, 'printed piece')}, ${count(detail.partialCount)} of them cut, laid where they go, with the relief running on across every joint.`}
+                />
               </div>
-              {/* The drawing beside this outlines those tiles; this says in words which ones are here. */}
-              <p className={styles.plateFoot}>The corner outlined on the plan, as printed pieces.</p>
+              <figcaption className={styles.plateFoot}>
+                The corner of a wall as {plural(detail.placements.length, 'printed piece')}: {count(detail.partialCount)}{' '}
+                of them cut, and one pattern running through all of them.
+              </figcaption>
             </figure>
-          </div>
-
-          {/* Every mark, label, size and count is text here, so the cross-highlight is a shortcut and
-              never the only way to read either drawing. */}
-          <ul className={styles.legend}>
-            {plan.pieces.map((piece) => (
-              <li key={piece.id}>
-                <button
-                  type="button"
-                  className={styles.legendRow}
-                  data-cut={piece.kind !== 'full' || undefined}
-                  data-active={piece.id === activePieceId || undefined}
-                  aria-pressed={piece.id === pinnedPieceId}
-                  onClick={() => setPinnedPieceId((was) => (was === piece.id ? null : piece.id))}
-                  onPointerEnter={() => setPointedPieceId(piece.id)}
-                  onPointerLeave={() => setPointedPieceId(null)}
-                  onFocus={() => setPointedPieceId(piece.id)}
-                  onBlur={() => setPointedPieceId(null)}
-                >
-                  <span className={styles.legendMark}>{piece.mark}</span>
-                  <span className={styles.legendLabel}>{piece.label}</span>
-                  <span className={styles.legendSize}>{formatSize(piece.width, piece.height)}</span>
-                  <span className={styles.legendCount}>×{count(piece.count)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {(plan.exact || nudged) && (
-            <div className={styles.nudge}>
-              {/* The offer and what it did, with no figures in either: the stat row above holds those. */}
-              <p className={styles.nudgeNote}>
-                {nudged
-                  ? 'One centimeter was all it took to put cuts on this wall.'
-                  : 'This wall divides exactly. Add a centimeter to the width to watch Tessera make a cut.'}
+            <div className={styles.studioNote}>
+              <p className={styles.studioText}>
+                Size your own wall in the studio and it draws the whole plan: every piece lettered, its size, how many to
+                print and where to start.
               </p>
-              <Button onClick={() => dispatch({ type: nudged ? 'unnudge' : 'nudge' })}>
-                {nudged ? 'Back to an exact fit' : 'Add a centimeter'}
-              </Button>
+              <Link to={studioLink} className={styles.quietLink} {...studioIntent}>
+                Open the studio
+              </Link>
             </div>
-          )}
+          </div>
         </section>
 
         <section className={styles.section} ref={patternsRef} data-lit={patternsLit ? '' : undefined}>
@@ -477,68 +395,54 @@ export function LandingPage() {
             </div>
           </header>
 
-          {/* Two plates: what the zip holds, and the questions it raises. The print settings used to be a
-              plate of their own, which cost a phone screen to say what one answer says here. */}
-          <div className={styles.deliver}>
-            <section className={styles.plate}>
-              <div className={styles.plateCaption}>
-                <h3 className={styles.plateLabel}>In the zip</h3>
-                {/* The only place the page counts the files. */}
-                <p className={styles.plateNote}>{plural(fileCount, 'file')}</p>
-              </div>
-              <div className={cx(styles.plateField, styles.plateFieldLay)}>
-                <KitStrip config={settledConfig} plan={plan} />
-              </div>
-              <p className={styles.plateFoot}>
-                STL for any slicer, or STEP if you would rather edit the solid in CAD. Every file is named with its
-                label, its size and how many copies to print.
+          {/* One plate, the width of the page: the parts on the bench, each with the file it prints from. */}
+          <section className={styles.plate}>
+            <div className={styles.plateCaption}>
+              <h3 className={styles.plateLabel}>In the zip</h3>
+              {/* The only place the page counts the files. */}
+              <p className={styles.plateNote}>{plural(fileCount, 'file')}</p>
+            </div>
+            <KitStrip config={settledConfig} plan={plan} />
+            <div className={styles.kitFoot}>
+              <p>
+                STL for any slicer, or STEP to edit the solid in CAD. Every file is named with its label, its size and
+                how many copies to print.
               </p>
-            </section>
+              <p>
+                Choose keys or wall clips in the studio and the zip also holds their parts. The fit test is not in it:
+                it prints from a page of its own, before you commit to a wall's worth.
+              </p>
+            </div>
+          </section>
+        </section>
 
-            <section className={styles.plate}>
-              <div className={styles.plateCaption}>
-                <h3 className={styles.plateLabel}>Questions</h3>
-              </div>
-              <div className={styles.faq}>
-                <details className={styles.question}>
-                  <summary className={styles.questionHead}>Does anything leave my computer?</summary>
-                  <p className={styles.answer}>
-                    No. Your current design and your saved designs live in this browser&rsquo;s local storage, so
-                    clearing this site&rsquo;s data clears them and another browser starts empty.
-                  </p>
-                </details>
-                <details className={styles.question}>
-                  <summary className={styles.questionHead}>How do they print?</summary>
-                  <ul className={styles.facts}>
-                    {PLATE_FACTS.map((fact) => (
-                      <li key={fact}>{fact}</li>
-                    ))}
-                  </ul>
-                  {/* What the files open in. Plain text: Tessera has no logos to show and no endorsement to claim. */}
-                  <p className={styles.answer}>
-                    They open in Bambu Studio, OrcaSlicer, PrusaSlicer, or anything else that reads STL.
-                  </p>
-                </details>
-                <details className={styles.question}>
-                  <summary className={styles.questionHead}>Will the tiles fit my printer?</summary>
-                  <p className={styles.answer}>
-                    Tessera knows {PRINTERS.length} printers, from a{' '}
-                    {formatSize(SMALLEST_BED.width, SMALLEST_BED.depth)} bed up to{' '}
-                    {formatSize(LARGEST_BED.width, LARGEST_BED.depth)}. Choose yours in the studio and it warns you
-                    before a piece gets too big for it.
-                  </p>
-                </details>
-                <details className={styles.question}>
-                  <summary className={styles.questionHead}>Will the colors match my filament?</summary>
-                  <p className={styles.answer}>
-                    Not necessarily. The {COLOR_PRESETS.length} presets are Tessera&rsquo;s own names and hex values,
-                    not a filament catalog, and a screen cannot promise what a spool will look like. Pick the color you
-                    want the wall to be, then buy the PLA that comes closest.
-                  </p>
-                </details>
-              </div>
-            </section>
-          </div>
+        <section className={styles.section} ref={fixingRef} data-lit={fixingLit ? '' : undefined}>
+          <header className={styles.plateHead}>
+            <p className={styles.plateNo} aria-hidden="true">
+              04
+            </p>
+            <div className={styles.plateTitle}>
+              <h2 className={styles.heading}>Glue it, lock it, or clip it on</h2>
+              <p className={styles.lede}>
+                Printed tiles go up like any others, with tile adhesive or mounting tape. Three optional systems, built
+                into the same files, go further: two lock the tiles to each other, one holds them to the wall, and a lock
+                works with the clips.
+              </p>
+            </div>
+          </header>
+
+          <FixingSystems />
+        </section>
+
+        {/* The questions the whole page raises, in a band of their own: no number, because they are not
+            a step in how a wall is made. */}
+        <section className={styles.section} ref={questionsRef} data-lit={questionsLit ? '' : undefined}>
+          <header className={cx(styles.plateHead, styles.plateHeadBare)}>
+            <div className={styles.plateTitle}>
+              <h2 className={styles.heading}>Questions</h2>
+            </div>
+          </header>
+          <Questions />
         </section>
 
         <section className={styles.close} ref={closeRef} data-lit={closeLit ? '' : undefined}>

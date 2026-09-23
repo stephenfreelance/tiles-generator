@@ -63,6 +63,9 @@ export function SliderField({
   const autoId = useId()
   const baseId = id ?? `slider${autoId}`
   const labelId = `${baseId}-label`
+  // The hint is the note under the scale (what this value really prints): a screen reader reads it with
+  // the slider, not only by wandering into it.
+  const hintId = `${baseId}-hint`
   const thumbRef = useRef<HTMLSpanElement>(null)
   const coalesce = coalesceKey ?? baseId
   const places = decimals ?? Math.min(4, decimalsOf(step))
@@ -138,13 +141,23 @@ export function SliderField({
           <Slider.Range className={styles.range} />
         </Slider.Track>
         <span className={styles.defaultTick} style={defaultStyle} aria-hidden="true" />
-        <Slider.Thumb ref={thumbRef} className={styles.thumb} aria-labelledby={labelId} aria-valuetext={readout(value)} />
+        <Slider.Thumb
+          ref={thumbRef}
+          className={styles.thumb}
+          aria-labelledby={labelId}
+          aria-describedby={hint ? hintId : undefined}
+          aria-valuetext={readout(value)}
+        />
       </Slider.Root>
       <div className={styles.scale} aria-hidden="true">
         <span>{readout(min)}</span>
         <span>{readout(max)}</span>
       </div>
-      {hint && <p className={styles.hint}>{hint}</p>}
+      {hint && (
+        <p id={hintId} className={styles.hint}>
+          {hint}
+        </p>
+      )}
     </div>
   )
 }

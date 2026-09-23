@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { computeLayout } from '../layout'
 import { buildPieceMesh } from '../geometry/tileMesh'
 import { flatField, noiseField, plateField, testConfig } from '../geometry/testFields'
-import { meshVolume } from '../geometry/meshChecks'
+import { checkMesh, meshVolume } from '../geometry/meshChecks'
+import { ringFromRect, triangulatePolygon } from '../geometry/polygon'
+import { extrudeProfileX, loftSolid } from '../geometry/prism'
 import type { MeshData } from '../types'
 import { fmtReal, stepString, writeStep } from './step'
 
@@ -33,6 +35,64 @@ const box = (size = 10): MeshData => {
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
   }
   return { positions: Float32Array.from(positions), indices: Uint32Array.from(indices), topIndexCount: 6 }
+}
+
+/**
+ * A square plate, `size` wide and `t` thick, with a rectangular pocket cut up from its bottom face to
+ * `depth` (a through hole when depth equals t), built face by face the way the tile mesher builds pockets.
+ */
+function plateWithPocket(size: number, t: number, hole: [number, number, number, number], depth: number): MeshData {
+  const positions: number[] = []
+  const indices: number[] = []
+  const face = (points: number[][], tris: ArrayLike<number>, flip = false) => {
+    const base = positions.length / 3
+    for (const p of points) positions.push(p[0], p[1], p[2])
+    for (let k = 0; k < tris.length; k += 3) {
+      if (flip) indices.push(base + tris[k], base + tris[k + 2], base + tris[k + 1])
+      else indices.push(base + tris[k], base + tris[k + 1], base + tris[k + 2])
+    }
+  }
+  const outer = ringFromRect(0, 0, size, size)
+  const inner = ringFromRect(...hole)
+  const at = (ring: Float64Array, z: number) => Array.from({ length: ring.length / 2 }, (_, k) => [ring[2 * k], ring[2 * k + 1], z])
+  const through = depth >= t
+  // Bottom (facing -z) always has the pocket's mouth as a hole; the top too when the hole goes through.
+  face([...at(outer, 0), ...at(inner, 0)], triangulatePolygon(outer, [inner]), true)
+  if (through) face([...at(outer, t), ...at(inner, t)], triangulatePolygon(outer, [inner]))
+  else face(at(outer, t), triangulatePolygon(outer))
+  for (let k = 0; k < 4; k++) {
+    const j = (k + 1) % 4
+    const [ax, ay, bx, by] = [outer[2 * k], outer[2 * k + 1], outer[2 * j], outer[2 * j + 1]]
+    face([[ax, ay, 0], [bx, by, 0], [bx, by, t], [ax, ay, t]], [0, 1, 2, 0, 2, 3])
+    // Pocket walls face into the pocket, so they run the ring backwards.
+    const [cx, cy, dx, dy] = [inner[2 * j], inner[2 * j + 1], inner[2 * k], inner[2 * k + 1]]
+    face([[cx, cy, 0], [dx, dy, 0], [dx, dy, depth], [cx, cy, depth]], [0, 1, 2, 0, 2, 3])
+  }
+  if (!through) face(at(inner, depth), triangulatePolygon(inner), true)
+  return { positions: Float32Array.from(positions), indices: Uint32Array.from(indices), topIndexCount: 0 }
+}
+
+/** Solids and volume that OCCT reads back from our STEP bytes. */
+async function occtReadBack(bytes: Uint8Array) {
+  const occtFactory = (await import('occt-import-js')).default
+  const occt = await occtFactory()
+  const result = occt.ReadStepFile(bytes, { linearUnit: 'millimeter' })
+  let volume = 0
+  for (const m of result.meshes) {
+    const p = m.attributes.position.array
+    const idx = m.index.array
+    for (let i = 0; i < idx.length; i += 3) {
+      const a = idx[i] * 3
+      const b = idx[i + 1] * 3
+      const c = idx[i + 2] * 3
+      volume +=
+        (p[a] * (p[b + 1] * p[c + 2] - p[b + 2] * p[c + 1]) -
+          p[a + 1] * (p[b] * p[c + 2] - p[b + 2] * p[c]) +
+          p[a + 2] * (p[b] * p[c + 1] - p[b + 1] * p[c])) /
+        6
+    }
+  }
+  return { success: result.success, meshes: result.meshes.length, volume }
 }
 
 interface Entity {
@@ -174,7 +234,119 @@ describe('writeStep', () => {
   })
 })
 
+describe('writeStep with holes and several pieces', () => {
+  it('writes a bottom face around a pocket as one face with a hole', () => {
+    const mesh = plateWithPocket(40, 5, [10, 12, 22, 20], 3)
+    expect(checkMesh(mesh)).toMatchObject({ closed: true, manifold: true, oriented: true })
+    const parsed = parseStep(writeStep(mesh, { name: 'pocket' }))
+    // Top, 4 walls, bottom with a hole, 4 pocket walls and the ceiling.
+    expect(parsed.of('ADVANCED_FACE')).toHaveLength(11)
+    expect(parsed.of('FACE_OUTER_BOUND')).toHaveLength(11)
+    expect(parsed.of('FACE_BOUND')).toHaveLength(1)
+    expect(parsed.danglingRefs).toEqual([])
+    const bottom = parsed.of('ADVANCED_FACE').filter((f) => (f.body.match(/#\d+/g) as string[]).length === 3)
+    expect(bottom).toHaveLength(1)
+    for (const [, counts] of edgeUsage(parsed) as Map<number, { forward: number; backward: number }>) {
+      expect(counts).toEqual({ forward: 1, backward: 1 })
+    }
+  })
+
+  it('writes a through hole as a hole in both the top and the bottom face', () => {
+    const parsed = parseStep(writeStep(plateWithPocket(40, 5, [10, 10, 20, 20], 5), { name: 'frame' }))
+    expect(parsed.of('ADVANCED_FACE')).toHaveLength(10)
+    expect(parsed.of('FACE_BOUND')).toHaveLength(2)
+  })
+
+  it('writes separate pieces as separate solids in one file', () => {
+    const a = loftSolid([
+      { z: 0, ring: ringFromRect(0, 0, 10, 10) },
+      { z: 4, ring: ringFromRect(0, 0, 10, 10) },
+    ])
+    const b = loftSolid([
+      { z: 0, ring: ringFromRect(20, 0, 26, 8) },
+      { z: 2, ring: ringFromRect(20, 0, 26, 8) },
+    ])
+    const both: MeshData = {
+      positions: Float32Array.of(...a.positions, ...b.positions),
+      indices: Uint32Array.of(...a.indices, ...Array.from(b.indices, (i) => i + a.positions.length / 3)),
+      topIndexCount: 0,
+    }
+    const parsed = parseStep(writeStep(both, { name: 'parts' }))
+    expect(parsed.of('MANIFOLD_SOLID_BREP')).toHaveLength(2)
+    expect(parsed.of('CLOSED_SHELL')).toHaveLength(2)
+    expect(parsed.of('ADVANCED_FACE')).toHaveLength(12)
+    expect(parsed.of('MANIFOLD_SOLID_BREP').map((e) => e.body.split(',')[0])).toEqual(["'parts 1'", "'parts 2'"])
+    const shells = parsed.of('CLOSED_SHELL').map((e) => (e.body.match(/#\d+/g) as string[]).length)
+    expect(shells).toEqual([6, 6])
+    const rep = parsed.of('ADVANCED_BREP_SHAPE_REPRESENTATION')[0]
+    expect(rep.body.match(/#\d+/g)).toHaveLength(4)
+  })
+})
+
 describe('occt-import-js (OCCT 7.6) reads our STEP back', () => {
+  it('reads a face with a hole back as a solid with the exact volume', async () => {
+    const mesh = plateWithPocket(40, 5, [10, 12, 22, 20], 3)
+    const back = await occtReadBack(writeStep(mesh, { name: 'pocket' }))
+    expect(back.success).toBe(true)
+    expect(back.meshes).toBe(1)
+    expect(back.volume).toBeCloseTo(40 * 40 * 5 - 12 * 8 * 3, 3)
+    const frame = await occtReadBack(writeStep(plateWithPocket(40, 5, [10, 10, 20, 20], 5), { name: 'frame' }))
+    expect(frame.meshes).toBe(1)
+    expect(frame.volume).toBeCloseTo(40 * 40 * 5 - 10 * 10 * 5, 3)
+  }, 120_000)
+
+  it('reads an extruded bar with slots and recesses back with the exact volume', async () => {
+    const profile = Float64Array.of(0, 0, 30, 0, 30, 6, 22, 6, 22, 2.5, 8, 2.5, 8, 6, 0, 6)
+    const cuts = [
+      { x0: 20, x1: 24, y0: 1, y1: 7, z0: 0, z1: 3.5 },
+      { x0: 18, x1: 26, y0: 0.5, y1: 7.5, z0: 3.5, z1: 6 },
+      { x0: 58, x1: 62, y0: 10, y1: 20, z0: 0, z1: 2.5 },
+    ]
+    const mesh = extrudeProfileX(profile, 80, { cuts })
+    const parsed = parseStep(writeStep(mesh, { name: 'bar' }))
+    // The bottom face holes around both slots; the recess floor holes around its slot.
+    expect(parsed.of('FACE_BOUND').length).toBeGreaterThanOrEqual(3)
+    const back = await occtReadBack(writeStep(mesh, { name: 'bar' }))
+    expect(back.success).toBe(true)
+    expect(back.meshes).toBe(1)
+    expect(back.volume / meshVolume(mesh)).toBeCloseTo(1, 6)
+  }, 120_000)
+
+  it('reads the printed parts back: a wall clip with its drill hole and countersink, and a key', async () => {
+    const { buildClipMesh, clipSpec } = await import('../fixing/mount')
+    const { buildKeyMesh, wallKeySpec } = await import('../fixing/joins')
+    const config = testConfig({ lock: 'keys', mount: 'clips' })
+    const key = wallKeySpec(config)
+    expect(key).not.toBeNull()
+    for (const [name, mesh] of [
+      ['clip', buildClipMesh(clipSpec('standard'))],
+      ['key', buildKeyMesh(config, key!)],
+    ] as const) {
+      const back = await occtReadBack(writeStep(mesh, { name }))
+      expect(back.success, name).toBe(true)
+      expect(back.meshes, name).toBe(1)
+      expect(back.volume / meshVolume(mesh), name).toBeCloseTo(1, 6)
+    }
+  }, 120_000)
+
+  it('reads two pieces back as two solids with the summed volume', async () => {
+    const a = loftSolid([
+      { z: 0, ring: ringFromRect(0, 0, 10, 10) },
+      { z: 4, ring: ringFromRect(0, 0, 10, 10) },
+    ])
+    const b = extrudeProfileX(Float64Array.of(0, 0, 8, 0, 8, 3, 0, 3), 12)
+    const shifted = b.positions.map((v, k) => (k % 3 === 1 ? v + 30 : v))
+    const both: MeshData = {
+      positions: Float32Array.of(...a.positions, ...shifted),
+      indices: Uint32Array.of(...a.indices, ...Array.from(b.indices, (i) => i + a.positions.length / 3)),
+      topIndexCount: 0,
+    }
+    const back = await occtReadBack(writeStep(both, { name: 'parts' }))
+    expect(back.success).toBe(true)
+    expect(back.meshes).toBe(2)
+    expect(back.volume).toBeCloseTo(400 + 8 * 3 * 12, 3)
+  }, 120_000)
+
   it('parses a tile as a solid with the right bounding box and volume', async () => {
     const occtFactory = (await import('occt-import-js')).default
     const occt = await occtFactory()

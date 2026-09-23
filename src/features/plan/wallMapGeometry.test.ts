@@ -1,17 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG, normalizeConfig } from '@/core/config'
-import { computeLayout } from '@/core/layout'
+import { computeLayout, layoutInputOf } from '@/core/layout'
 import { buildPlanModel, type PlanModel } from '@/core/plan/planModel'
-import type { DesignConfig } from '@/core/types'
+import type { DesignConfig, LockKind } from '@/core/types'
 import { formatNumber } from '@/core/units'
 import {
   axisMap,
   BOND_MIN_END_PX,
+  CHIP_PX,
   type Box,
   chipWidth,
+  CLIP_MARK_MAX_PX,
+  CLIP_MARK_MIN_PX,
+  clipMarkBox,
+  clipMarkPath,
+  KEY_MARK_MAX_PX,
+  KEY_MARK_MIN_PX,
+  keyMarkBox,
+  keyMarkPath,
   layoutWallMap,
   MIN_STRIP_PX,
   pieceSides,
+  planLayoutKey,
   type Segment,
   type WallMapGeometry,
 } from './wallMapGeometry'
@@ -394,5 +404,304 @@ describe('chipWidth', () => {
     expect(chipWidth('AA', null)).toBeGreaterThan(chipWidth('A', null))
     expect(chipWidth('A', null)).toBeGreaterThanOrEqual(24)
     expect(chipWidth('B', '40')).toBeGreaterThan(chipWidth('B', null))
+  })
+})
+
+describe('layoutWallMap with border versions', () => {
+  const ALL = { top: true, bottom: true, left: true, right: true }
+  function edgedModel(
+    { surface, tile, origin = 'corner', rowOffset = 0 }: Scenario,
+    edges: { lock?: LockKind; sides?: DesignConfig['perimeter']['sides'] | null },
+  ): PlanModel {
+    const config = normalizeConfig({
+      ...DEFAULT_CONFIG,
+      surface,
+      tile: { ...DEFAULT_CONFIG.tile, width: tile, height: tile },
+      layout: { origin, rowOffset },
+      lock: edges.lock ?? 'none',
+      // A 4 mm chamfer with a 16 mm fade: a 20 mm band, wider than the 10 mm cuts below.
+      perimeter: edges.sides
+        ? { ...DEFAULT_CONFIG.perimeter, profile: 'chamfer', width: 4, drop: 2, fade: 16, sides: edges.sides }
+        : DEFAULT_CONFIG.perimeter,
+    })
+    return buildPlanModel(config, computeLayout(layoutInputOf(config)))
+  }
+
+  const outside = (a: Box, b: Box) =>
+    a.x + a.width <= b.x + 0.01 || b.x + b.width <= a.x + 0.01 || a.y + a.height <= b.y + 0.01 || b.y + b.height <= a.y + 0.01
+
+  it('puts each border version in the band of its edge and the base tile on the wall', () => {
+    const model = edgedModel({ surface: { width: 1200, height: 600 }, tile: 150 }, { sides: ALL })
+    expect(model.legend).toHaveLength(9)
+    expect(model.basePieceId).toBe('full')
+    const g = layoutWallMap(model, { width: 478, maxWallHeight: 208 })!
+    const chip = (id: string) => g.chips.find((c) => c.pieceId === id)!.box
+    const { wall } = g
+    expect(within(chip('full'), wall)).toBe(true)
+    expect(chip('full-eT0').y + CHIP_PX).toBeLessThanOrEqual(wall.y + 0.01)
+    expect(chip('full-eB0').y).toBeGreaterThanOrEqual(wall.y + wall.height - 0.01)
+    expect(chip('full-eL0').x + chip('full-eL0').width).toBeLessThanOrEqual(wall.x + 0.01)
+    expect(chip('full-eR0').x).toBeGreaterThanOrEqual(wall.x + wall.width - 0.01)
+    // Corners sit where the two bands cross.
+    const tl = chip('full-eT0L0')
+    expect(tl.x + tl.width <= wall.x + 0.01 && tl.y + tl.height <= wall.y + 0.01).toBe(true)
+    const br = chip('full-eB0R0')
+    expect(br.x >= wall.x + wall.width - 0.01 && br.y >= wall.y + wall.height - 0.01).toBe(true)
+    // Border versions are whole tiles: their chips carry no cut size, and none lies on the wall.
+    for (const c of g.chips.filter((c) => c.pieceId !== 'full')) {
+      expect(c.cut).toBe(false)
+      expect(c.size).toBeNull()
+      expect(outside(c.box, wall)).toBe(true)
+    }
+  })
+
+  it('keeps a lone cut size beside a whole border version on the same side', () => {
+    // 1200 x 610: a 10 mm bottom row, and the whole tiles above it 10 mm into the 20 mm band.
+    const model = edgedModel({ surface: { width: 1200, height: 610 }, tile: 150 }, { sides: { top: true, bottom: true, left: false, right: false } })
+    const bottom = pieceSides(model)
+    const onBottom = model.legend.filter((r) => bottom.get(r.pieceId)?.has('bottom'))
+    expect(onBottom.map((r) => r.kind).sort()).toEqual(['edge', 'full'])
+    const g = layoutWallMap(model, { width: 478, maxWallHeight: 208 })!
+    const sizeOf = (kind: string) => g.chips.find((c) => c.pieceId === onBottom.find((r) => r.kind === kind)!.pieceId)?.size
+    expect(sizeOf('edge')).toBe('10')
+    expect(sizeOf('full')).toBeNull()
+  })
+
+  it('finds a place for two pieces in one corner, the tile a narrow cut keeps off both edges', () => {
+    // 1210 x 610: 10 mm cuts at the right and the bottom, inside a 20 mm band on every side.
+    const model = edgedModel({ surface: { width: 1210, height: 610 }, tile: 150 }, { sides: ALL })
+    const diagonal = model.legend.find((r) => r.kind === 'full' && r.edges.profiled.bottom === 10 && r.edges.profiled.right === 10)
+    expect(diagonal).toBeDefined()
+    for (const width of [280, 332, 478]) {
+      const g = layoutWallMap(model, { width, maxWallHeight: 208 })!
+      const svg: Box = { x: 0, y: 0, width: g.width, height: g.height }
+      for (const c of g.chips) expect(within(c.box, svg), `${c.mark} inside at ${width}`).toBe(true)
+      expect(g.chips.some((c) => c.pieceId === diagonal!.pieceId)).toBe(true)
+    }
+  })
+
+  it('keeps every letter inside the drawing, clear of every other, and every model on the map', () => {
+    const walls: Scenario[] = [
+      { surface: { width: 1200, height: 600 }, tile: 150 },
+      { surface: { width: 1200, height: 640 }, tile: 100 },
+      { surface: { width: 1000, height: 700 }, tile: 150 },
+      { surface: { width: 1250, height: 640 }, tile: 100, rowOffset: 0.5 },
+      { surface: { width: 1250, height: 640 }, tile: 100, rowOffset: 0.3333 },
+      { surface: { width: 1210, height: 610 }, tile: 150 },
+      { surface: { width: 3000, height: 90 }, tile: 100 },
+      { surface: { width: 610, height: 2400 }, tile: 150 },
+      { surface: { width: 300, height: 250 }, tile: 400 },
+    ]
+    const variants: { lock?: LockKind; sides?: DesignConfig['perimeter']['sides'] }[] = [
+      { lock: 'keys' },
+      { sides: ALL },
+      { lock: 'keys', sides: ALL },
+      { sides: { top: true, bottom: true, left: false, right: false } },
+    ]
+    const failures: string[] = []
+    for (const wall of walls) {
+      for (const origin of ['corner', 'center', 'balanced'] as const) {
+        for (const edges of variants) {
+          const model = edgedModel({ ...wall, origin }, edges)
+          for (const width of [280, 332, 400, 478]) {
+            for (const maxWallHeight of HEIGHTS) {
+              const g = layoutWallMap(model, { width, maxWallHeight })
+              const where = `${wall.surface.width}x${wall.surface.height}/${wall.tile} ${origin} ${JSON.stringify(edges)} @${width}x${maxWallHeight}`
+              if (!g) {
+                failures.push(`${where}: drew nothing`)
+                continue
+              }
+              const svg: Box = { x: 0, y: 0, width: g.width, height: g.height }
+              const dot = g.start.dot
+              const marks = [...boxesOf(g), { name: 'dot', box: { x: dot.x - 7.5, y: dot.y - 7.5, width: 15, height: 15 } }]
+              for (const { name, box } of marks) if (!within(box, svg)) failures.push(`${where}: ${name} outside`)
+              for (let i = 0; i < marks.length; i++) {
+                for (let j = i + 1; j < marks.length; j++) {
+                  if (overlap(marks[i].box, marks[j].box, 1)) failures.push(`${where}: ${marks[i].name} over ${marks[j].name}`)
+                }
+              }
+              const chipped = new Set(g.chips.map((c) => c.pieceId))
+              for (const row of model.legend) if (!chipped.has(row.pieceId)) failures.push(`${where}: no chip for ${row.mark}`)
+              for (const c of g.chips.filter((c) => c.pieceId !== model.basePieceId && !c.leader)) {
+                if (overlap(c.box, g.wall, 0.01)) failures.push(`${where}: chip ${c.mark} on the wall`)
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('redraws when keys split the same tiles into more models', () => {
+    const plain = edgedModel({ surface: { width: 1200, height: 600 }, tile: 150 }, {})
+    const keyed = edgedModel({ surface: { width: 1200, height: 600 }, tile: 150 }, { lock: 'keys' })
+    expect(planLayoutKey(keyed)).not.toBe(planLayoutKey(plain))
+    // A recolour still leaves the key alone.
+    expect(planLayoutKey(edgedModel({ surface: { width: 1200, height: 600 }, tile: 150 }, {}))).toBe(planLayoutKey(plain))
+  })
+})
+
+
+describe('layoutWallMap with clips and keys', () => {
+  function fixedModel(scenario: Scenario, over: Partial<DesignConfig>): PlanModel {
+    const config = normalizeConfig({
+      ...DEFAULT_CONFIG,
+      surface: scenario.surface,
+      tile: { ...DEFAULT_CONFIG.tile, width: scenario.tile, height: scenario.tile },
+      joint: scenario.joint ?? 0,
+      layout: { origin: scenario.origin ?? 'corner', rowOffset: scenario.rowOffset ?? 0 },
+      ...over,
+    })
+    return buildPlanModel(config, computeLayout(layoutInputOf(config)))
+  }
+
+  const keyedModel = (scenario: Scenario) => fixedModel(scenario, { lock: 'keys' })
+  /** The walls on the real clips of the mount plan, with keys, so every chip and leader is there. */
+  const mountedModel = (scenario: Scenario) => fixedModel(scenario, { lock: 'keys', mount: 'clips' })
+
+  it('draws nothing more for a wall without clips or keys', () => {
+    const g = layout('exact', 478, 208).geometry
+    expect(g.clips).toEqual([])
+    expect(g.keys).toEqual([])
+  })
+
+  it('marks every clip at the centre of its pocket, inside its tile, turned where the clip is', () => {
+    for (const [name, scenario] of Object.entries(SCENARIOS)) {
+      const model = mountedModel(scenario)
+      const g = layoutWallMap(model, { width: 400, maxWallHeight: 208 })
+      if (!g) continue
+      expect(g.clips, name).toHaveLength(model.clips.length)
+      expect(g.clipPx).toBeGreaterThanOrEqual(CLIP_MARK_MIN_PX)
+      expect(g.clipPx).toBeLessThanOrEqual(CLIP_MARK_MAX_PX)
+      g.clips.forEach((c, i) => {
+        expect(c.upright).toBe(model.clips[i].axis === 'v')
+        expect(within({ x: c.x, y: c.y, width: 0, height: 0 }, g.wall, 0.5), `${name} clip ${i}`).toBe(true)
+      })
+    }
+    // 150 mm tiles on a 1200 × 600 wall: two clips a tile, one above the other on its middle line.
+    const model = mountedModel(SCENARIOS.exact)
+    const g = layoutWallMap(model, { width: 478, maxWallHeight: 208 })!
+    expect(g.clips).toHaveLength(model.clips.length)
+    expect(model.clips.length).toBe(2 * model.tiles.length)
+    for (const tile of g.tiles) {
+      const inside = g.clips.filter((c) => c.x > tile.x && c.x < tile.x + tile.width && c.y > tile.y && c.y < tile.y + tile.height)
+      expect(inside).toHaveLength(2)
+      expect(inside[0].x).toBeCloseTo(tile.x + tile.width / 2, 6)
+    }
+  })
+
+  it('draws a clip mark as one closed bar of the asked length, along the wall or up it', () => {
+    const numbers = (d: string) => d.match(/-?\d+(\.\d+)?/g)!.map(Number)
+    const box = (d: string) => {
+      // Every point of the path: the moves, the ends of the arcs and the lines.
+      const xs: number[] = []
+      const ys: number[] = []
+      for (const cmd of d.match(/[MHVA][^MHVAZ]*/g)!) {
+        const n = numbers(cmd)
+        const [x, y] = cmd[0] === 'M' ? [n[0], n[1]] : cmd[0] === 'A' ? [n[5], n[6]] : cmd[0] === 'H' ? [n[0], null] : [null, n[0]]
+        if (x !== null) xs.push(x)
+        if (y !== null) ys.push(y)
+      }
+      return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }
+    }
+    const along = clipMarkPath({ x: 50, y: 20, upright: false }, 12)
+    expect(along.startsWith('M') && along.endsWith('Z')).toBe(true)
+    const a = box(along)
+    // The straight run plus the two rounded ends span the length; the ends' radius is half the bar's thickness.
+    const r = (a.y1 - a.y0) / 2
+    expect(a.x1 - a.x0 + 2 * r).toBeCloseTo(12, 6)
+    expect((a.x0 + a.x1) / 2).toBeCloseTo(50, 6)
+    expect(2 * r).toBeLessThan(12 / 2)
+    const up = box(clipMarkPath({ x: 50, y: 20, upright: true }, 12))
+    expect(up.y1 - up.y0 + 2 * r).toBeCloseTo(12, 6)
+    expect(up.x1 - up.x0).toBeCloseTo(2 * r, 6)
+  })
+
+  it('calls the setting-out point SO once clips are placed, since a clipped wall goes up from the bottom edge', () => {
+    const words = (g: WallMapGeometry) => [g.start.word, ...g.start.labels.filter((l) => !l.strong).map((l) => l.text)]
+    for (const [name, scenario] of Object.entries(SCENARIOS)) {
+      const plain = modelFor(scenario)
+      const clipped = mountedModel(scenario)
+      for (const width of WIDTHS) {
+        const glued = layoutWallMap(plain, { width, maxWallHeight: 208 })
+        if (glued) for (const word of words(glued)) expect(word, `${name} @${width}`).toBe('Start')
+        const hung = layoutWallMap(clipped, { width, maxWallHeight: 208 })
+        if (!hung || clipped.clips.length === 0) continue
+        for (const word of words(hung)) expect(word, `${name} @${width} mounted`).toBe('SO')
+      }
+    }
+  })
+
+  it('never lets the SO tag cover a clip or a key mark', () => {
+    const markBoxes = (g: WallMapGeometry): Box[] => [...g.clips.map((c) => clipMarkBox(c, g.clipPx)), ...g.keys.map((k) => keyMarkBox(k, g.keyPx))]
+    // The reported wall: centred on a 1000 × 600 surface, on clips. The tag used to sit on the two clip
+    // marks of the tile up and to the right of the setting-out point.
+    const reported = fixedModel({ surface: { width: 1000, height: 600 }, tile: 150, origin: 'center' }, { mount: 'clips' })
+    const g = layoutWallMap(reported, { width: 478, maxWallHeight: 208 })!
+    expect(g.clips.length).toBeGreaterThan(0)
+    expect(g.start.pill).not.toBeNull()
+    expect(markBoxes(g).filter((m) => overlap(g.start.pill!, m, 0))).toEqual([])
+    // And everywhere else the tag is drawn, whichever marks are on the wall.
+    for (const [name, scenario] of Object.entries(SCENARIOS)) {
+      for (const model of [mountedModel(scenario), fixedModel(scenario, { mount: 'clips' }), keyedModel(scenario)]) {
+        for (const width of WIDTHS) {
+          const map = layoutWallMap(model, { width, maxWallHeight: 208 })
+          const tag = map?.start.pill
+          if (!map || !tag) continue
+          expect(markBoxes(map).filter((m) => overlap(tag, m, 0)), `${name} @${width}`).toEqual([])
+          // Sent to the side column, the tag still keeps to the drawing and off every chip.
+          expect(within(tag, { x: 0, y: 0, width: map.width, height: map.height }), `${name} @${width} in the drawing`).toBe(true)
+          for (const chip of map.chips) expect(overlap(tag, chip.box, 1), `${name} @${width} over chip ${chip.mark}`).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('marks every key on its joint, across it, at a size that reads', () => {
+    for (const [name, scenario] of Object.entries(SCENARIOS)) {
+      const model = keyedModel(scenario)
+      const g = layoutWallMap(model, { width: 400, maxWallHeight: 208 })
+      if (!g) continue
+      expect(g.keys, name).toHaveLength(model.keys.length)
+      expect(g.keyPx).toBeGreaterThanOrEqual(KEY_MARK_MIN_PX)
+      expect(g.keyPx).toBeLessThanOrEqual(KEY_MARK_MAX_PX)
+      g.keys.forEach((k, i) => {
+        expect(k.upright).toBe(model.keys[i].seam === 'horizontal')
+        expect(within({ x: k.x, y: k.y, width: 0, height: 0 }, g.wall, 0.5), `${name} key ${i}`).toBe(true)
+      })
+    }
+    const g = layoutWallMap(keyedModel(SCENARIOS.exact), { width: 478, maxWallHeight: 208 })!
+    expect(g.keys).toHaveLength(104)
+    // On a straight grid of whole tiles each key's centre is on a joint line of the drawing.
+    const lines = new Set(g.tiles.flatMap((t) => [Math.round(t.x), Math.round(t.x + t.width)]))
+    for (const k of g.keys.filter((k) => !k.upright)) expect(lines.has(Math.round(k.x))).toBe(true)
+  })
+
+  it('draws a key mark as one closed dog-bone of the asked length, across its joint', () => {
+    const extent = (d: string) => {
+      const [start, ...moves] = d.slice(1, -1).split('l')
+      let [x, y] = start.split(' ').map(Number)
+      let [minX, maxX, minY, maxY] = [x, x, y, y]
+      for (const m of moves) {
+        const [dx, dy] = m.split(' ').map(Number)
+        x += dx
+        y += dy
+        ;[minX, maxX, minY, maxY] = [Math.min(minX, x), Math.max(maxX, x), Math.min(minY, y), Math.max(maxY, y)]
+      }
+      return { w: maxX - minX, h: maxY - minY, closes: Math.abs(x - Number(start.split(' ')[0])) < 0.05 }
+    }
+    const across = keyMarkPath({ x: 50, y: 20, upright: false }, 8)
+    expect(across.startsWith('M') && across.endsWith('z')).toBe(true)
+    expect(extent(across)).toMatchObject({ w: 8, h: 5, closes: true })
+    const upright = extent(keyMarkPath({ x: 50, y: 20, upright: true }, 8))
+    expect(upright.w).toBeCloseTo(5, 6)
+    expect(upright.h).toBeCloseTo(8, 6)
+  })
+
+  it('redraws when clips or keys come on', () => {
+    const plain = modelFor(SCENARIOS.exact)
+    expect(planLayoutKey(fixedModel(SCENARIOS.exact, { mount: 'clips' }))).not.toBe(planLayoutKey(plain))
+    expect(planLayoutKey(keyedModel(SCENARIOS.exact))).not.toBe(planLayoutKey(plain))
   })
 })

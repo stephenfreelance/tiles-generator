@@ -1,9 +1,15 @@
 import type { ReactNode } from 'react'
+import { SectionRule } from '@/ui'
 import { cx } from '@/ui/cx'
 import styles from './studio.module.scss'
 
+/** The rule over one part of a step; its words name the group the part sits in. */
+export function EdgeRule({ id, children }: { id: string; children: string }) {
+  return <SectionRule as="h3" className={styles.edgeRule} label={<span id={id}>{children}</span>} />
+}
+
 export interface FieldGroupProps {
-  /** Reading order down the column, 1 to 5. */
+  /** Reading order down the column, 1 to 7. */
   step: number
   title: string
   /** What this step currently says, shown at the end of its heading: "120 × 60 cm". */
@@ -14,7 +20,7 @@ export interface FieldGroupProps {
   className?: string
 }
 
-/** One of the five choices. Always open: nothing here folds away, only Advanced does. */
+/** One of the seven choices. Always open: nothing here folds away, only Advanced does. */
 export function FieldGroup({ step, title, now, hint, children, className }: FieldGroupProps) {
   const titleId = `studio-group-${step}`
   return (

@@ -4,6 +4,7 @@
 // layout would not lay.
 
 import { LIMITS } from '@/core/config'
+import { tabLimits } from '@/core/fixing/capability'
 import {
   computeLayout,
   recommendedTile,
@@ -44,9 +45,10 @@ export interface TileChoice {
 export const sameTileSize = (a: { width: number; height: number }, b: { width: number; height: number }): boolean =>
   Math.abs(a.width - b.width) < 0.05 && Math.abs(a.height - b.height) < 0.05
 
-// layout.ts keeps its own copy of this private and is a read-only contract, hence the repeat.
-const fitsBed = (width: number, height: number, bed?: PrinterBed): boolean =>
-  !bed || (width <= bed.width && height <= bed.depth) || (height <= bed.width && width <= bed.depth)
+// layout.ts keeps its own copy of this private and is a read-only contract, hence the repeat. `grow` is
+// what a tab adds to the printed width: an offer is only a fit while that box lands on the bed.
+const fitsBed = (width: number, height: number, bed?: PrinterBed, grow = 0): boolean =>
+  !bed || (width + grow <= bed.width && height <= bed.depth) || (height <= bed.width && width + grow <= bed.depth)
 
 const PRESET_LAYOUT: DesignConfig['layout'] = { origin: 'corner', rowOffset: 0 }
 
@@ -61,7 +63,7 @@ function rectangleTile(
   const max = options.max ?? 400
   const { width, height } = size
   if (Math.min(width, height) < min || Math.max(width, height) > max) return null
-  if (!fitsBed(width, height, options.bed)) return null
+  if (!fitsBed(width, height, options.bed, options.grow)) return null
   const plan = computeLayout({ surface, tile: { width, height }, joint, layout: options.layout ?? PRESET_LAYOUT })
   return {
     width,
@@ -150,6 +152,8 @@ export const tileSuggestOptions = (config: DesignConfig): TileSuggestOptions => 
   // The layout matters to the promise: a size that leaves no cuts from the corner can still cut every
   // edge once the grid is centred or the rows are shifted.
   layout: config.layout,
+  // With tabs cut, the file is wider than the tile, so a chip is only offered while the printed box fits.
+  grow: tabLimits(config)?.projection ?? 0,
 })
 
 /** The chips the Tile size group shows for this design; `picked` as in tileChoices. */
@@ -160,9 +164,13 @@ export const tileChoicesFor = (config: DesignConfig, picked?: { width: number; h
 export const recommendationFor = (config: DesignConfig): TileFit | null =>
   recommendedTile(config.surface, config.joint, tileSuggestOptions(config))
 
-/** Everything the recommendation is computed from, so an edit that touches none of it costs nothing. */
+/**
+ * Everything the recommendation is computed from, so an edit that touches none of it costs nothing. The
+ * tab's projection stands for the three fields behind it (the lock, the joint and the plate): it is the one
+ * of them the offer itself reads, through the bed check.
+ */
 const recommendationInputs = (config: DesignConfig): string =>
-  JSON.stringify([config.surface, config.joint, config.layout, config.printerId])
+  JSON.stringify([config.surface, config.joint, config.layout, config.printerId, tabLimits(config)?.projection ?? 0])
 
 /**
  * What the maker chose in the Tile size group. `size` is any number they picked (a familiar chip, a

@@ -21,9 +21,15 @@
   position: relative;
   display: grid;
   place-items: center;
+  width: 100%;
   min-width: 0;
   min-height: 0;
-  padding: clamp(var(--s-2), 1.5vw, var(--s-5));
+  // The wall's own proportions, written by HeroStage from the plan: a frame shaped by the leftovers of
+  // the type column can never agree with a wall whose shape comes from the visitor's own measurements,
+  // and every pixel of the difference is empty air over and under the tiles.
+  aspect-ratio: var(--wall-ratio, 1.43);
+  // Only over and under: the left and right edges line up with the caption rule below the wall.
+  padding-block: clamp(var(--s-2), 1.5vw, var(--s-4));
   // A long perspective and a small turn. The wall is a grid of real millimetres and the page's promise
   // is that it fits exactly, so the keystone the turn costs is a lie the picture tells about the tiles:
   // at rotateY(-7deg)/1800px the wall's own aspect rendered 3.8% wrong, and at -4deg/2400px it is 1.6%,

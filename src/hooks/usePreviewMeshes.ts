@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react'
+import { tabLimits } from '@/core/fixing/capability'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { geometryClient } from '@/workers/geometryClient'
 import type { PreviewPiece } from '@/workers/protocol'
@@ -36,6 +37,29 @@ export interface PreviewBuildRequest {
   key: string
   passes: PreviewPass[]
   config: DesignConfig
+  /** Cut the key notches and clip pockets into the backs; omitted, they are cut. */
+  backFeatures?: boolean
+}
+
+/**
+ * Whether a view's meshes carry the pockets in the tiles' backs. The whole wall's camera never gets
+ * behind it, so meshing them there only costs triangles (over a million on a big keyed wall on clips);
+ * the single tile has a Back view that shows them.
+ */
+export const previewBackFeatures = (detail: PreviewDetail): boolean => detail === 'tile'
+
+/**
+ * How far a piece's mesh stands out past its tile in this view, mm: a tab is a back feature, so it is on
+ * the mesh only where the backs are meshed at all. The viewport's footprint guard (meshMatchesPiece) reads
+ * this; asking for the tab where the wall was built without it refuses every mesh and empties the view.
+ */
+export const previewTabGrow = (config: DesignConfig, detail: PreviewDetail): number =>
+  previewBackFeatures(detail) ? (tabLimits(config)?.projection ?? 0) : 0
+
+/** The request key of a build: everything the meshes depend on, the backs included. */
+export function previewRequestKey(detail: PreviewDetail, geometry: string, passes: readonly PreviewPass[]): string {
+  const passesKey = passes.map((p) => `${piecesKey(p.pieces)}@${p.cellMm}/${p.normalMapTexelMm}`).join(';')
+  return `${detail}|${previewBackFeatures(detail) ? 'backs' : 'fronts'}|${geometry}|${passesKey}`
 }
 
 /**
@@ -70,7 +94,14 @@ export async function runPreviewBuild(
     const isFinal = index === request.passes.length - 1
     try {
       const result = await geometryClient.request(
-        { kind: 'preview', config: request.config, pieces: pass.pieces, cellMm: pass.cellMm, normalMapTexelMm: pass.normalMapTexelMm },
+        {
+          kind: 'preview',
+          config: request.config,
+          pieces: pass.pieces,
+          cellMm: pass.cellMm,
+          normalMapTexelMm: pass.normalMapTexelMm,
+          backFeatures: request.backFeatures ?? true,
+        },
         { signal, supersede: supersedeKey },
       )
       if (signal.aborted) return
@@ -101,8 +132,7 @@ export function usePreviewMeshes(config: DesignConfig, plan: LayoutPlan, detail:
 
   const request = useMemo<PreviewBuildRequest>(() => {
     const passes = previewPasses(config, plan, detail)
-    const passesKey = passes.map((p) => `${piecesKey(p.pieces)}@${p.cellMm}/${p.normalMapTexelMm}`).join(';')
-    return { key: `${detail}|${geometryKey(config)}|${passesKey}`, passes, config }
+    return { key: previewRequestKey(detail, geometryKey(config), passes), passes, config, backFeatures: previewBackFeatures(detail) }
   }, [config, plan, detail])
 
   const [state, setState] = useState<PreviewBuildState>(() => ({

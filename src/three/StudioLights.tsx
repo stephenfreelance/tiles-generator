@@ -135,6 +135,11 @@ interface RakingKeyLightProps {
   width: number
   height: number
   reliefTop: number
+  /**
+   * The highest anything casting a shadow reaches, mm, when it is more than the relief: the single tile
+   * standing on its edge half way through being turned over. Omitted: the relief top.
+   */
+  castTop?: number
   lightAngle: number
   tier: Tier
   /** Presentation preset. Omitted or 'studio': today's rake, exactly. */
@@ -171,6 +176,7 @@ function RakingKeyLight({
   width,
   height,
   reliefTop,
+  castTop,
   lightAngle,
   tier,
   presentation = 'studio',
@@ -216,17 +222,18 @@ function RakingKeyLight({
       const direction = keyLightDirection(stage, lightAngle, elevationDeg)
       const normal = stageNormal(stage)
       const back = Math.max(0, standoffMm)
-      const center = surfaceToWorld(stage, 0, 0, reliefTop / 2)
+      const top = Math.max(reliefTop, castTop ?? 0)
+      const center = surfaceToWorld(stage, 0, 0, top / 2)
       // Relief shadows reach past the tiles on the backdrop; include that spill in the fit. A standing-off
       // wall throws from its whole depth, so the spill is measured from the catcher, not from the tile back.
-      const spill = (reliefTop + back) / Math.tan(THREE.MathUtils.degToRad(elevationDeg)) + LOOK.key.marginMm
-      const corners = boxCorners(stage, width + spill * 2, height + spill * 2, -back, reliefTop)
+      const spill = (top + back) / Math.tan(THREE.MathUtils.degToRad(elevationDeg)) + LOOK.key.marginMm
+      const corners = boxCorners(stage, width + spill * 2, height + spill * 2, -back, top)
       const fit = fitShadowCamera(corners, center, direction, normal, LOOK.key.marginMm)
       configureKeyLight(light, { fit, normal, center, mapSize: LOOK.key.mapSize[tier], radius: object ? LOOK.object.shadowRadius : undefined })
       const rake = rakeRef.current
       if (rake) rake.appliedDeg = elevationDeg
     },
-    [light, stage, lightAngle, width, height, reliefTop, tier, object, standoffMm],
+    [light, stage, lightAngle, width, height, reliefTop, castTop, tier, object, standoffMm],
   )
 
   useEffect(() => {

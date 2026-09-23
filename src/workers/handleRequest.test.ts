@@ -1,8 +1,14 @@
 import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '@/core/config'
-import { pieceFileName } from '@/core/export/filenames'
-import { computeLayout } from '@/core/layout'
+import { accessoryFileName, pieceFileName } from '@/core/export/filenames'
+import { buildReadme } from '@/core/export/readme'
+import { NO_TABS } from '@/core/export/testFixings'
+import { accessoryParts, wallParts } from '@/core/fixing/accessories'
+import { mountingGuide } from '@/core/fixing/guide'
+import { joinPlan } from '@/core/fixing/joins'
+import { mountPlan } from '@/core/fixing/mount'
+import { computeLayout, layoutInputOf } from '@/core/layout'
 import { CHIP_SHADE_BUDGET_BYTES, renderReliefChip } from '@/core/textures/hillshade'
 import type { DesignConfig } from '@/core/types'
 import { ByteLru, CancelledError, chipShades, handleRequest, type HandlerContext } from './handleRequest'
@@ -80,6 +86,65 @@ describe('handleRequest', () => {
     expect(transfer).toContain(result.zip!.data.buffer)
   })
 
+  it('leaves the zip of a glued design without keys exactly as it was: tiles, the plan and the README', async () => {
+    const request = { kind: 'export', config, plan, format: 'stl', quality: 'draft', zip: true, planSvg: '<svg/>' } as const
+    const { result } = await handleRequest(request, context())
+    const entries = unzipSync(result.zip!.data)
+    expect(Object.keys(entries)).toEqual([...plan.pieces.map((p) => pieceFileName(p, 'stl')), 'setting-out-plan.svg', 'README.txt'])
+    expect(strFromU8(entries['README.txt'])).toBe(buildReadme(config, plan, 'stl'))
+    expect(result.files.every((f) => f.accessoryId === undefined && f.folder === undefined)).toBe(true)
+    expect(result.stats.map((s) => [s.partId, s.pieceId])).toEqual(plan.pieces.map((p) => [p.id, p.id]))
+    // Asking for no parts changes nothing when there are none.
+    const without = await handleRequest({ ...request, accessories: false }, context())
+    const again = unzipSync(without.result.zip!.data)
+    for (const [name, data] of Object.entries(entries)) expect(again[name]).toEqual(data)
+    // Clips asked for on this 3 mm plate place none: the wall is glued, and its zip is the glued one to the byte.
+    const clips = await handleRequest({ ...request, config: { ...config, mount: 'clips' } }, context())
+    const unclipped = unzipSync(clips.result.zip!.data)
+    expect(Object.keys(unclipped)).toEqual(Object.keys(entries))
+    for (const [name, data] of Object.entries(entries)) expect(unclipped[name]).toEqual(data)
+    // Keys asked for too: still no part and no folder, and the README only adds that no key fits.
+    const keys = await handleRequest({ ...request, config: { ...config, lock: 'keys', mount: 'clips' } }, context())
+    const unkeyed = unzipSync(keys.result.zip!.data)
+    expect(Object.keys(unkeyed)).toEqual(Object.keys(entries))
+    const readme = strFromU8(entries['README.txt'])
+    const noKey = strFromU8(unkeyed['README.txt'])
+    const section = noKey.slice(noKey.indexOf('KEYS BETWEEN TILES'), noKey.indexOf('\nMOUNTING\n') + 1)
+    expect(section).toMatch(/^KEYS BETWEEN TILES\n {2}No key fits this design: [^]*Glue them as below\.\n\n$/)
+    expect(noKey.replace(section, '')).toBe(readme)
+  })
+
+  it('files every part of a keyed wall on clips in its folder, and numbers its steps in the README', async () => {
+    // Whatever the clip and key builders return today: each part lands in its folder under its name.
+    const fitted: DesignConfig = { ...config, tile: { ...config.tile, thickness: 4 }, lock: 'keys', mount: 'clips' }
+    const fittedPlan = computeLayout(layoutInputOf(fitted))
+    const parts = wallParts(fitted, fittedPlan)
+    const mount = mountPlan(fitted, fittedPlan)
+    const join = joinPlan(fitted, fittedPlan)
+    expect(mount.clips).toBeGreaterThan(0)
+    expect(join.keys).toBeGreaterThan(0)
+    // The catalogue holds a fit test for this design, and the wall's zip holds none of it.
+    expect(new Set(accessoryParts(fitted, fittedPlan).map((p) => p.group))).toEqual(new Set(['fit-test', 'mount', 'join']))
+    expect(new Set(parts.map((p) => p.group))).toEqual(new Set(['mount', 'join']))
+    const { result } = await handleRequest(
+      { kind: 'export', config: fitted, plan: fittedPlan, format: 'stl', quality: 'draft', zip: true, planSvg: '<svg/>' },
+      context(),
+    )
+    const entries = unzipSync(result.zip!.data)
+    for (const part of parts) expect(entries[`${part.group}/${accessoryFileName(part, 'stl')}`]?.byteLength).toBeGreaterThan(84)
+    expect(result.files.filter((f) => f.accessoryId).map((f) => f.accessoryId)).toEqual(parts.map((p) => p.id))
+    // The tiles and two documents at the root, every part in a folder, and no mounting plan.
+    expect(Object.keys(entries).some((name) => name.startsWith('fit-test/'))).toBe(false)
+    const root = Object.keys(entries).filter((name) => !name.includes('/'))
+    expect(root.sort()).toEqual([...fittedPlan.pieces.map((p) => pieceFileName(p, 'stl')), 'README.txt', 'setting-out-plan.svg'].sort())
+    const readme = strFromU8(entries['README.txt']).replace(/\s+/g, ' ')
+    const guide = mountingGuide({ config: fitted, plan: fittedPlan, mount, join, tab: NO_TABS, accessories: parts })
+    expect(guide.system).toBe('both')
+    expect(readme).toContain('MOUNTING ON WALL CLIPS')
+    guide.steps.forEach((step, i) => expect(readme).toContain(`${i + 1}. ${step.title}. ${step.body.join(' ')}`))
+    expect(readme).not.toMatch(/mounting-plan|\brails?\b/)
+  })
+
   it('exports only the requested pieces as STEP', async () => {
     const cut = plan.pieces[1]
     const { result } = await handleRequest(
@@ -136,6 +201,21 @@ describe('handleRequest', () => {
       await handleRequest({ kind: 'chips', sizePx: 32, items: [{ key: 'a', config: variant }] }, context())
     }
     expect(chipShades).toMatchObject({ size: 6, hits: 0, misses: 6 })
+  })
+
+  it('draws a border piece with its profile, under its own shade', async () => {
+    chipShades.clear()
+    const bordered: DesignConfig = { ...config, perimeter: { ...config.perimeter, profile: 'bullnose', width: 6, drop: 2, land: 'peaks' } }
+    const crop = plan.pieces[1].crop
+    const edges = { boundary: 0, tabs: 0, profiled: { bottom: 0 } }
+    const { result } = await handleRequest(
+      { kind: 'chips', sizePx: 40, items: [{ key: 'inner', config: bordered, crop }, { key: 'border', config: bordered, crop, edges }] },
+      context(),
+    )
+    expect(chipShades).toMatchObject({ size: 2, misses: 2 })
+    expect(result.chips[0].data).toEqual(renderReliefChip(bordered, { sizePx: 40, crop }).data)
+    expect(result.chips[1].data).toEqual(renderReliefChip(bordered, { sizePx: 40, crop, edges }).data)
+    expect(result.chips[1].data).not.toEqual(result.chips[0].data)
   })
 
   it('keeps the shade cache inside its byte budget, dropping the least recently used first', () => {

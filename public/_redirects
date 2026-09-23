@@ -1,4 +1,4 @@
-# The router uses real paths (createBrowserRouter), so /studio, /download and /history must serve
+# The router uses real paths (createBrowserRouter), so /studio, /download, /fit-test and /history must serve
 # the app shell instead of the host's 404. Existing files win over this rule, so /assets/* and
 # /fonts/* are still served directly. Hosts that do not read this file (GitHub Pages, S3, nginx)
 # ignore it: configure their own SPA fallback to index.html there. See README "Deploy".

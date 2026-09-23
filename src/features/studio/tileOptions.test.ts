@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG, LIMITS } from '@/core/config'
+import { tabLimits } from '@/core/fixing/capability'
 import { computeLayout } from '@/core/layout'
 import { printerById } from '@/core/printers'
 import type { DesignConfig } from '@/core/types'
@@ -110,6 +111,20 @@ describe('tileChoices', () => {
       }
     }
   })
+
+  it('offers nothing whose printed box misses the bed once the tabs are cut', () => {
+    const bed = printerById('bambu-a1-mini')
+    const wall = { surface: { width: 1050, height: 700 }, printerId: 'bambu-a1-mini' }
+    const plain: DesignConfig = { ...structuredClone(DEFAULT_CONFIG), ...wall }
+    const tabbed: DesignConfig = { ...plain, lock: 'tabs' }
+    const grow = tabLimits(tabbed)!.projection
+    // 175 mm covers this wall exactly and prints on this bed, until the tab is counted against it.
+    expect(tileChoicesFor(plain).some((choice) => choice.fit.width === 175)).toBe(true)
+    expect(tileChoicesFor(tabbed).some((choice) => choice.fit.width === 175)).toBe(false)
+    for (const choice of tileChoicesFor(tabbed)) {
+      expect(choice.fit.width + grow, choice.value).toBeLessThanOrEqual(bed.width)
+    }
+  })
 })
 
 describe('followRecommendation', () => {
@@ -149,6 +164,15 @@ describe('followRecommendation', () => {
     const bed = printerById('bambu-a1-mini')
     const printed = followRecommendation(narrow, edits[4][2]).tile
     expect(Math.max(printed.width, printed.height)).toBeLessThanOrEqual(Math.max(bed.width, bed.depth))
+  })
+
+  it('follows the recommendation when the tabs no longer let the printed box land on the bed', () => {
+    const before = onRecommended({ surface: { width: 1050, height: 700 }, printerId: 'bambu-a1-mini' })
+    expect(sizeOf(before.tile)).toEqual({ width: 175, height: 175 })
+    const tabbed: DesignConfig = { ...before, lock: 'tabs' }
+    const after = followRecommendation(before, tabbed)
+    expect(sizeOf(after.tile)).toEqual(sizeOf(recommendationFor(tabbed)!))
+    expect(sameTileSize(after.tile, before.tile)).toBe(false)
   })
 
   it('keeps the thickness and everything else the edit set', () => {

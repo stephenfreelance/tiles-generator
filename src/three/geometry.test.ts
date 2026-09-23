@@ -13,6 +13,7 @@ const piece: PieceSpec = {
   width: 42.5,
   height: 150,
   count: 4,
+  edges: { boundary: 0, tabs: 0, profiled: {} },
 }
 
 /** A slab of the piece's footprint: four top corners, two triangles, no UVs or normals. */
@@ -29,6 +30,29 @@ describe('meshMatchesPiece', () => {
     expect(meshMatchesPiece(slab(piece.width, piece.height), piece)).toBe(true)
     expect(meshMatchesPiece(slab(150, 150), piece)).toBe(false)
     expect(meshExtent(slab(piece.width, piece.height)).maxZ).toBe(4)
+  })
+
+  // A tab meshes past the piece's right side. Without this the guard refuses every tabbed mesh and the
+  // studio draws nothing at all, which no gate would catch: the view just goes empty.
+  it('expects a tabbed piece to mesh exactly its tab wider, and every other piece not to', () => {
+    const GROW = 8
+    const tabbed: PieceSpec = { ...piece, edges: { ...piece.edges, tabs: 2 } }
+    expect(meshMatchesPiece(slab(piece.width + GROW, piece.height), tabbed, undefined, GROW)).toBe(true)
+    // The same mesh on a piece the layout gave no tab is the wrong solid for it.
+    expect(meshMatchesPiece(slab(piece.width + GROW, piece.height), piece, undefined, GROW)).toBe(false)
+    // And a tabbed piece's own plain mesh is the one from before the tabs were cut.
+    expect(meshMatchesPiece(slab(piece.width, piece.height), tabbed, undefined, GROW)).toBe(false)
+  })
+
+  it('still catches a tile size that moved by less than a tab reaches', () => {
+    const GROW = 8
+    const tabbed: PieceSpec = { ...piece, edges: { ...piece.edges, tabs: 2 } }
+    // 4 mm narrower than it should be, which is well inside the allowance a generous ceiling would give.
+    expect(meshMatchesPiece(slab(piece.width + GROW - 4, piece.height), tabbed, undefined, GROW)).toBe(false)
+    expect(meshMatchesPiece(slab(piece.width + GROW, piece.height - 4), tabbed, undefined, GROW)).toBe(false)
+    // The 0.06 mm tolerance is all the slack there is, on either side of the printed width.
+    expect(meshMatchesPiece(slab(piece.width + GROW + 0.05, piece.height), tabbed, undefined, GROW)).toBe(true)
+    expect(meshMatchesPiece(slab(piece.width + GROW + 0.07, piece.height), tabbed, undefined, GROW)).toBe(false)
   })
 })
 

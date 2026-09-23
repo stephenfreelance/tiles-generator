@@ -1,25 +1,12 @@
 import type { HeightField } from '../textures/types'
-import type { DesignConfig, PieceSpec } from '../types'
+import type { DesignConfig, PieceEdges, PieceSpec } from '../types'
+import { topShaper } from './profiles'
 
-type PieceRect = Pick<PieceSpec, 'crop' | 'width' | 'height'>
+// The chamfer helpers moved to profiles.ts with the other edge shapes; kept here for their callers.
+export { applyBevel, effectiveBevel } from './profiles'
 
-/** Chamfer size actually applied: never more than half the base plate, so the bevel keeps a solid base. */
-export function effectiveBevel(config: DesignConfig): number {
-  return Math.max(0, Math.min(config.bevel, config.tile.thickness / 2))
-}
-
-/**
- * The 45° chamfer shared by the mesh builder, the normal-map baker and the chip renderer.
- * `z` is the unbevelled top height, `d` the distance to the nearest piece edge. The cut follows the
- * local surface so the rim always drops by the full chamfer: measured from the deepest possible relief
- * instead, a flat or shallow texture would come out with no chamfer at all.
- */
-export function applyBevel(z: number, d: number, thickness: number, bevel: number): number {
-  if (bevel <= 0 || d >= bevel) return z
-  const capped = z - (bevel - d)
-  // Outside the piece (d < 0, central differences at the rim) the chamfer keeps its slope.
-  return d >= 0 ? Math.max(capped, thickness - bevel) : capped
-}
+/** The rectangle a sampler covers, and how it meets the surface edge (absent: an interior piece). */
+export type PieceRect = Pick<PieceSpec, 'crop' | 'width' | 'height'> & { edges?: PieceEdges }
 
 /** Distance from piece-local (x, y) to the nearest edge of a width x height piece. */
 export function edgeDistance(x: number, y: number, width: number, height: number): number {
@@ -41,19 +28,18 @@ export function patternCoord(local: number, size: number, c0: number, c1: number
   return wrap(local === size ? c1 : c0 + local, period)
 }
 
-/** Top-surface z (mm, from the bottom face) of a piece at piece-local (x, y), bevel included. */
-export function pieceTopSampler(
-  config: DesignConfig,
-  field: HeightField,
-  piece: PieceRect,
-): (x: number, y: number) => number {
+/**
+ * Top-surface z (mm, from the bottom face) of a piece at piece-local (x, y): the relief on the plate,
+ * shaped by the joint edge and, on a border piece, the perimeter profile.
+ */
+export function pieceTopSampler(config: DesignConfig, field: HeightField, piece: PieceRect): (x: number, y: number) => number {
   const { crop, width, height } = piece
   const thickness = config.tile.thickness
-  const bevel = effectiveBevel(config)
+  const shape = topShaper(config, piece.edges)
   const px = field.periodX
   const py = field.periodY
   return (x, y) => {
     const h = field(patternCoord(x, width, crop.x0, crop.x1, px), patternCoord(y, height, crop.y0, crop.y1, py))
-    return applyBevel(thickness + h, edgeDistance(x, y, width, height), thickness, bevel)
+    return shape(thickness + h, y, width - x, height - y, x)
   }
 }

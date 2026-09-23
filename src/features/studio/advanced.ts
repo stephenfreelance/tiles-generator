@@ -23,7 +23,8 @@ export function advancedChanges(config: DesignConfig): AdvancedChanges {
   }).length
 
   return {
-    gaps: countTrue(differs(config.joint, defaults.joint), differs(config.bevel, defaults.bevel)),
+    // The joint edge is step 6's and the fixings step 7's, both always open: only the gap is left behind this lid.
+    gaps: countTrue(differs(config.joint, defaults.joint)),
     grid: countTrue(
       config.layout.origin !== defaults.layout.origin,
       config.layout.rowOffset !== defaults.layout.rowOffset,
@@ -48,7 +49,7 @@ export function resetGroup(group: AdvancedGroupId, design: DesignConfig): Design
   const defaults = DEFAULT_CONFIG
   switch (group) {
     case 'gaps':
-      return { ...design, joint: defaults.joint, bevel: defaults.bevel }
+      return { ...design, joint: defaults.joint }
     case 'grid':
       return { ...design, layout: { ...defaults.layout } }
     case 'pattern': {

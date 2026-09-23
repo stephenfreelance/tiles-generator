@@ -1,5 +1,7 @@
 // Detail that is needed rarely: a lid on the bench, closed, named by what is under it.
 .root {
+  // A control that opens it from elsewhere scrolls it into view with a little air above.
+  scroll-margin-top: var(--s-4);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   background: var(--panel);

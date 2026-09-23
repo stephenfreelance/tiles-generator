@@ -1,6 +1,6 @@
 @use '@/styles/mixins' as *;
 
-// The wall on the left, the five numbered choices that make it on the right.
+// The wall on the left, the six numbered choices that make it on the right.
 .studio {
   // The chosen color, painted into the bench. Both mixes are derived HERE as well as in the token
   // file because a custom property holding a var() resolves against the element it is declared on:
@@ -61,7 +61,7 @@
   min-width: 0;
 }
 
-// The plan is the answer to the five choices above it, so its head carries no step number.
+// The plan is the answer to the six choices above it, so its head carries no step number.
 .planHead {
   display: flex;
   flex-wrap: wrap;

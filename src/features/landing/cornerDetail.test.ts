@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG, normalizeConfig } from '@/core/config'
-import { computeLayout } from '@/core/layout'
+import { computeLayout, layoutInputOf } from '@/core/layout'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { cornerDetail } from './cornerDetail'
 
@@ -65,6 +65,17 @@ describe('cornerDetail', () => {
     expect(exact.placements).toHaveLength(4)
     expect(exact.pieces).toHaveLength(1)
     expect([exact.fullCount, exact.partialCount, exact.exact]).toEqual([4, 0, true])
+  })
+
+  it('counts every whole tile in the corner when keys make border versions of it', () => {
+    const keyed = cornerDetail(computeLayout(layoutInputOf({ ...wall(1000, 700), lock: 'keys' })))
+    expect([keyed.fullCount, keyed.partialCount]).toEqual([detail.fullCount, detail.partialCount])
+
+    // An exact wall's corner is four whole tiles in four models: interior, bottom, right and corner.
+    const exactKeyed = cornerDetail(computeLayout(layoutInputOf({ ...wall(2400, 1200), lock: 'keys' })))
+    expect(exactKeyed.pieces.every((piece) => piece.kind === 'full')).toBe(true)
+    expect(exactKeyed.pieces).toHaveLength(4)
+    expect([exactKeyed.fullCount, exactKeyed.partialCount, exactKeyed.exact]).toEqual([4, 0, true])
   })
 
   it('returns what a wall of one tile has, rather than inventing pieces', () => {

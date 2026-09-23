@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_PERIMETER } from '../config'
 import type { PieceSpec } from '../types'
 import { applyBevel, edgeDistance, effectiveBevel, patternCoord, pieceTopSampler } from './heightfield'
 import { flatField, noiseField, plateField, testConfig } from './testFields'
@@ -113,5 +114,43 @@ describe('pieceTopSampler', () => {
     for (let y = 10; y < 140; y += 10) expect(leftCut(40, y)).toBe(full(65, y))
     // The cut piece's right rim is the tile edge, so it meets the next tile's left rim exactly.
     for (let y = 10; y < 140; y += 10) expect(leftCut(125, y)).toBe(full(0, y))
+  })
+
+  it('shapes a border piece by its edges, and only when the design has a profile', () => {
+    const margin = testConfig({ perimeter: { ...DEFAULT_PERIMETER, profile: 'margin', width: 8, land: 'valleys' } })
+    const field = flatField(2.4, 150, 150)
+    const border = { ...fullPiece, edges: { boundary: 0, tabs: 0, profiled: { bottom: 0 } } }
+    const sample = pieceTopSampler(margin, field, border)
+    // On the flat land, past the joint edge the margin keeps on its outer edge: the relief is gone.
+    expect(sample(75, 4)).toBe(4)
+    // Past the band the relief is untouched; the other sides keep their chamfer.
+    expect(sample(75, 75)).toBeCloseTo(6.4, 12)
+    expect(sample(0, 75)).toBeCloseTo(5.8, 12)
+    // The same edges on a design without a profile change nothing.
+    const plain = pieceTopSampler(config, field, border)
+    const interior = pieceTopSampler(config, field, fullPiece)
+    for (let y = -0.5; y < 20; y += 0.7) expect(plain(10, y)).toBe(interior(10, y))
+  })
+
+  it('trims the relief on a border piece whose profile cuts it, and never fills a dip', () => {
+    const cut = testConfig({ perimeter: { ...DEFAULT_PERIMETER, profile: 'bullnose', width: 6, drop: 3, land: 'cut' } })
+    const peaks = testConfig({ perimeter: { ...DEFAULT_PERIMETER, profile: 'bullnose', width: 6, drop: 3, land: 'peaks' } })
+    const field = noiseField(2.4, 150, 150)
+    const border = { ...fullPiece, edges: { boundary: 0, tabs: 0, profiled: { bottom: 0 } } }
+    const trimmed = pieceTopSampler(cut, field, border)
+    const filled = pieceTopSampler(peaks, field, border)
+    const t = cut.tile.thickness
+    let lower = 0
+    for (let x = 10; x < 140; x += 1.3) {
+      for (let y = 0; y < 6; y += 0.25) {
+        expect(trimmed(x, y)).toBeLessThanOrEqual(t + field(x, y))
+        expect(trimmed(x, y)).toBeLessThanOrEqual(filled(x, y))
+        if (trimmed(x, y) < filled(x, y) - 0.1) lower++
+      }
+      // Past its width the relief is back, exactly.
+      for (const y of [6, 9.5, 40]) expect(trimmed(x, y)).toBe(t + field(x, y))
+    }
+    // The dips the peaks land fills stay open.
+    expect(lower).toBeGreaterThan(100)
   })
 })

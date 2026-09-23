@@ -1,8 +1,9 @@
 // The one wall the front page draws with. The visitor sizes it in the hero, and every section below
-// is a computeLayout result for that wall. Pure, so the page's rules are tested without a DOM.
+// is a computeLayout result for that wall, except section 01's proof, which keeps the starting wall
+// (conceptConfig) so it always has cuts to show. Pure, so the page's rules are tested without a DOM.
 import { COLOR_PRESETS, DEFAULT_COLOR, parseHex } from '@/core/colors'
 import { DEFAULT_CONFIG, normalizeConfig } from '@/core/config'
-import { computeLayout } from '@/core/layout'
+import { computeLayout, layoutInputOf } from '@/core/layout'
 import { printerById } from '@/core/printers'
 import { DEFAULT_TEXTURE_ID, textureById } from '@/core/textures/registry'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
@@ -14,16 +15,11 @@ export interface LandingDesign {
   textureId: string
   /** '#RRGGBB', uppercase. */
   color: string
-  /** Set once the visitor nudged an exact fit, so "Back to an exact fit" can undo it. */
-  nudgedMm: number
 }
 
 export type LandingEvent =
   | { type: 'wall'; widthMm?: number; heightMm?: number }
   | { type: 'example'; index: number }
-  /** widthMm + 10, recorded so it can be taken back off. */
-  | { type: 'nudge' }
-  | { type: 'unnudge' }
   | { type: 'texture'; textureId: string }
   | { type: 'color'; hex: string }
   /** A hero key: its relief and its color together. */
@@ -31,9 +27,6 @@ export type LandingEvent =
 
 /** What the hero fields offer, mm. Tighter than LIMITS.surface: below 300 the board has nothing to lay. */
 export const LANDING_WALL_LIMITS = { min: 300, max: 2500 } as const
-
-/** One centimeter: the smallest change that turns an exact fit into a wall with cuts. */
-const NUDGE_MM = 10
 
 export interface LandingSpecimen {
   textureId: string
@@ -80,7 +73,7 @@ export const LANDING_BASE: DesignConfig = normalizeConfig({
   tile: { width: 150, height: 150, thickness: 4 },
   // No joint, as the studio defaults: the tiles butt and the bevel draws the line along each one. A
   // grout line would read better on the board, but it would also stop 240 x 120 dividing exactly, and
-  // the exact-fit wall is what the nudge in section 2 is built on.
+  // that example is the one that shows a wall with no cuts at all.
   joint: 0,
   // A wider chamfer than the studio's default 0.5 mm. Two tiles meet chamfer to chamfer, so this
   // opens a 2 mm valley along every joint: at the size the hero shows the wall that is the line that
@@ -108,7 +101,6 @@ export const LANDING_DESIGN_START: LandingDesign = {
   heightMm: LANDING_BASE.surface.height,
   textureId: LANDING_BASE.texture.id,
   color: LANDING_BASE.color,
-  nudgedMm: 0,
 }
 
 /** A side of the wall in mm, clamped to what the fields offer; anything unusable leaves it alone. */
@@ -119,10 +111,10 @@ function wallSide(mm: number | undefined, current: number): number {
 
 const known = (index: number, length: number): boolean => Number.isInteger(index) && index >= 0 && index < length
 
-/** Resizing is picking a new wall, so whatever was added to nudge the old one no longer applies. */
+/** The same state when nothing moved, so a no-op never re-renders the page. */
 function sizedTo(state: LandingDesign, widthMm: number, heightMm: number): LandingDesign {
-  const same = widthMm === state.widthMm && heightMm === state.heightMm && state.nudgedMm === 0
-  return same ? state : { ...state, widthMm, heightMm, nudgedMm: 0 }
+  const same = widthMm === state.widthMm && heightMm === state.heightMm
+  return same ? state : { ...state, widthMm, heightMm }
 }
 
 export function landingDesignStep(state: LandingDesign, event: LandingEvent): LandingDesign {
@@ -134,16 +126,6 @@ export function landingDesignStep(state: LandingDesign, event: LandingEvent): La
       const wall = EXAMPLE_WALLS[event.index]
       return sizedTo(state, wall.widthMm, wall.heightMm)
     }
-    case 'nudge': {
-      // The clamp can swallow the centimeter at the top of the range; record what it actually added.
-      const widthMm = wallSide(state.widthMm + NUDGE_MM, state.widthMm)
-      const added = widthMm - state.widthMm
-      return added === 0 ? state : { ...state, widthMm, nudgedMm: state.nudgedMm + added }
-    }
-    case 'unnudge':
-      return state.nudgedMm === 0
-        ? state
-        : { ...state, widthMm: wallSide(state.widthMm - state.nudgedMm, state.widthMm), nudgedMm: 0 }
     case 'texture': {
       // The registry answers its default for an id it does not know, which would silently swap the
       // relief under the visitor; an unknown id is a caller bug, so leave the board as it is.
@@ -181,13 +163,17 @@ export function landingConfig(state: LandingDesign): DesignConfig {
   })
 }
 
+/**
+ * The wall section 01 explains the cuts on: the page's own starting wall, whatever the visitor has
+ * sized since, so the proof always has a cut along both edges and never shows "no cuts". It wears the
+ * visitor's relief and color, so it still looks like theirs, and while their wall is the starting one
+ * it is the very same design, so its chips are the hero's own cache hits.
+ */
+export function conceptConfig(state: LandingDesign): DesignConfig {
+  return landingConfig({ ...state, widthMm: LANDING_DESIGN_START.widthMm, heightMm: LANDING_DESIGN_START.heightMm })
+}
+
 /** The wall's layout, costed against the design's printer bed so the page fits what the studio says. */
 export function landingPlan(config: DesignConfig): LayoutPlan {
-  return computeLayout({
-    surface: config.surface,
-    tile: config.tile,
-    joint: config.joint,
-    layout: config.layout,
-    bed: printerById(config.printerId),
-  })
+  return computeLayout(layoutInputOf(config, printerById(config.printerId)))
 }

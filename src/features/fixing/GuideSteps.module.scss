@@ -1,0 +1,220 @@
+// Numbered steps on the bench: ONE column, always, because these are a sequence and a reader must never
+// have to jump back up the page to find step 2. One panel with a hairline between steps rather than a
+// raft of separate cards, a number rail down the left joined by a spine, and the drawing beside the
+// words in a well shaped like the drawing it holds. The download page's guide and the fit-test page's
+// both render through this file, so they are laid out the same way by construction.
+
+// The measure the whole guide is set to: a step's words are prose, so the panel stops well short of a
+// 76rem page rather than running a 14 px line the full width of the window. A SCSS variable, not a
+// custom property, because the needs strip is a sibling of the list and nothing cascades between them.
+$measure: 58rem;
+
+// What to have to hand before step 1: a strip of its own above the list, so it reads as a shopping list
+// rather than as an unnumbered first step.
+.needs {
+  display: grid;
+  grid-template-areas:
+    'icon label'
+    'icon text';
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-1) var(--s-3);
+  max-width: $measure;
+  margin-bottom: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+}
+
+.needsIcon {
+  grid-area: icon;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.15em;
+  color: var(--ink-3);
+  stroke-width: 1.75;
+}
+
+.needsLabel {
+  grid-area: label;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.needsText {
+  grid-area: text;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.steps {
+  display: grid;
+  max-width: $measure;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-areas:
+    'num title drawing'
+    'num text drawing';
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 2rem minmax(0, 1fr) 13rem;
+  align-items: start;
+  gap: var(--s-2) var(--s-5);
+  padding: var(--s-5);
+}
+
+.step + .step {
+  border-top: 1px solid var(--hairline);
+}
+
+// A step without a drawing gives its words that column too.
+.step:not(:has(.drawing)) {
+  grid-template-areas:
+    'num title'
+    'num text';
+  grid-template-columns: 2rem minmax(0, 1fr);
+}
+
+// The spine down the number rail: what makes eight rows read as one numbered sequence.
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--s-5) + 2rem);
+  bottom: 0;
+  left: calc(var(--s-5) + 0.875rem);
+  width: 1px;
+  background: var(--hairline);
+}
+
+// The well every drawing sits in, shaped like the drawing it holds: the wall sections are drawn at
+// 76 x 100 and the plans at 144 x 100, so one box for both wasted half the well on the sections.
+.drawing {
+  position: relative;
+  grid-area: drawing;
+  align-self: start;
+  justify-self: center;
+  width: 100%;
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+.drawing[data-shape='wide'] {
+  aspect-ratio: 3 / 2;
+}
+
+.drawing[data-shape='square'] {
+  aspect-ratio: 1;
+  max-width: 11rem;
+}
+
+// A section is taller than it is wide: given the wide well it drew at 70 px across.
+.drawing[data-shape='section'] {
+  aspect-ratio: 3 / 4;
+  max-width: 9rem;
+}
+
+// Laid over the well rather than in it, so a tall section is fitted to the well (the viewBox keeps its
+// proportions and centres it) instead of stretching the well to its own height.
+.drawing .drawingSvg {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  width: calc(100% - var(--s-4));
+  height: calc(100% - var(--s-4));
+}
+
+.stepText {
+  grid-area: text;
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.stepTitle {
+  grid-area: title;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+// The step number in the same soft accent disc as the studio's steps, in a rail of its own.
+.stepNumber {
+  grid-area: num;
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepBody {
+  max-width: 66ch;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+// Narrow: the drawing drops under the words rather than squeezing both columns.
+@media (max-width: 60rem) {
+  .step {
+    grid-template-areas:
+      'num title'
+      'num text'
+      'num drawing';
+    grid-template-rows: none;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: var(--s-3) var(--s-4);
+  }
+
+  .step:not(:has(.drawing)) {
+    grid-template-areas:
+      'num title'
+      'num text';
+  }
+
+  .drawing {
+    justify-self: start;
+    max-width: 14rem;
+  }
+
+  .drawing[data-shape='square'],
+  .drawing[data-shape='section'] {
+    max-width: 9rem;
+  }
+}
+
+@media (max-width: 32rem) {
+  .step {
+    padding: var(--s-4);
+  }
+
+  .step:not(:last-child)::before {
+    top: calc(var(--s-4) + 2rem);
+    left: calc(var(--s-4) + 0.875rem);
+  }
+
+  .drawing {
+    max-width: 11rem;
+  }
+}

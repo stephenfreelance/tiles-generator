@@ -123,3 +123,113 @@ export function checkMesh(mesh: MeshData): {
   }
   return { closed: boundaryEdges === 0, manifold, oriented, boundaryEdges, volume: meshVolume(mesh) }
 }
+
+/**
+ * Area (mm²) of the faces that look down, with their lowest corner strictly above `zAbove`: the overhangs
+ * a face-up print has to bridge. The bottom face (z = 0) never counts for zAbove >= 0. `minCos` is the
+ * least downward tilt that counts, as -n.z of the unit normal (1e-6: anything that faces down at all;
+ * 0.7: steeper than 45 degrees), so tests can check that planned ceilings are the only overhangs.
+ */
+export function downwardArea(mesh: MeshData, zAbove: number, minCos = 1e-6): number {
+  const p = mesh.positions
+  const idx = mesh.indices
+  let area = 0
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = 3 * idx[t]
+    const b = 3 * idx[t + 1]
+    const c = 3 * idx[t + 2]
+    if (Math.min(p[a + 2], p[b + 2], p[c + 2]) <= zAbove) continue
+    const ux = p[b] - p[a]
+    const uy = p[b + 1] - p[a + 1]
+    const uz = p[b + 2] - p[a + 2]
+    const vx = p[c] - p[a]
+    const vy = p[c + 1] - p[a + 1]
+    const vz = p[c + 2] - p[a + 2]
+    const nx = uy * vz - uz * vy
+    const ny = uz * vx - ux * vz
+    const nz = ux * vy - uy * vx
+    const twice = Math.hypot(nx, ny, nz)
+    if (twice > 0 && -nz >= minCos * twice) area += twice / 2
+  }
+  return area
+}
+
+/** Number of separate pieces: triangles joined through shared corners, vertices welded by exact position. */
+export function componentCount(mesh: MeshData): number {
+  const { ids, count } = weldByPosition(mesh.positions)
+  const parent = new Int32Array(count)
+  for (let v = 0; v < count; v++) parent[v] = v
+  const find = (v: number) => {
+    while (parent[v] !== v) {
+      parent[v] = parent[parent[v]]
+      v = parent[v]
+    }
+    return v
+  }
+  const idx = mesh.indices
+  const used = new Uint8Array(count)
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = find(ids[idx[t]])
+    used[ids[idx[t]]] = 1
+    for (let k = 1; k < 3; k++) {
+      used[ids[idx[t + k]]] = 1
+      const b = find(ids[idx[t + k]])
+      if (a !== b) parent[b] = a
+    }
+  }
+  let components = 0
+  for (let v = 0; v < count; v++) if (used[v] && find(v) === v) components++
+  return components
+}
+
+/**
+ * Vertices where the surface pinches: the triangles around the vertex (welded by position) form more
+ * than one fan, as where two boxes cut out of a solid touch at a single corner. An edge-manifold mesh
+ * (checkMesh) can still pinch at a vertex; slicers cope, but a B-rep solid cannot.
+ */
+export function pinchedVertices(mesh: MeshData): number {
+  const { ids, count } = weldByPosition(mesh.positions)
+  const idx = mesh.indices
+  const start = new Uint32Array(count + 1)
+  for (let t = 0; t < idx.length; t++) start[ids[idx[t]]]++
+  let sum = 0
+  for (let v = 0; v <= count; v++) {
+    const d = v < count ? start[v] : 0
+    start[v] = sum
+    sum += d
+  }
+  // For every vertex, the far edge of each triangle around it: its link, one cycle when the vertex is sound.
+  const cursor = start.slice()
+  const linkA = new Uint32Array(idx.length)
+  const linkB = new Uint32Array(idx.length)
+  for (let t = 0; t < idx.length; t += 3) {
+    for (let k = 0; k < 3; k++) {
+      const v = ids[idx[t + k]]
+      linkA[cursor[v]] = ids[idx[t + ((k + 1) % 3)]]
+      linkB[cursor[v]++] = ids[idx[t + ((k + 2) % 3)]]
+    }
+  }
+  const parent = new Map<number, number>()
+  const find = (v: number): number => {
+    let r = v
+    while (parent.get(r) !== r) r = parent.get(r) as number
+    parent.set(v, r)
+    return r
+  }
+  let pinched = 0
+  for (let v = 0; v < count; v++) {
+    if (start[v] === start[v + 1]) continue
+    parent.clear()
+    for (let p = start[v]; p < start[v + 1]; p++) {
+      if (!parent.has(linkA[p])) parent.set(linkA[p], linkA[p])
+      if (!parent.has(linkB[p])) parent.set(linkB[p], linkB[p])
+      const a = find(linkA[p])
+      const b = find(linkB[p])
+      if (a !== b) parent.set(a, b)
+    }
+    let fans = 0
+    for (const [node] of parent) if (find(node) === node) fans++
+    if (fans > 1) pinched++
+  }
+  return pinched
+}

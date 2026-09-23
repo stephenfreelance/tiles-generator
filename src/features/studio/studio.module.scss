@@ -1,6 +1,6 @@
 @use '@/styles/mixins' as *;
 
-// The studio's own vocabulary: the five numbered steps, the chips they are chosen with, the one
+// The studio's own vocabulary: the six numbered steps, the chips they are chosen with, the one
 // panel that folds, the tools resting on the render, and the notes about the fit.
 
 .grid2 {
@@ -31,7 +31,7 @@
   gap: var(--s-3);
 }
 
-// One of the five choices, numbered so the eye is led down the column.
+// One of the six choices, numbered so the eye is led down the column.
 .group {
   display: grid;
   gap: var(--s-3);
@@ -41,8 +41,9 @@
 
 .groupHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s-1) var(--s-3);
   min-width: 0;
 }
 
@@ -124,12 +125,12 @@
     border-color var(--t-fast) var(--ease-out),
     box-shadow var(--t-fast) var(--ease-out);
 
-  &:hover:not([aria-checked='true']) {
+  &:hover:not([aria-checked='true'], [data-disabled]) {
     border-color: #d8c9af;
     background: #fbf5ea;
   }
 
-  &:active {
+  &:active:not([data-disabled]) {
     background: var(--panel-2);
   }
 
@@ -144,6 +145,23 @@
     background: var(--accent-soft);
     box-shadow: inset 0 0 0 1px var(--accent);
   }
+
+  // Not on offer for this design: recessed and quiet, but the note saying why stays readable.
+  &[data-disabled] {
+    border-style: dashed;
+    background: var(--panel-2);
+    cursor: not-allowed;
+  }
+}
+
+.choice[data-disabled] .choiceName,
+.choice[data-disabled] .choiceSample {
+  color: var(--ink-3);
+}
+
+.choice[data-disabled] .choiceNote {
+  color: var(--ink-2);
+  font-weight: 550;
 }
 
 .choicesStack .choice {
@@ -188,6 +206,8 @@
 
 .choice[aria-checked='true'] .choiceSample {
   color: var(--accent);
+  // A fixing drawing inks its part in the accent too: on a chosen card the part turns ink, or it would vanish.
+  --diagram-part: var(--ink);
 }
 
 .choiceText {
@@ -267,10 +287,11 @@
   }
 }
 
-// Three drawn edge profiles side by side.
-.thicknessGrid {
+// Cards that lead with a drawing: three thickness profiles and the four joint edges, each picture
+// above its name.
+.thicknessGrid,
+.jointGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--s-2);
 
   .choice {
@@ -279,6 +300,304 @@
     gap: var(--s-2);
     padding: var(--s-3);
   }
+}
+
+.thicknessGrid {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+// A fixed count rather than auto-fit, so four joints always break into one even row.
+.jointGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+// Drawn choices a sentence wide: the six border profiles, and step 7's two questions. One per row,
+// the drawing beside its name rather than over it, because at a 526 px rail three across left each
+// card 141 px and wrapped every note to four lines. Their section drawings differ in the last few
+// millimetres of the profile, which is invisible at 48 px and legible at 80.
+.profileList,
+.mountList {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-2);
+
+  .choice {
+    width: 100%;
+    align-items: center;
+    padding: var(--s-2) var(--s-3);
+  }
+
+  .choiceSample {
+    width: 5rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .profileList .choiceSample,
+  .mountList .choiceSample {
+    width: 4rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .profileGrid,
+  .jointGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// One column below 1100 px: a rail this wide shows every profile in one row.
+@media (min-width: 48rem) and (max-width: 1099px) {
+  .profileGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+// Step 6: the parts of how the wall is finished and hung, each under its own quiet rule.
+.edgeSection,
+.edgeBlock {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.edgeSection + .edgeSection {
+  margin-top: var(--s-2);
+}
+
+.edgeRule > h3 {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+.edgeHint {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+// A consequence worked out from the real plan: the count a maker acts on.
+.edgeFact {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+// A choice set out like a switch row: its name and what it means on the left, the control on the right.
+.edgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+  min-width: 0;
+}
+
+.edgeRowText {
+  display: grid;
+  flex: 1 1 14rem;
+  gap: 1px;
+  min-width: 0;
+}
+
+.edgeRowLabel {
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.edgeRowHint {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.perimeterSides {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-5);
+  min-width: 0;
+
+  // The cost of the border sits beside the picker and wraps under it when the rail narrows.
+  .edgeFact {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+}
+
+// The four sides of the wall: real checkboxes, each set beside the side of the drawing it names.
+.sides {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sidesLegend {
+  @include label-caps(var(--text-sm));
+  margin-bottom: var(--s-2);
+  padding: 0;
+  color: var(--ink-2);
+}
+
+.sidesGrid {
+  display: grid;
+  grid-template-areas:
+    '. top .'
+    'left wall right'
+    '. bottom .';
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  justify-items: center;
+  gap: var(--s-1) var(--s-2);
+  width: max-content;
+  max-width: 100%;
+}
+
+.sidesWall {
+  display: block;
+  grid-area: wall;
+  overflow: visible;
+}
+
+.sidesField {
+  fill: var(--filament-tint, var(--panel-2));
+}
+
+.sidesTile {
+  stroke: var(--ink-3);
+  stroke-opacity: 0.35;
+  stroke-width: 0.75;
+}
+
+.sidesBand {
+  fill: transparent;
+  transition: fill var(--t-fast) var(--ease-out);
+
+  &[data-on] {
+    fill: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+.sidesEdge {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 2.5;
+
+  &[data-on] {
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-dasharray: none;
+    stroke-linecap: square;
+  }
+}
+
+.sideCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 1.75rem;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &[data-side='top'] {
+    grid-area: top;
+  }
+
+  &[data-side='right'] {
+    grid-area: right;
+    justify-self: start;
+  }
+
+  &[data-side='bottom'] {
+    grid-area: bottom;
+  }
+
+  &[data-side='left'] {
+    grid-area: left;
+    justify-self: end;
+  }
+
+  @include coarse-pointer {
+    min-height: 2.75rem;
+  }
+}
+
+.sideBox {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.sideInput {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  // The same 3:1 resting ring the switch wears (see Switch.module.scss).
+  border: 1.5px solid color-mix(in srgb, var(--ink-3) 72%, var(--hairline));
+  border-radius: 5px;
+  background: var(--panel);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out);
+
+  &:hover:not(:checked) {
+    border-color: var(--ink-3);
+  }
+
+  &:active:not(:checked) {
+    border-color: var(--ink-2);
+  }
+
+  &:checked {
+    border-color: var(--accent);
+    background: var(--accent);
+
+    &:hover {
+      border-color: var(--accent-hover);
+      background: var(--accent-hover);
+    }
+
+    &:active {
+      border-color: var(--accent-press);
+      background: var(--accent-press);
+    }
+  }
+
+  &:focus-visible {
+    @include focus-ring(2px);
+  }
+}
+
+.sideTick {
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--accent-ink);
+  stroke-width: 3.25;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sideInput:checked + .sideTick {
+  opacity: 1;
 }
 
 // The relief samples are the reason anyone is here, so the grid gets the width it needs.
@@ -767,6 +1086,214 @@
 
 // Forced colours: every state carried in colour or fill has to be re-drawn in the viewer's own
 // palette, or it stops being a state at all.
+// Step 7's "What changes": a recessed well under the two questions, always there, so a choice shows at
+// once what it cuts, prints, buys and asks. Each row is a marked eyebrow over its words rather than a
+// label column: at a 526 px rail a 6.5rem column left the words about 45 characters a line.
+.changes {
+  display: grid;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+  padding: var(--s-4);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  min-width: 0;
+}
+
+.changesTitle {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+.changesRows {
+  display: grid;
+  gap: var(--s-3);
+  margin: 0;
+}
+
+.changesRow {
+  display: grid;
+  gap: var(--s-1);
+  min-width: 0;
+
+  & + & {
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+// The eyebrow over a row, and the same line the fit control is labelled with: a small mark and a
+// quiet word, so the words under it start at the left edge of the well and keep their measure.
+.changesLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+
+  > svg {
+    flex: none;
+    stroke-width: 1.75;
+  }
+}
+
+.changesValue {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.changesList {
+  display: grid;
+  gap: var(--s-1);
+  margin: 0;
+  padding-left: 1.1rem;
+  text-wrap: pretty;
+
+  > li::marker {
+    color: var(--ink-3);
+  }
+}
+
+// The drawn back and what it shows, side by side: a flat back draws nothing at all, so this row only
+// ever holds a piece with something cut into it.
+.changesBack {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.changesBackText {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+// TileBackFigure fills its box, so the box sets its size: the piece and its detail circle side by side.
+.changesFigure {
+  width: 100%;
+  padding: var(--s-2);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink-2);
+}
+
+.changesCaption,
+.changesNote {
+  margin: 0;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+// What contradicts the card just clicked, or what this step changed in another one: read before the
+// rows, because both are news about a choice the maker has already made.
+.changesFlag {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-wrap: pretty;
+
+  > svg {
+    margin-top: 0.1em;
+    flex: none;
+    color: var(--ink-3);
+    stroke-width: 1.75;
+  }
+
+  // A system asked for and not placed is the one thing here a maker has to act on.
+  &[data-warn] {
+    color: var(--warn-ink);
+
+    > svg {
+      color: var(--warn-ink);
+    }
+  }
+}
+
+// The way up and the trade-offs, both read once: a lid inside the well, so it drops the card the
+// rail's own lids wear and keeps only its line.
+.changesLid {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+
+  .disclosureTrigger {
+    min-height: 2.25rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .disclosureLabel {
+    font-size: var(--text-xs);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: var(--ink-3);
+  }
+
+  .disclosurePanel {
+    margin-top: var(--s-3);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+}
+
+.changesFit {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  min-width: 0;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+}
+
+// The fit is a control, not a reading: its label and its picker share one line.
+.changesFitRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  min-width: 0;
+}
+
+@media (max-width: 30rem) {
+  .changes {
+    padding: var(--s-3);
+  }
+
+  // The drawing goes over its words rather than beside them, at a size that still reads.
+  .changesBack {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .changesFigure {
+    max-width: 11rem;
+  }
+}
+
 @include forced-colors {
   .choice[aria-checked='true'] {
     forced-color-adjust: none;
@@ -784,6 +1311,47 @@
 
   .choiceMark {
     color: Highlight;
+  }
+
+  .choice[data-disabled] {
+    border-color: GrayText;
+  }
+
+  .choice[data-disabled] .choiceName {
+    color: GrayText;
+  }
+
+  .sideInput {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .sideInput:checked {
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .sideTick {
+    forced-color-adjust: none;
+    color: HighlightText;
+  }
+
+  .sidesBand[data-on] {
+    fill: Highlight;
+  }
+
+  .sidesEdge {
+    stroke: CanvasText;
+  }
+
+  .sidesEdge[data-on] {
+    stroke: Highlight;
+  }
+
+  .edgeNote,
+  .changes {
+    border: 1px solid CanvasText;
   }
 
   .choice[data-tone='ok'] .choiceNote {

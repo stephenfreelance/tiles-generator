@@ -23,6 +23,24 @@ describe('zipFiles', () => {
     expect(zipped.length).toBeLessThan(data.length / 10)
   })
 
+  it('keeps printed parts in their folders beside the tiles at the root', () => {
+    const unzipped = unzipSync(
+      zipFiles([
+        { name: 'A_full-tile_150x150_x40.stl', data: text('tile') },
+        { name: 'mount/C1_wall-clip_standard-fit_x29.stl', data: text('clip') },
+        { name: 'fit-test/F1_coupon_x1.stl', data: text('coupon') },
+        { name: 'mount/C1_wall-clip_standard-fit_x29.stl', data: text('again') },
+      ]),
+    )
+    expect(Object.keys(unzipped).sort()).toEqual([
+      'A_full-tile_150x150_x40.stl',
+      'fit-test/F1_coupon_x1.stl',
+      'mount/C1_wall-clip_standard-fit_x29-2.stl',
+      'mount/C1_wall-clip_standard-fit_x29.stl',
+    ])
+    expect(new TextDecoder().decode(unzipped['mount/C1_wall-clip_standard-fit_x29.stl'])).toBe('clip')
+  })
+
   it('keeps duplicate names apart', () => {
     const unzipped = unzipSync(
       zipFiles([

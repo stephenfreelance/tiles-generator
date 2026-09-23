@@ -183,14 +183,6 @@
   }
 }
 
-.hint {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: var(--text-xs);
-  line-height: 1.45;
-  text-wrap: pretty;
-}
-
 // A soft fill is exactly what a forced palette erases, so the taken sample keeps a visible edge.
 @include forced-colors {
   .example[aria-pressed='true'] {

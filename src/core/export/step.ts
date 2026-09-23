@@ -1,12 +1,14 @@
 // ISO 10303-21 (AP214) writer: one MANIFOLD_SOLID_BREP of planar ADVANCED_FACEs sharing EDGE_CURVE and
-// VERTEX_POINT entities. Validated against OCCT 7.6 (occt-import-js) and OCCT 8.0 (BRepCheck_Analyzer):
-// reads back as one valid SOLID with the exact volume. About 720 bytes per triangle, which is roughly a
+// VERTEX_POINT entities per connected piece of the mesh (a tile is one; a sheet of printed parts is
+// several, all in one file). Validated against OCCT 7.6 (occt-import-js) and OCCT 8.0 (BRepCheck_Analyzer):
+// reads back as valid SOLIDs with the exact volume. About 720 bytes per triangle, which is roughly a
 // third of what OCCT's own STEP writer produces for the same solid.
 //
 // Adjacent triangles lying on one plane are merged into a single polygon face, so the walls become one
-// face each, the bottom one face, and flat lands of the relief a handful of faces. Merged regions must
-// stay simple polygons with a single outer loop, so a region that closes around a hole (a flat land
-// surrounding a pit) is split until every piece is a disk.
+// face each, the bottom one face, and flat lands of the relief a handful of faces. A merged region that
+// closes around holes (a tile's bottom around its pockets, a flat land around a pit) stays one face: its
+// outer boundary is the FACE_OUTER_BOUND and each hole a FACE_BOUND. Only a region whose boundary touches
+// itself at a vertex is split, until every piece is a disk.
 
 import type { MeshData } from '../types'
 
@@ -149,8 +151,14 @@ function weld(mesh: MeshData): WeldedMesh {
   return { coords: coords.subarray(0, 3 * count), tris: tris.subarray(0, o), count }
 }
 
-/** Merges coplanar triangles into polygon loops (vertex ids, CCW seen from outside). */
-function mergeFaces(mesh: WeldedMesh): number[][] {
+/**
+ * A merged planar face: its boundary loops as vertex ids, the outer loop first (counter-clockwise seen from
+ * outside), then any holes (clockwise).
+ */
+type Face = number[][]
+
+/** Merges coplanar triangles into planar faces. */
+function mergeFaces(mesh: WeldedMesh): Face[] {
   const { coords, tris, count } = mesh
   const triCount = tris.length / 3
   const nx = new Float64Array(triCount)
@@ -242,22 +250,50 @@ function mergeFaces(mesh: WeldedMesh): number[][] {
   }
 
   const inRegion = new Uint8Array(triCount)
-  const faces: number[][] = []
+  const faces: Face[] = []
   const pending = groups.slice()
   while (pending.length) {
     const list = pending.pop() as number[]
     for (const t of list) inRegion[t] = 1
     const loops = boundaryLoops(list, tris, inRegion, twin)
+    const seed = list[0]
+    const withHoles = loops && loops.length > 1 ? outerFirst(loops, coords, nx[seed], ny[seed], nz[seed]) : null
     if (loops && loops.length === 1) {
-      faces.push(loops[0])
+      faces.push([loops[0]])
+    } else if (withHoles) {
+      faces.push(withHoles)
     } else if (list.length === 1) {
-      faces.push([tris[3 * list[0]], tris[3 * list[0] + 1], tris[3 * list[0] + 2]])
+      faces.push([[tris[3 * list[0]], tris[3 * list[0] + 1], tris[3 * list[0] + 2]]])
     } else {
       pending.push(...splitRegion(list, tris, coords))
     }
     for (const t of list) inRegion[t] = 0
   }
   return faces
+}
+
+/**
+ * The loops of a region with holes, outer first: the one loop with a positive area about the region's
+ * normal, which must also be the largest; every other loop must be negative (a hole). Null otherwise,
+ * and the region is split instead.
+ */
+function outerFirst(loops: number[][], coords: Float64Array, nx: number, ny: number, nz: number): Face | null {
+  const areas = loops.map((loop) => {
+    let x = 0
+    let y = 0
+    let z = 0
+    for (let k = 0; k < loop.length; k++) {
+      const a = 3 * loop[k]
+      const b = 3 * loop[(k + 1) % loop.length]
+      x += (coords[a + 1] - coords[b + 1]) * (coords[a + 2] + coords[b + 2])
+      y += (coords[a + 2] - coords[b + 2]) * (coords[a] + coords[b])
+      z += (coords[a] - coords[b]) * (coords[a + 1] + coords[b + 1])
+    }
+    return (x * nx + y * ny + z * nz) / 2
+  })
+  const outer = areas.findIndex((a) => a > 0)
+  if (outer < 0 || areas.some((a, k) => k !== outer && (a >= 0 || -a >= areas[outer]))) return null
+  return [loops[outer], ...loops.filter((_, k) => k !== outer)]
 }
 
 /** Boundary of a region as closed loops of vertex ids, or null when a vertex pinches it. */
@@ -341,51 +377,88 @@ function splitRegion(list: number[], tris: Uint32Array, coords: Float64Array): n
 }
 
 /** Drops vertices that only two faces use and that are collinear in both: a wall's per-cell rim points. */
-function dropCollinear(faces: number[][], coords: Float64Array, count: number): number[][] {
+function dropCollinear(faces: Face[], coords: Float64Array, count: number): Face[] {
   const uses = new Int32Array(count)
   const owner = new Int32Array(count).fill(-1)
   const repeated = new Uint8Array(count)
   faces.forEach((face, f) => {
-    for (const v of face) {
-      uses[v]++
-      if (owner[v] === -1) owner[v] = f
-      else if (owner[v] === f) repeated[v] = 1
+    for (const loop of face) {
+      for (const v of loop) {
+        uses[v]++
+        if (owner[v] === -1) owner[v] = f
+        else if (owner[v] === f) repeated[v] = 1
+      }
     }
   })
   const collinearVotes = new Int32Array(count)
   for (const face of faces) {
-    const n = face.length
-    for (let k = 0; k < n; k++) {
-      const v = face[k]
-      if (uses[v] !== 2 || repeated[v]) continue
-      const a = face[(k + n - 1) % n]
-      const b = face[(k + 1) % n]
-      const ux = coords[3 * v] - coords[3 * a]
-      const uy = coords[3 * v + 1] - coords[3 * a + 1]
-      const uz = coords[3 * v + 2] - coords[3 * a + 2]
-      const wx = coords[3 * b] - coords[3 * v]
-      const wy = coords[3 * b + 1] - coords[3 * v + 1]
-      const wz = coords[3 * b + 2] - coords[3 * v + 2]
-      const crossLen = Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx)
-      const lu = Math.hypot(ux, uy, uz)
-      const lw = Math.hypot(wx, wy, wz)
-      if (crossLen <= 1e-9 * lu * lw && ux * wx + uy * wy + uz * wz > 0) collinearVotes[v]++
+    for (const loop of face) {
+      const n = loop.length
+      for (let k = 0; k < n; k++) {
+        const v = loop[k]
+        if (uses[v] !== 2 || repeated[v]) continue
+        const a = loop[(k + n - 1) % n]
+        const b = loop[(k + 1) % n]
+        const ux = coords[3 * v] - coords[3 * a]
+        const uy = coords[3 * v + 1] - coords[3 * a + 1]
+        const uz = coords[3 * v + 2] - coords[3 * a + 2]
+        const wx = coords[3 * b] - coords[3 * v]
+        const wy = coords[3 * b + 1] - coords[3 * v + 1]
+        const wz = coords[3 * b + 2] - coords[3 * v + 2]
+        const crossLen = Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx)
+        const lu = Math.hypot(ux, uy, uz)
+        const lw = Math.hypot(wx, wy, wz)
+        if (crossLen <= 1e-9 * lu * lw && ux * wx + uy * wy + uz * wz > 0) collinearVotes[v]++
+      }
     }
   }
   const dropped = new Uint8Array(count)
   for (let v = 0; v < count; v++) if (collinearVotes[v] === 2 && uses[v] === 2 && !repeated[v]) dropped[v] = 1
-  // A vertex must go from both faces that use it or from neither, so keeping a face at three corners
+  // A vertex must go from both faces that use it or from neither, so keeping a loop at three corners
   // puts its vertices back for the neighbour too, instead of leaving an edge the neighbour has merged.
   for (const face of faces) {
-    let kept = 0
-    for (const v of face) if (!dropped[v]) kept++
-    for (let k = 0; kept < 3 && k < face.length; k++) {
-      if (!dropped[face[k]]) continue
-      dropped[face[k]] = 0
-      kept++
+    for (const loop of face) {
+      let kept = 0
+      for (const v of loop) if (!dropped[v]) kept++
+      for (let k = 0; kept < 3 && k < loop.length; k++) {
+        if (!dropped[loop[k]]) continue
+        dropped[loop[k]] = 0
+        kept++
+      }
     }
   }
-  return faces.map((face) => face.filter((v) => !dropped[v]))
+  return faces.map((face) => face.map((loop) => loop.filter((v) => !dropped[v])))
+}
+
+/** Connected pieces of the mesh: the component of every face, numbered in order of first appearance. */
+function faceComponents(faces: Face[], count: number): { of: Int32Array; total: number } {
+  const parent = new Int32Array(count)
+  for (let v = 0; v < count; v++) parent[v] = v
+  const find = (v: number) => {
+    while (parent[v] !== v) {
+      parent[v] = parent[parent[v]]
+      v = parent[v]
+    }
+    return v
+  }
+  for (const face of faces) {
+    const root = find(face[0][0])
+    for (const loop of face) {
+      for (const v of loop) {
+        const r = find(v)
+        if (r !== root) parent[r] = root
+      }
+    }
+  }
+  const label = new Int32Array(count).fill(-1)
+  const of = new Int32Array(faces.length)
+  let total = 0
+  faces.forEach((face, f) => {
+    const root = find(face[0][0])
+    if (label[root] === -1) label[root] = total++
+    of[f] = label[root]
+  })
+  return { of, total }
 }
 
 /** Newell normal of a polygon loop. */
@@ -409,6 +482,7 @@ export function writeStep(mesh: MeshData, opts: StepOptions): Uint8Array {
   const welded = weld(mesh)
   const faces = dropCollinear(mergeFaces(welded), welded.coords, welded.count)
   const { coords, count } = welded
+  const components = faceComponents(faces, count)
   const name = opts.name
   const timestamp = opts.timestamp ?? new Date().toISOString().slice(0, 19)
 
@@ -468,8 +542,13 @@ export function writeStep(mesh: MeshData, opts: StepOptions): Uint8Array {
   const worldZ = direction(0, 0, 1)
   const worldX = direction(1, 0, 0)
   const world = add(`AXIS2_PLACEMENT_3D('',#${worldOrigin},#${worldZ},#${worldX})`)
-  const solidRef = reserve()
-  const shellRef = reserve()
+  // One solid and one closed shell per connected piece; a single piece keeps the historical numbering.
+  const solidRefs: number[] = []
+  const shellRefs: number[] = []
+  for (let c = 0; c < components.total; c++) {
+    solidRefs.push(reserve())
+    shellRefs.push(reserve())
+  }
 
   const pointRef = new Int32Array(count)
   const vertexRef = new Int32Array(count)
@@ -498,9 +577,11 @@ export function writeStep(mesh: MeshData, opts: StepOptions): Uint8Array {
   // Edge lookup as CSR over the final faces: one EDGE_CURVE per undirected edge, shared by both faces.
   const deg = new Uint32Array(count + 1)
   for (const face of faces) {
-    for (let k = 0; k < face.length; k++) {
-      deg[face[k]]++
-      deg[face[(k + 1) % face.length]]++
+    for (const loop of face) {
+      for (let k = 0; k < loop.length; k++) {
+        deg[loop[k]]++
+        deg[loop[(k + 1) % loop.length]]++
+      }
     }
   }
   const estart = new Uint32Array(count + 1)
@@ -540,29 +621,37 @@ export function writeStep(mesh: MeshData, opts: StepOptions): Uint8Array {
     return e
   }
 
-  const faceRefs: number[] = []
+  const faceRefs: number[][] = shellRefs.map(() => [])
   const oriented: number[] = []
-  for (const face of faces) {
-    oriented.length = 0
+  faces.forEach((face, f) => {
     let refDir = 0
-    for (let k = 0; k < face.length; k++) {
-      const a = face[k]
-      const b = face[(k + 1) % face.length]
-      const e = edgeOf(a, b)
-      if (k === 0) refDir = edgeDir[e]
-      oriented.push(add(`ORIENTED_EDGE('',*,*,#${edgeRef[e]},${edgeStart[e] === a ? '.T.' : '.F.'})`))
-    }
-    const loop = add(`EDGE_LOOP('',(${oriented.map((r) => `#${r}`).join(',')}))`)
-    const bound = add(`FACE_OUTER_BOUND('',#${loop},.T.)`)
-    const [nxv, nyv, nzv] = newellNormal(face, coords)
-    const axis = add(`AXIS2_PLACEMENT_3D('',#${pointOf(face[0])},#${direction(nxv, nyv, nzv)},#${refDir})`)
+    const bounds: number[] = []
+    face.forEach((loop, l) => {
+      oriented.length = 0
+      for (let k = 0; k < loop.length; k++) {
+        const a = loop[k]
+        const b = loop[(k + 1) % loop.length]
+        const e = edgeOf(a, b)
+        if (l === 0 && k === 0) refDir = edgeDir[e]
+        oriented.push(add(`ORIENTED_EDGE('',*,*,#${edgeRef[e]},${edgeStart[e] === a ? '.T.' : '.F.'})`))
+      }
+      const edgeLoop = add(`EDGE_LOOP('',(${oriented.map((r) => `#${r}`).join(',')}))`)
+      bounds.push(add(`${l === 0 ? 'FACE_OUTER_BOUND' : 'FACE_BOUND'}('',#${edgeLoop},.T.)`))
+    })
+    const outer = face[0]
+    const [nxv, nyv, nzv] = newellNormal(outer, coords)
+    const axis = add(`AXIS2_PLACEMENT_3D('',#${pointOf(outer[0])},#${direction(nxv, nyv, nzv)},#${refDir})`)
     const plane = add(`PLANE('',#${axis})`)
-    faceRefs.push(add(`ADVANCED_FACE('',(#${bound}),#${plane},.T.)`))
-  }
+    faceRefs[components.of[f]].push(add(`ADVANCED_FACE('',(${bounds.map((r) => `#${r}`).join(',')}),#${plane},.T.)`))
+  })
 
-  put(shellRef, `CLOSED_SHELL('',(${faceRefs.map((r) => `#${r}`).join(',')}))`)
-  put(solidRef, `MANIFOLD_SOLID_BREP(${stepString(name)},#${shellRef})`)
-  put(repRef, `ADVANCED_BREP_SHAPE_REPRESENTATION(${stepString(name)},(#${world},#${solidRef}),#${context})`)
+  const solidName = (c: number) => stepString(components.total === 1 ? name : `${name} ${c + 1}`)
+  for (let c = 0; c < components.total; c++) {
+    put(shellRefs[c], `CLOSED_SHELL('',(${faceRefs[c].map((r) => `#${r}`).join(',')}))`)
+    put(solidRefs[c], `MANIFOLD_SOLID_BREP(${solidName(c)},#${shellRefs[c]})`)
+  }
+  const items = [world, ...solidRefs].map((r) => `#${r}`).join(',')
+  put(repRef, `ADVANCED_BREP_SHAPE_REPRESENTATION(${stepString(name)},(${items}),#${context})`)
   text.push('ENDSEC;\n')
   text.push('END-ISO-10303-21;\n')
   return text.done()

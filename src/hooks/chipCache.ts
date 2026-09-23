@@ -1,3 +1,32 @@
+import { perimeterBand, shapingEdges } from '@/core/geometry/profiles'
+import { SIDE_NAMES } from '@/core/sides'
+import type { CropRect, DesignConfig, PieceEdges } from '@/core/types'
+import { cropKey, geometryKey } from './geometryKey'
+
+/** What a chip is drawn from: the design, and the piece when it is not the whole interior tile. */
+export interface ChipSource {
+  config: DesignConfig
+  crop?: CropRect
+  edges?: PieceEdges
+}
+
+/**
+ * What a piece's edges add to its chip's identity: the band and each profiled side's distance to the
+ * surface edge. Empty for a piece the profile leaves alone. The boundary mask is left out: it only
+ * shapes the back, which a chip never shows.
+ */
+export function chipEdgesKey(config: DesignConfig, edges?: PieceEdges): string {
+  const shaping = shapingEdges(config, edges)
+  const sides = SIDE_NAMES.filter((name) => shaping[name] !== undefined)
+  if (!sides.length) return ''
+  // A band clamped to a small surface moves with the surface, which geometryKey leaves out.
+  return `${perimeterBand(config)}:${sides.map((name) => `${name[0]}${shaping[name]}`).join('')}`
+}
+
+/** Chip identity: the relief, the color, the piece shape, its edges and the pixel size. */
+export const chipCacheKey = (item: ChipSource, sizePx: number): string =>
+  `${geometryKey(item.config)}|${item.config.color}|${cropKey(item.crop)}|${chipEdgesKey(item.config, item.edges)}|${sizePx}`
+
 /**
  * LRU of chip object URLs. Evicted URLs are revoked, except pinned ones: a URL still on screen must
  * stay valid, so the cache may run over capacity until the component that shows it lets go.

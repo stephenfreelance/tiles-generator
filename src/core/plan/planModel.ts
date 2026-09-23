@@ -1,7 +1,13 @@
 // The setting-out drawing of the surface as plain data: the studio renders it with React,
 // planSvg turns it into the print-ready sheet that ships in the zip.
-import { axisStart, rowShiftCycle } from '../layout'
-import type { DesignConfig, LayoutOrigin, LayoutPlan, PieceKind, RowOffset } from '../types'
+import { wallParts } from '../fixing/accessories'
+import { fixingSystem, listText, usesClips, usesTabs, type FixingSystem } from '../fixing/guide'
+import { joinPlan } from '../fixing/joins'
+import { mountPlan } from '../fixing/mount'
+import { tabPlan, type TabPlan } from '../fixing/tabs'
+import type { AccessoryKind, AccessorySpec, ClipSite, JoinPlan, KeySite, MountPlan } from '../fixing/types'
+import { axisStart, basePiece, rowShiftCycle } from '../layout'
+import type { DesignConfig, LayoutOrigin, LayoutPlan, PieceEdges, PieceKind, RowOffset } from '../types'
 import { formatLength, formatNumber } from '../units'
 
 /** Two lengths closer than this are the same length (mm), as in layout.ts. */
@@ -26,6 +32,8 @@ export interface PlanTile {
   col: number
   /** True for every piece that is not a full tile (drawn hatched with its mark). */
   cut: boolean
+  /** How the piece meets the surface edge: a whole tile with edges is a border version, marked too. */
+  edges: PieceEdges
 }
 
 /**
@@ -73,6 +81,19 @@ export interface PlanMarkRow {
   width: number
   height: number
   count: number
+  edges: PieceEdges
+}
+
+/** One printed part that is not a tile, as "Your pieces" lists it after the tiles. */
+export interface PlanAccessoryRow {
+  id: string
+  mark: string
+  kind: AccessoryKind
+  label: string
+  group: AccessorySpec['group']
+  count: number
+  /** Bounding box as printed, mm. */
+  size: AccessorySpec['size']
 }
 
 /** How the grid is anchored along one axis. */
@@ -109,9 +130,39 @@ export interface PlanModel {
   overall: { width: number; height: number }
   settingOut: SettingOut
   legend: PlanMarkRow[]
+  /**
+   * The whole tile the drawing leaves unlettered: the only full model, or the one no edge shapes.
+   * Every other piece, cut or whole, carries its mark so the installer can tell A from B. Null when
+   * every whole tile is a border version.
+   */
+  basePieceId: string | null
   fullCount: number
   cutCount: number
   exact: boolean
+  /**
+   * Every wall clip, one per pocket over every placed tile: the centre of its pocket, surface mm, and which
+   * way it lies ('h' along the wall, 'v' turned for a narrow piece). Bottom to top, then left to right;
+   * empty unless the wall really goes up on clips.
+   */
+  clips: ClipSite[]
+  /** Pieces with no clip pocket (too small or too narrow for one), glued or held by their keys; empty without clips. */
+  unclippedPieceIds: string[]
+  /** Where each key goes, surface mm; empty with keys off. */
+  keys: KeySite[]
+  /** Joints left without a key (too short for one). */
+  unkeyedSeams: number
+  /** Pieces keyed to no neighbour at all: they are glued instead. */
+  unkeyedPieceIds: string[]
+  /**
+   * Joints within a row that a tab holds shut; 0 with the tabs off. Nothing is drawn or set out for them
+   * (every tile carries its own), so this is a count for the notes and the rail, never a place on the sheet.
+   */
+  locks: number
+  /** Pieces no tab locks to either tile beside them: those joints are glued. Empty with the tabs off. */
+  unlockedPieceIds: string[]
+  /** The wall's own printed parts (wallParts), in print order: the clips, then the keys. The fit test is
+   * not among them: it prints from its own page, and the plan sets out the wall. */
+  accessories: PlanAccessoryRow[]
 }
 
 /** Chain of pieces along one axis, filling the holes with joints and edge gaps so it sums to `total`. */
@@ -211,6 +262,10 @@ export function wallCutSides(model: Pick<PlanModel, 'width' | 'height' | 'tile' 
   return SIDE_ORDER.filter((side) => found.has(side))
 }
 
+/** True for a piece the drawing letters: every cut, and every whole tile but the base one. */
+export const isLettered = (model: Pick<PlanModel, 'basePieceId'>, piece: { pieceId: string; kind: PieceKind }): boolean =>
+  piece.kind !== 'full' || piece.pieceId !== model.basePieceId
+
 /** The piece whose bottom-left corner sits on the setting-out point, if one does. */
 export function tileAtPoint(tiles: readonly PlanTile[], point: { x: number; y: number }): PlanTile | null {
   return tiles.find((t) => Math.abs(t.x - point.x) <= POINT_TOLERANCE && Math.abs(t.y - point.y) <= POINT_TOLERANCE) ?? null
@@ -248,12 +303,78 @@ function bondLineX(
     : { mode: 'joint-centred', line: round2(jointLine) }
 }
 
+/** "Running bond: shift every row by half a tile against the one below it." */
+const bondNote = (rowOffset: RowOffset): string =>
+  `Running bond: shift every row by ${rowShiftCycle(rowOffset) === 2 ? 'half a tile' : 'a third of a tile'} against the one below it.`
+
+const onLine = (mode: AxisSetOut, joint: number) =>
+  mode === 'tile-centred' ? 'centre a tile on it' : joint > 0 ? 'centre a joint on it' : 'start a tile on it'
+
+/**
+ * Keys and clips put the tiles up from their bottom edge, row by row, whatever the grid: the README's
+ * mounting steps and the download page say so, and a sheet that lays the whole tiles first would put the
+ * keys between them and the bottom cuts in wrong. The centre lines stay, as the lines the rows are checked on.
+ */
+function fixedNotes(
+  model: Pick<SettingOut, 'modeX' | 'modeY' | 'centreLines'>,
+  joint: number,
+  rowOffset: RowOffset,
+  system: Exclude<FixingSystem, 'glue'>,
+): string[] {
+  const { modeX, modeY, centreLines } = model
+  const notes =
+    system === 'keys'
+      ? ['Key the tiles together face down, in the order of this plan, then put the panel up with its bottom edge on a level line (see MOUNTING in the README).']
+      : ['The start line is the bottom edge of the tiles: draw it level first, with a straight batten under it for the bottom row to stand on.']
+  if (centreLines.x !== null) notes.push(`Snap a vertical line at ${formatLength(centreLines.x)} from the left edge and ${onLine(modeX, joint)}.`)
+  if (centreLines.y !== null) notes.push(`Snap a level line at ${formatLength(centreLines.y)} from the bottom and ${onLine(modeY, joint)}.`)
+  if (rowOffset !== 0) notes.push(bondNote(rowOffset))
+  if (system === 'both') {
+    notes.push('Press the tiles on from the bottom row up, each row from left to right with its keys, fitting the cut pieces as you reach them (see MOUNTING in the README).')
+  } else if (usesClips(system)) {
+    // No clip is set out on the wall: each tile carries its own and puts them where it goes.
+    notes.push('Press the tiles on from the bottom row up, fitting the cut pieces as you reach them: each tile carries its own clips (see MOUNTING in the README).')
+  }
+  return notes
+}
+
 function settingOutNotes(
   model: Pick<SettingOut, 'modeX' | 'modeY' | 'centreLines' | 'point'>,
   joint: number,
   rowOffset: RowOffset,
   exact: boolean,
   first: PlanTile | null,
+  system: FixingSystem,
+  unlocked: readonly string[],
+): string[] {
+  const tabs = usesTabs(system)
+  // A tabbed wall is glued in every other respect, so it keeps the glued setting-out; its order is the tabs'
+  // own, strictly left to right, which is why the glued fitting order is left out for it.
+  const notes = system === 'glue' || system === 'tabs' ? gluedNotes(model, joint, rowOffset, exact, first, !tabs) : fixedNotes(model, joint, rowOffset, system)
+  if (tabs) {
+    notes.push(
+      `Set each row from left to right${exact ? '' : ', fitting the cut pieces as you reach them'}: each tile's socket ` +
+        'goes over the tab of the tile already up. Nothing is set out for the tabs.',
+    )
+    if (unlocked.length > 0) {
+      const one = unlocked.length === 1
+      notes.push(
+        `${one ? `Piece ${unlocked[0]} has` : `Pieces ${listText(unlocked)} have`} no room for a socket, so no tab locks ` +
+          `${one ? 'it' : 'them'}: glue ${one ? 'it' : 'them'} to the tiles beside ${one ? 'it' : 'them'}.`,
+      )
+    }
+  }
+  return notes
+}
+
+/** Where a glued wall is set out from, and, unless the lock sets its own, the order it goes up in. */
+function gluedNotes(
+  model: Pick<SettingOut, 'modeX' | 'modeY' | 'centreLines' | 'point'>,
+  joint: number,
+  rowOffset: RowOffset,
+  exact: boolean,
+  first: PlanTile | null,
+  order: boolean,
 ): string[] {
   const notes: string[] = []
   const { modeX, modeY, centreLines, point } = model
@@ -270,26 +391,22 @@ function settingOutNotes(
       notes.push(`Set out from the bottom-left corner: piece ${first?.mark ?? 'A'} sits in the corner.`)
     }
   } else {
-    const onLine = (mode: AxisSetOut) => (mode === 'tile-centred' ? 'centre a tile on it' : joint > 0 ? 'centre a joint on it' : 'start a tile on it')
     if (centreLines.x !== null) {
-      notes.push(`Snap a vertical line at ${formatLength(centreLines.x)} from the left edge and ${onLine(modeX)}.`)
+      notes.push(`Snap a vertical line at ${formatLength(centreLines.x)} from the left edge and ${onLine(modeX, joint)}.`)
     } else {
       notes.push('Start the first column against the left edge.')
     }
     if (centreLines.y !== null) {
-      notes.push(`Snap a level line at ${formatLength(centreLines.y)} from the bottom and ${onLine(modeY)}.`)
+      notes.push(`Snap a level line at ${formatLength(centreLines.y)} from the bottom and ${onLine(modeY, joint)}.`)
     } else {
       notes.push('Start the first row on the bottom edge.')
     }
   }
-  if (rowOffset !== 0) {
-    notes.push(
-      `Running bond: shift every row by ${rowShiftCycle(rowOffset) === 2 ? 'half a tile' : 'a third of a tile'} against the one below it.`,
-    )
-  }
+  if (rowOffset !== 0) notes.push(bondNote(rowOffset))
   // An exact fit has no cuts to leave for last, and a row that starts on a cut cannot leave them.
-  if (!exact && first && !first.cut) notes.push('Fix the full tiles first, then the cuts at the edges.')
-  else if (!exact) notes.push('Lay each row from its first piece, fitting the cut pieces as you reach them.')
+  if (!order || exact) return notes
+  if (first && !first.cut) notes.push('Fix the full tiles first, then the cuts at the edges.')
+  else notes.push('Lay each row from its first piece, fitting the cut pieces as you reach them.')
   return notes
 }
 
@@ -314,6 +431,7 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
       row: pl.row,
       col: pl.col,
       cut: piece.kind !== 'full',
+      edges: piece.edges,
     }
   })
 
@@ -372,6 +490,11 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
         : round2(modeX === 'tile-centred' ? lineX - config.tile.width / 2 : lineX + joint / 2),
     y: pointY,
   }
+  const join = joinPlan(config, plan)
+  const tab = tabPlan(config, plan)
+  // A glued design never asks where clips would go.
+  const mount = config.mount === 'clips' ? mountPlan(config, plan) : null
+  const system = fixingSystem(config, mount ?? { clips: 0 }, join, tab)
   const settingOut: SettingOut = {
     origin: config.layout.origin,
     point,
@@ -384,6 +507,9 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
       config.layout.rowOffset,
       plan.exact,
       tileAtPoint(tiles, point),
+      // What the plans really place, as the guide reads it: keys asked for on a plate too thin are glue.
+      system,
+      plan.pieces.filter((p) => tab.unlockedPieceIds.includes(p.id)).map((p) => p.mark),
     ),
   }
 
@@ -404,10 +530,44 @@ export function buildPlanModel(config: DesignConfig, plan: LayoutPlan): PlanMode
       width: p.width,
       height: p.height,
       count: p.count,
+      edges: p.edges,
     })),
+    basePieceId: basePiece(plan.pieces)?.id ?? null,
     fullCount: plan.fullCount,
     cutCount: plan.partialCount,
     exact: plan.exact,
+    ...fixingsOf(config, plan, join, mount, tab),
+  }
+}
+
+/** The clips, keys, tabs and printed parts a design adds to its plan: all empty for a plain glued wall. */
+function fixingsOf(
+  config: DesignConfig,
+  plan: LayoutPlan,
+  joins: JoinPlan,
+  mount: MountPlan | null,
+  tab: TabPlan,
+): Pick<PlanModel, 'clips' | 'unclippedPieceIds' | 'keys' | 'unkeyedSeams' | 'unkeyedPieceIds' | 'locks' | 'unlockedPieceIds' | 'accessories'> {
+  const clips = mount?.sites ?? []
+  return {
+    clips,
+    // With no clip placed the wall is glued, so no piece is "without" one.
+    unclippedPieceIds: clips.length > 0 ? (mount?.unmountedPieceIds ?? []) : [],
+    keys: joins.sites,
+    unkeyedSeams: joins.unkeyedSeams,
+    unkeyedPieceIds: joins.unkeyedPieceIds,
+    locks: tab.joints,
+    // With no tab placed nothing claimed to lock, so no piece is "unlocked".
+    unlockedPieceIds: tab.tabs > 0 ? tab.unlockedPieceIds : [],
+    accessories: wallParts(config, plan).map((a) => ({
+      id: a.id,
+      mark: a.mark,
+      kind: a.kind,
+      label: a.label,
+      group: a.group,
+      count: a.count,
+      size: a.size,
+    })),
   }
 }
 
