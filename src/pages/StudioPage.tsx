@@ -21,6 +21,8 @@ import { FirstRunNote } from '@/features/studio/FirstRunNote'
 import { fitSummary } from '@/features/studio/fitCopy'
 import { FitSummary } from '@/features/studio/FitSummary'
 import { MountingGroup } from '@/features/studio/MountingGroup'
+import { StepIndex } from '@/features/studio/StepIndex'
+import { PLAN_SECTION_ID } from '@/features/studio/stepIds'
 import { TextureGroup } from '@/features/studio/TextureGroup'
 import { ThicknessGroup } from '@/features/studio/ThicknessGroup'
 import { TileSizeGroup } from '@/features/studio/TileSizeGroup'
@@ -103,6 +105,7 @@ export function StudioPage() {
   const models = useMemo(() => tileModels(config, printerById(config.printerId)), [shapeKey])
   const [foot, setFoot] = useState<HTMLDivElement | null>(null)
   useFootScrollPadding(foot)
+  const [stepsColumn, setStepsColumn] = useState<HTMLDivElement | null>(null)
   const setPrefs = usePrefs((s) => s.set)
   const save = useHistory((s) => s.save)
   const navigate = useNavigate()
@@ -215,7 +218,8 @@ export function StudioPage() {
       />
 
       <section className={styles.rail} aria-label="Your choices">
-        <div className={styles.steps}>
+        <div ref={setStepsColumn} className={styles.steps}>
+          <StepIndex scroller={stepsColumn} />
           <WallGroup config={config} update={update} />
           <TileSizeGroup
             config={config}
@@ -233,9 +237,14 @@ export function StudioPage() {
             <AdvancedPanel config={config} update={update} />
           </div>
 
-          <section className={styles.plan} aria-labelledby="studio-plan-title" onKeyDown={onPlanKeyDown}>
+          <section
+            id={PLAN_SECTION_ID}
+            className={styles.plan}
+            aria-labelledby="studio-plan-title"
+            onKeyDown={onPlanKeyDown}
+          >
             <div className={styles.planHead}>
-              <h2 id="studio-plan-title" className={styles.planTitle}>
+              <h2 id="studio-plan-title" className={styles.planTitle} tabIndex={-1}>
                 Tiling plan
               </h2>
               <span className={styles.planNow}>{cutEdgesText(model)}</span>

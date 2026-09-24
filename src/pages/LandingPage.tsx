@@ -349,7 +349,7 @@ export function LandingPage() {
                 Size your own wall in the studio and it draws the whole plan: every piece lettered, its size, how many to
                 print and where to start.
               </p>
-              <Link to={studioLink} className={styles.quietLink} {...studioIntent}>
+              <Link to={studioLink} className={buttonClassName('secondary', 'md')} {...studioIntent}>
                 Open the studio
               </Link>
             </div>

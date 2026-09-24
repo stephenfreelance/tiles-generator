@@ -23,14 +23,15 @@
   // A box-shadow is drawn outside the border box, so this never clips the shadow under it.
   overflow: hidden;
   border-radius: var(--radius-md);
-  // The joint, showing between the butted chips.
-  background: var(--hairline);
+  // The joint, showing between the butted chips: the shadow down in the V two chamfered edges make,
+  // so a deep tone of the tile's own colour rather than the page's paper showing through a gap.
+  background: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 52%, var(--bar));
   // A thing standing off the page, lit from the upper left: the shadow falls down and to the right,
   // long and soft, the way a raking key throws one.
   box-shadow:
-    0 2px 4px rgb(46 36 27 / 0.06),
-    0 18px 30px -22px rgb(46 36 27 / 0.45),
-    0 48px 80px -48px rgb(46 36 27 / 0.55);
+    0 2px 4px rgb(46 36 27 / 0.08),
+    0 18px 30px -20px rgb(46 36 27 / 0.5),
+    0 60px 90px -50px rgb(46 36 27 / 0.62);
 }
 
 // One printed tile, painted in the visitor's own colour before it has a picture on it: the wall is the
@@ -73,9 +74,10 @@
 @include motion-safe {
   .tile {
     opacity: 0;
-    // translateY, not translate3d: a 3D transform promotes a compositor layer per cell, and the max
-    // wall is 289 of them, for a move of six pixels. Measured identical without the promotion.
-    transform: translateY(6px) scale(0.985);
+    // Each tile comes down onto the wall from a little in front of it, the way one is pressed into place:
+    // larger and a shade higher, settling to its own size in its own cell. translateY, not translate3d:
+    // a 3D transform promotes a compositor layer per cell, and the max wall is 289 of them.
+    transform: translateY(-10px) scale(1.06);
     transition:
       opacity var(--lay-tile, 420ms) var(--ease-out),
       transform var(--lay-tile, 420ms) var(--ease-out);
@@ -85,6 +87,67 @@
   .wall[data-laid] .tile {
     opacity: 1;
     transform: none;
+  }
+
+  // And the wall itself is found by the camera as it is laid: it swings in from further round and a
+  // step further off, and settles on its resting turn. The individual rotate and scale properties
+  // compose under the transform HeroStage drives from the hand and the scroll, so neither fights the
+  // other. Until then the wall has no backing and no shadow of its own, so the first thing seen is
+  // the first tile going on, never an empty slab: the joints darken and the shadow falls once most of
+  // the tiles are down.
+  .wall {
+    // When the wall has most of its tiles: its joints, its shadow and the lamp on its face come up then.
+    --wall-settle: calc(var(--lay-spread, 620ms) + var(--lay-tile, 420ms) * 0.4);
+    rotate: y -9deg;
+    scale: 0.94;
+    transition:
+      rotate 1800ms var(--ease-out),
+      scale 1800ms var(--ease-out);
+  }
+
+  .wall:not([data-laid]) {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  // The lamp on the face is a blend over whatever is under it, so until the tiles are down it would
+  // light the page through the gaps as a pale card. It comes up with the joints instead.
+  .wall:not([data-laid])::before {
+    opacity: 0;
+  }
+
+  .wall[data-laid]::before {
+    animation: wall-joints-light 500ms var(--ease-out) var(--wall-settle) backwards;
+  }
+
+  // Keyframes rather than a delayed transition: each runs once and then lets go, so a later recolor
+  // moves the joints with the tiles instead of a second and a half behind them.
+  .wall[data-laid] {
+    rotate: y 0deg;
+    scale: 1;
+    // The shadow waits for the tiles too: grown from the start, it outlined the empty wall against the
+    // lamp-lit page behind it, and that outline read as a pale card with tiles landing on it.
+    animation:
+      wall-shadow 800ms var(--ease-out) var(--wall-settle) backwards,
+      wall-joints 500ms var(--ease-out) var(--wall-settle) backwards;
+  }
+}
+
+@keyframes wall-shadow {
+  from {
+    box-shadow: none;
+  }
+}
+
+@keyframes wall-joints {
+  from {
+    background-color: transparent;
+  }
+}
+
+@keyframes wall-joints-light {
+  from {
+    opacity: 0;
   }
 }
 
@@ -101,7 +164,16 @@
 
 .wall::before {
   inset: 0;
-  background: linear-gradient(118deg, rgb(255 253 248 / 0.16) 0%, transparent 42%, rgb(46 36 27 / 0.16) 100%);
+  // A lamp, not a wash: brightest where the key lands at the upper left and falling off across the
+  // face to the far corner, the way a wall lit by one lamp photographs. Soft-light keeps the relief's
+  // own shading under it, so the pattern darkens with the light rather than being painted over.
+  background: radial-gradient(
+    130% 120% at 16% 6%,
+    rgb(255 253 248 / 0.36) 0%,
+    rgb(255 253 248 / 0.08) 38%,
+    transparent 55%,
+    rgb(46 36 27 / 0.34) 100%
+  );
   mix-blend-mode: soft-light;
 }
 
@@ -174,9 +246,16 @@
 // Printing a page of relief chips is not what a printer is for, but an empty grid is worse: the wave's
 // start state is dropped so the wall prints whole whether or not it was ever laid on screen.
 @media print {
+  .wall,
   .tile {
     opacity: 1 !important;
     transform: none !important;
+    rotate: none !important;
+    scale: none !important;
+  }
+
+  .wall {
+    background-color: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 52%, var(--bar)) !important;
   }
 
   .wall::after {

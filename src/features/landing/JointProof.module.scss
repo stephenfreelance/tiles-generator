@@ -1,6 +1,6 @@
 @use '@/styles/mixins' as *;
 
-// A hairline of bench between the pieces reads as the joint; the relief still runs across it. The
+// A line of shadow between the pieces reads as the joint; the relief still runs across it. The
 // wall itself never clips: the pieces rest 5 px outside it before they are laid, and the piece under
 // the hand lifts out of it, so the rounding lives on the four pieces that own an outside corner.
 .wall {
@@ -11,7 +11,8 @@
   // The same lift the plan drawing beside it has: with the old well gone these pieces lie straight on
   // the band, and the shadow is what keeps them a laid wall rather than a picture printed on it.
   box-shadow: var(--shadow-md);
-  background: var(--hairline);
+  // The shadow down in the V two chamfered edges make, as on the hero's wall (HeroWall.module.scss).
+  background: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 52%, var(--bar));
 }
 
 .cell {

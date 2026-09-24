@@ -36,6 +36,9 @@
   display: grid;
   gap: var(--s-3);
   min-width: 0;
+  // A jump from the step index lands the step flush under the index, its own top rule tucked under the
+  // index's, never behind it and never showing the tail of the step before.
+  scroll-margin-top: calc(3.25rem - 1px);
   padding-block: var(--s-4);
 }
 
@@ -66,6 +69,158 @@
   font-size: var(--text-xl);
   font-weight: 650;
   letter-spacing: 0.005em;
+
+  // Focused only when the step index jumps here: a mouse jump shows nothing, a keyboard one shows where
+  // reading carries on from.
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The step index: the seven questions in a row at the head of the column, marking the one being
+// read and jumping to any of them. It stays pinned while the steps scroll under it.
+// ---------------------------------------------------------------------------------------------
+
+.stepIndex {
+  // Its own height, which is also how far a jumped-to step stops short of the top (.group below).
+  --step-index-h: 3.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  min-height: var(--step-index-h);
+  // Full bleed across the column's own padding, so what scrolls under it is covered edge to edge.
+  margin-inline: calc(-1 * var(--steps-pad-x, var(--s-5)));
+  padding-inline: calc(var(--steps-pad-x, var(--s-5)) - var(--s-2));
+  border-bottom: 1px solid #f0e7d6;
+  background: var(--panel);
+}
+
+.stepList {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  min-width: 0;
+  // The rail's own width, even where one column runs the width of a tablet: spread across 1000 px the
+  // numbers stopped reading as one row.
+  max-width: 33rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepLink {
+  @include button-reset;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  min-height: 2rem;
+  padding: 0 var(--s-2) 0 0.3125rem;
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+
+  &:hover {
+    background: var(--panel-2);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    @include focus-ring(1px);
+  }
+
+  &[aria-current] {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  @include coarse-pointer {
+    min-height: 2.75rem;
+  }
+}
+
+.stepLinkNo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.3125rem;
+  height: 1.3125rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+}
+
+.stepLink[aria-current] .stepLinkNo {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+// The plan is not a question, so it carries a drawing of a plan where the steps carry a number, and a
+// hairline sets it apart from them.
+.stepPlanItem {
+  display: flex;
+  align-items: center;
+  padding-left: 2px;
+  border-left: 1px solid var(--hairline);
+}
+
+.stepPlan {
+  padding-left: var(--s-2);
+}
+
+.stepPlanIcon {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--accent);
+}
+
+// Only the step being read spells out its name; the others keep theirs for assistive tech and hover.
+.stepLink:not([aria-current]) {
+  padding-right: 0.3125rem;
+
+  .stepLinkLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.stepPlan:not([aria-current]) {
+  padding-inline: var(--s-2);
+}
+
+@include forced-colors {
+  .stepLink[aria-current] {
+    outline: 2px solid Highlight;
+  }
 }
 
 // What the step currently says, at the end of its own heading.

@@ -134,7 +134,8 @@
 .captionNote {
   @include tabular;
 
-  color: var(--ink-3);
+  // --ink-2, not --ink-3: this line sits inside the wall's cast shadow, where --ink-3 measured 4.2:1.
+  color: var(--ink-2);
   font-size: var(--text-xs);
 }
 

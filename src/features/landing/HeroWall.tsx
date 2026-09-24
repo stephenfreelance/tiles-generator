@@ -18,9 +18,13 @@ import styles from './HeroWall.module.scss'
  */
 const STAGGER_CAP = 120
 
-/** The lay-in: how long the wave takes to cross the wall, and how long one tile takes to land. */
-const LAY_SPREAD_MS = 620
-const LAY_TILE_MS = 420
+/**
+ * The lay-in: how long the wave takes to cross the wall, and how long one tile takes to land. Long
+ * enough to be watched as a wall being laid from its setting-out corner, which is the one thing on
+ * this screen that moves on its own; short enough to be over inside two seconds.
+ */
+const LAY_SPREAD_MS = 1100
+const LAY_TILE_MS = 700
 /** And the longest it waits for its pictures first: past this the wall lays in whatever it has. */
 const LAY_CEILING_MS = 2400
 

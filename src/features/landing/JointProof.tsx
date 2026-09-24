@@ -6,6 +6,7 @@ import { AnimatePresence, m, stagger, useReducedMotion, type Variants } from 'mo
 import { useMemo, useState } from 'react'
 import type { DesignConfig, LayoutPlan } from '@/core/types'
 import { useTextureChips, type ChipItem } from '@/hooks'
+import type { StyleWithVars } from '@/ui/cx'
 import { PROOF_CHIP_PX } from './chipBudget'
 import { cutHaloOn } from './cutMark'
 import styles from './JointProof.module.scss'
@@ -74,6 +75,13 @@ export function JointProof({ config, plan, label, sizePx = PROOF_CHIP_PX }: Join
   )
   const chips = useTextureChips(config, items, sizePx)
   const wall = useMemo(() => buildWallGrid(plan), [plan])
+  const wallStyle: StyleWithVars = {
+    gridTemplateColumns: wall.columns,
+    gridTemplateRows: wall.rows,
+    aspectRatio: wall.aspect,
+    // The joint takes the tile's own colour in shadow, exactly as the hero's wall does.
+    '--tile-ink': config.color,
+  }
   // MotionConfig only makes positional keys instant, so the opacity in both animations is branched here.
   const reduced = useReducedMotion()
   // The reveal runs once and never again: a cell mounted after it (a wall with fewer columns, then
@@ -88,7 +96,7 @@ export function JointProof({ config, plan, label, sizePx = PROOF_CHIP_PX }: Join
       // Both reds are mid-value: on a tile of similar value the mark needs a ring of whichever of ink
       // or panel cutHaloOn() measured as the readable one on this color.
       data-halo={cutHaloOn(config.color)}
-      style={{ gridTemplateColumns: wall.columns, gridTemplateRows: wall.rows, aspectRatio: wall.aspect }}
+      style={wallStyle}
       variants={WALL_VARIANTS}
       initial={reduced ? 'shown' : 'hidden'}
       whileInView="shown"

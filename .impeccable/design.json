@@ -1,0 +1,624 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-23T22:36:04.439Z",
+  "title": "Design System: Tessera",
+  "extensions": {
+    "colorMeta": {
+      "espresso-bar": {
+        "role": "neutral",
+        "displayName": "Espresso Bar",
+        "oklch": "oklch(26.9% 0.022 63.7)",
+        "tonalRamp": [
+          "#120903",
+          "#2c2219",
+          "#483d34",
+          "#675b51",
+          "#8a7e73",
+          "#afa297",
+          "#d5c8bc",
+          "#faece0"
+        ]
+      },
+      "bar-ink": {
+        "role": "neutral",
+        "displayName": "Bar Cream",
+        "oklch": "oklch(96.0% 0.016 82.8)",
+        "tonalRamp": [
+          "#0e0b05",
+          "#28231b",
+          "#443f36",
+          "#625d54",
+          "#858076",
+          "#a9a49a",
+          "#d0cabf",
+          "#f4eee3"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Warm Ground",
+        "oklch": "oklch(94.0% 0.021 81.8)",
+        "tonalRamp": [
+          "#0f0a03",
+          "#292319",
+          "#453f34",
+          "#635d51",
+          "#867f73",
+          "#aba496",
+          "#d1cabc",
+          "#f5eddf"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel Cream",
+        "oklch": "oklch(99.4% 0.007 88.6)",
+        "tonalRamp": [
+          "#0c0b08",
+          "#252420",
+          "#41403c",
+          "#5f5d59",
+          "#82807c",
+          "#a6a4a0",
+          "#cccac5",
+          "#f0eee9"
+        ]
+      },
+      "panel-recessed": {
+        "role": "neutral",
+        "displayName": "Recessed Bench",
+        "oklch": "oklch(93.0% 0.022 83.3)",
+        "tonalRamp": [
+          "#100a03",
+          "#292318",
+          "#453f33",
+          "#645d50",
+          "#877f72",
+          "#aba496",
+          "#d1cabb",
+          "#f6eede"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "oklch": "oklch(88.7% 0.030 80.6)",
+        "tonalRamp": [
+          "#120a00",
+          "#2c2313",
+          "#483e2e",
+          "#665c4b",
+          "#8a7f6c",
+          "#aea390",
+          "#d5c9b5",
+          "#f9edd9"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "oklch": "oklch(84.1% 0.039 81.5)",
+        "tonalRamp": [
+          "#120a00",
+          "#2e220c",
+          "#4a3e28",
+          "#695c45",
+          "#8c7e66",
+          "#b1a38a",
+          "#d8c9af",
+          "#fcedd2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "oklch": "oklch(23.3% 0.019 66.6)",
+        "tonalRamp": [
+          "#110a04",
+          "#2b221a",
+          "#473e35",
+          "#655c52",
+          "#887e74",
+          "#ada398",
+          "#d3c8be",
+          "#f8ece1"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "oklch": "oklch(44.0% 0.025 67.1)",
+        "tonalRamp": [
+          "#120902",
+          "#2c2217",
+          "#493d32",
+          "#675b4f",
+          "#8b7e71",
+          "#b0a295",
+          "#d6c8ba",
+          "#faecdd"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "oklch": "oklch(48.7% 0.031 70.7)",
+        "tonalRamp": [
+          "#130900",
+          "#2d2113",
+          "#4a3d2e",
+          "#695b4b",
+          "#8c7d6d",
+          "#b1a290",
+          "#d8c8b6",
+          "#fcecd9"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Tile Accent",
+        "oklch": "oklch(46.5% 0.127 138.2)",
+        "tonalRamp": [
+          "#020f00",
+          "#0c2c00",
+          "#1b4d02",
+          "#346d1d",
+          "#579243",
+          "#7bb767",
+          "#a1de8c",
+          "#cfffbf"
+        ],
+        "note": "Runtime value follows the tile color via accentPalette (src/core/accent.ts); the hex is the default Green tile. White tile gives #5E5C57, yellow #765800."
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Tile Accent Hover",
+        "oklch": "oklch(43.0% 0.127 138.1)",
+        "tonalRamp": [
+          "#020f00",
+          "#0d2c01",
+          "#1b4d01",
+          "#356d1d",
+          "#579243",
+          "#7bb767",
+          "#a1de8c",
+          "#cfffbf"
+        ]
+      },
+      "accent-press": {
+        "role": "primary",
+        "displayName": "Tile Accent Press",
+        "oklch": "oklch(39.0% 0.121 138.2)",
+        "tonalRamp": [
+          "#020f00",
+          "#0c2c00",
+          "#1a4d00",
+          "#376d22",
+          "#5a9147",
+          "#7eb76b",
+          "#a3de90",
+          "#cfffbf"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "On Accent",
+        "oklch": "oklch(99.4% 0.007 88.6)",
+        "tonalRamp": [
+          "#0c0b08",
+          "#252420",
+          "#41403c",
+          "#5f5d59",
+          "#82807c",
+          "#a6a4a0",
+          "#cccac5",
+          "#f0eee9"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Tile Accent Soft",
+        "oklch": "oklch(95.6% 0.020 138.4)",
+        "tonalRamp": [
+          "#070d06",
+          "#1f261d",
+          "#3b4238",
+          "#586156",
+          "#7a8378",
+          "#9ea89c",
+          "#c4cec1",
+          "#e8f2e5"
+        ]
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "Fit Green",
+        "oklch": "oklch(47.3% 0.101 148.5)",
+        "tonalRamp": [
+          "#001002",
+          "#012d0e",
+          "#064e1e",
+          "#2e6d3c",
+          "#52915e",
+          "#77b681",
+          "#9cdda6",
+          "#c9ffd0"
+        ]
+      },
+      "ok-ink": {
+        "role": "status",
+        "displayName": "Fit Green Text",
+        "oklch": "oklch(42.6% 0.091 148.1)",
+        "tonalRamp": [
+          "#001003",
+          "#002d0d",
+          "#144c22",
+          "#366b3f",
+          "#598f61",
+          "#7db585",
+          "#a2dbaa",
+          "#c8ffcf"
+        ]
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Caution Amber",
+        "oklch": "oklch(53.1% 0.129 47.1)",
+        "tonalRamp": [
+          "#190500",
+          "#3e1601",
+          "#692b02",
+          "#954107",
+          "#bd6535",
+          "#e68a5a",
+          "#ffb895",
+          "#ffeae0"
+        ]
+      },
+      "warn-ink": {
+        "role": "status",
+        "displayName": "Caution Amber Text",
+        "oklch": "oklch(46.4% 0.112 47.9)",
+        "tonalRamp": [
+          "#190500",
+          "#3e1700",
+          "#682b01",
+          "#8f461b",
+          "#b66a41",
+          "#de8e65",
+          "#feb895",
+          "#feeae0"
+        ]
+      },
+      "cut": {
+        "role": "status",
+        "displayName": "Cut Red",
+        "oklch": "oklch(48.4% 0.153 33.6)",
+        "tonalRamp": [
+          "#1e0100",
+          "#480900",
+          "#761701",
+          "#a23119",
+          "#cb573e",
+          "#f57d62",
+          "#ffb6a5",
+          "#ffe9e4"
+        ]
+      },
+      "cut-soft": {
+        "role": "status",
+        "displayName": "Cut Red Wash",
+        "oklch": "oklch(94.9% 0.020 40.5)",
+        "tonalRamp": [
+          "#120805",
+          "#2d211d",
+          "#4a3c38",
+          "#685a55",
+          "#8c7c77",
+          "#b1a19b",
+          "#d7c6c1",
+          "#fbeae4"
+        ]
+      },
+      "tile-default": {
+        "role": "primary",
+        "displayName": "Tile Color (default Green)",
+        "oklch": "oklch(61.7% 0.128 138.3)",
+        "tonalRamp": [
+          "#020f00",
+          "#0c2c01",
+          "#1b4d02",
+          "#346e1d",
+          "#579243",
+          "#7bb767",
+          "#a0de8c",
+          "#ceffbf"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The home page headline only; never animated."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Home page band headings and the close."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Studio step headings, tiling plan heading, dialog titles."
+      },
+      "body-lead": {
+        "displayName": "Body Lead",
+        "purpose": "Supporting paragraphs on the home page, 34 to 54ch."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text on every surface."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "The number in a measurement field, tabular."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field names, list heads, the step index; sentence case."
+      },
+      "note": {
+        "displayName": "Note",
+        "purpose": "Smallest text: swatch hints and hex codes, Ink 3 or darker."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28)",
+        "purpose": "Secondary buttons, the active tab."
+      },
+      {
+        "name": "lift",
+        "value": "0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5)",
+        "purpose": "Studio rail, cards, popovers, tooltips, toasts."
+      },
+      {
+        "name": "stage-tool",
+        "value": "0 2px 8px rgb(46 36 27 / 0.08)",
+        "purpose": "Controls resting on the 3D render, over 88% panel with a 6px backdrop blur."
+      },
+      {
+        "name": "dialog",
+        "value": "0 24px 60px -28px rgb(46 36 27 / 0.7)",
+        "purpose": "Dialogs, over a rgb(46 36 27 / 0.45) scrim."
+      },
+      {
+        "name": "primary-glow",
+        "value": "inset 0 1px 0 rgb(255 255 255 / 0.25), 0 10px 20px -12px color-mix(in srgb, var(--accent) 90%, transparent)",
+        "purpose": "The accent primary button only."
+      },
+      {
+        "name": "standing-object",
+        "value": "0 2px 4px rgb(46 36 27 / 0.08), 0 18px 30px -20px rgb(46 36 27 / 0.5), 0 60px 90px -50px rgb(46 36 27 / 0.62)",
+        "purpose": "The home hero wall, standing off the page under an upper-left key."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for state changes and entrances."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "Looping moves such as the hero sheen."
+      },
+      {
+        "name": "t-fast",
+        "value": "140ms",
+        "purpose": "Hover, press and color state transitions; slip entrances. 0ms under reduced motion."
+      },
+      {
+        "name": "t-med",
+        "value": "260ms",
+        "purpose": "Disclosure chevrons, view transitions, chip fades. 0ms under reduced motion."
+      },
+      {
+        "name": "t-slow",
+        "value": "560ms",
+        "purpose": "Slow fades. 0ms under reduced motion."
+      },
+      {
+        "name": "hero-lay-in",
+        "value": "1100ms wave spread, 700ms per tile, 1800ms wall swing, 2400ms ceiling",
+        "purpose": "The home wall laid once from the setting-out corner; joints, shadow and face light follow once most tiles are down. Skipped under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "30rem"
+      },
+      {
+        "name": "tablet",
+        "value": "48rem"
+      },
+      {
+        "name": "medium",
+        "value": "60rem"
+      },
+      {
+        "name": "wide-hero",
+        "value": "62rem"
+      },
+      {
+        "name": "studio-two-column",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one accent action per screen.",
+      "html": "<button class=\"ds-btn-primary\">Get my files</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1rem; border: 1px solid var(--accent, #306918); border-radius: 14px; background: var(--accent, #306918); color: var(--accent-ink, #fffdf8); font: 650 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 10px 20px -12px rgb(48 105 24 / 0.9); cursor: pointer; transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1), transform 140ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: var(--accent-hover, #265f09); border-color: var(--accent-hover, #265f09); } .ds-btn-primary:active { background: var(--accent-press, #1d5300); border-color: var(--accent-press, #1d5300); transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A panel plate for every other action.",
+      "html": "<button class=\"ds-btn-secondary\">Copy link</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1rem; border: 1px solid #e4d8c4; border-radius: 14px; background: #fffdf8; color: #241c14; font: 650 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; box-shadow: 0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28); cursor: pointer; transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1), border-color 140ms; } .ds-btn-secondary:hover { background: #fbf5ea; border-color: #d8c9af; } .ds-btn-secondary:active { background: #efe7d8; transform: translateY(1px); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Accent words on the bench, underlined.",
+      "html": "<button class=\"ds-btn-ghost\">Run the fit test</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 0.75rem; border: 0; border-radius: 14px; background: none; color: var(--accent, #306918); font: 600 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; text-decoration: underline 1.5px; text-underline-offset: 3px; cursor: pointer; transition: background-color 140ms; } .ds-btn-ghost:hover { background: var(--accent-soft, #eaf4e7); } .ds-btn-ghost:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 2px; }"
+    },
+    {
+      "name": "Pill Group",
+      "kind": "chip",
+      "refersTo": "segmented-selected",
+      "description": "Word choices in a recessed track; the chosen one is the espresso plate.",
+      "html": "<div class=\"ds-seg\" role=\"radiogroup\"><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"true\">Whole wall</button><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"false\">One tile</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid #e4d8c4; border-radius: 11px; background: #efe7d8; } .ds-seg-item { min-height: 2rem; padding: 0 0.75rem; border: 0; border-radius: 8px; background: none; color: #5c5044; font: 550 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-seg-item:hover:not([aria-checked=\"true\"]) { background: rgb(36 28 20 / 0.05); color: #241c14; } .ds-seg-item[aria-checked=\"true\"] { background: #2e241b; color: #f7f1e6; font-weight: 600; } .ds-seg-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
+    },
+    {
+      "name": "Measurement Field",
+      "kind": "input",
+      "refersTo": "measure-field",
+      "description": "A labelled well with a tabular figure, its unit and steppers.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Width</span><span class=\"ds-field-control\"><input class=\"ds-field-input\" value=\"2400\"><span class=\"ds-field-unit\">mm</span></span></label>",
+      "css": ".ds-field { display: grid; gap: 4px; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-field-label { color: #6b5d4d; font-size: 0.75rem; font-weight: 600; } .ds-field-control { display: flex; align-items: center; height: 3rem; padding: 0 0.5rem 0 0.75rem; border: 1px solid #e4d8c4; border-radius: 11px; background: #fffdf8; transition: border-color 140ms, box-shadow 140ms; } .ds-field-control:hover { border-color: #d8c9af; } .ds-field-control:focus-within { border-color: var(--accent, #306918); box-shadow: 0 0 0 1px var(--accent, #306918); } .ds-field-input { flex: 1; min-width: 0; border: 0; background: transparent; color: #241c14; font: 650 1.1875rem/1 inherit; font-variant-numeric: tabular-nums; outline: none; } .ds-field-unit { color: #6b5d4d; font-size: 0.8125rem; }"
+    },
+    {
+      "name": "Step Heading",
+      "kind": "custom",
+      "refersTo": "step-number",
+      "description": "A numbered soft-accent disc, the title and the current value at the end of the line.",
+      "html": "<div class=\"ds-step\"><span class=\"ds-step-no\">2</span><h3 class=\"ds-step-title\">Tile size</h3><span class=\"ds-step-now\">150 x 150 mm</span></div>",
+      "css": ".ds-step { display: flex; align-items: center; gap: 0.75rem; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-step-no { display: inline-grid; place-items: center; width: 1.625rem; height: 1.625rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-step-title { margin: 0; color: #241c14; font-size: 1.25rem; font-weight: 650; letter-spacing: 0.005em; } .ds-step-now { margin-left: auto; color: #241c14; font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Step Index",
+      "kind": "nav",
+      "refersTo": "step-index-current",
+      "description": "The pinned row of step numbers; only the step being read spells out its name.",
+      "html": "<nav class=\"ds-index\"><a class=\"ds-index-item\"><span class=\"ds-index-no\">1</span></a><a class=\"ds-index-item\" aria-current=\"step\"><span class=\"ds-index-no\">2</span>Tile size</a><a class=\"ds-index-item\"><span class=\"ds-index-no\">3</span></a><a class=\"ds-index-item\"><span class=\"ds-index-no\">4</span></a></nav>",
+      "css": ".ds-index { display: flex; align-items: center; gap: 2px; min-height: 3.25rem; padding: 0 1rem; border-bottom: 1px solid #f0e7d6; background: #fffdf8; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-index-item { display: inline-flex; align-items: center; gap: 5px; min-height: 2rem; padding: 0 5px; border-radius: 999px; color: #6b5d4d; font-size: 0.75rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-index-item:hover { background: #efe7d8; color: #241c14; } .ds-index-item[aria-current] { padding-right: 0.5rem; background: var(--accent-soft, #eaf4e7); color: #241c14; } .ds-index-no { display: inline-grid; place-items: center; width: 1.3125rem; height: 1.3125rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-index-item[aria-current] .ds-index-no { background: var(--accent, #306918); color: var(--accent-ink, #fffdf8); } .ds-index-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
+    },
+    {
+      "name": "Lid",
+      "kind": "custom",
+      "refersTo": "disclosure-lid",
+      "description": "A folded panel that says on its face what has moved behind it.",
+      "html": "<button class=\"ds-lid\" aria-expanded=\"false\"><svg class=\"ds-lid-chev\" viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"m9 18 6-6-6-6\"/></svg><span class=\"ds-lid-text\"><span class=\"ds-lid-label\">Advanced</span><span class=\"ds-lid-desc\">Gaps, layout, pattern detail and printer</span></span><span class=\"ds-lid-badge\">All standard</span></button>",
+      "css": ".ds-lid { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.25rem; padding: 0.75rem 1rem; border: 1px solid #e4d8c4; border-radius: 14px; background: #f7f1e6; color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; text-align: left; cursor: pointer; transition: background-color 140ms, border-color 140ms; } .ds-lid:hover { background: #efe7d8; border-color: #d8c9af; } .ds-lid:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; } .ds-lid-chev { flex: none; color: #5c5044; transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-lid[aria-expanded=\"true\"] .ds-lid-chev { transform: rotate(90deg); } .ds-lid-text { display: grid; gap: 1px; } .ds-lid-label { font-size: 0.875rem; font-weight: 650; } .ds-lid-desc { color: #6b5d4d; font-size: 0.8125rem; } .ds-lid-badge { margin-left: auto; padding: 3px 0.5rem; border: 1px solid #e4d8c4; border-radius: 999px; background: #fffdf8; color: #5c5044; font-size: 0.75rem; font-weight: 650; white-space: nowrap; }"
+    },
+    {
+      "name": "Color Swatch",
+      "kind": "chip",
+      "description": "A lit 44px chip of the color itself; selected by an espresso ring, never the accent.",
+      "html": "<div class=\"ds-swatches\"><button class=\"ds-swatch\" style=\"--c:#5c9748\" aria-checked=\"true\" role=\"radio\" aria-label=\"Green\"></button><button class=\"ds-swatch\" style=\"--c:#00a19b\" aria-checked=\"false\" role=\"radio\" aria-label=\"Teal\"></button><button class=\"ds-swatch\" style=\"--c:#f4f2ec\" aria-checked=\"false\" role=\"radio\" aria-label=\"White\"></button></div>",
+      "css": ".ds-swatches { display: flex; gap: 0.5rem; } .ds-swatch { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--c); box-shadow: inset 0 0 0 1px rgb(36 28 20 / 0.18), inset 0 7px 11px -7px rgb(255 255 255 / 0.7); cursor: pointer; transition: box-shadow 140ms; } .ds-swatch[aria-checked=\"true\"] { box-shadow: 0 0 0 2px #fffdf8, 0 0 0 4px #2e241b, inset 0 0 0 1px rgb(36 28 20 / 0.18); } .ds-swatch:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 4px; }"
+    },
+    {
+      "name": "Panel Card",
+      "kind": "card",
+      "refersTo": "panel-card",
+      "description": "A panel lifted off the warm ground.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Tiling plan</h3><p class=\"ds-card-body\">32 tiles, no cuts. 4 files to print.</p></div>",
+      "css": ".ds-card { padding: 1.5rem; border: 1px solid #e4d8c4; border-radius: 22px; background: #fffdf8; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-card-title { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 650; } .ds-card-body { margin: 0; color: #5c5044; font-size: 0.875rem; line-height: 1.45; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Well-Lit Workbench",
+    "overview": "Tessera is a maker's bench under one warm lamp, not a drawing office. A dark espresso bar anchors the top of every page; beneath it a warm off-white ground carries soft, rounded panels lifted on brown (never grey) shadows. The render of the wall is the product and takes most of the screen; the interface around it is quiet, tactile and legible, so the brightest things in view are always the maker's own tile color and relief. Every screen is lit from the same corner, the upper left: the 3D lamp, the relief chips' hillshade and the home hero's lamp all agree.\n\nColor carries one job at a time. One accent, drawn from the tile color the maker chose, is the primary action, selection and focus; red means only \"cut, or wrong\"; a fixed green is the exact-fit tick and amber the caution. The chosen tile color also washes the bench at 8%, so picking Teal turns the page teal without ever pushing text under AA. Type is Archivo throughout, in sentence case, with tabular figures on every measurement. Density is moderate: a studio rail of numbered steps separated by single hairlines, controls grouped in recessed wells, and every rarely touched knob folded behind one labelled lid that states on its face whether anything behind it has moved.\n\nThe system rejects two things equally, both confirmed by the direction contract: the grey form-sidebar configurator, and the drafting-sheet instrument panel this app used to be (square corners, a 2 px ink frame, lettered sheet borders, expanded uppercase labels, red primary action, chalk-blue focus). The older \"Visual world\" section of `docs/architecture.md` describes that retired world and is superseded by this file and `src/styles/_tokens.scss`.",
+    "keyCharacteristics": [
+      "Espresso bar over a warm ground; rounded warm panels; one recessed tone for wells, pills and strips; one hairline.",
+      "One accent, derived from the tile color with an enforced contrast floor, for action, selection and focus.",
+      "The relief and color samples are the brightest, least captioned things on screen.",
+      "Archivo only, sentence case, tabular figures, weights 600 to 700 doing the hierarchy.",
+      "One light source, upper left, on every rendered or painted surface.",
+      "Motion settles from an already-legible start, and collapses to nothing under reduced motion."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "The accent means action, selection or focus, and one accent-filled primary button per screen. It is never decoration, never a status color and never a heading color on the operating surfaces.",
+        "section": "colors"
+      },
+      {
+        "name": "The Contrast Floor Rule",
+        "body": "The accent follows the tile, but no tile may drag it under 6.5:1 on the panel. Never hard-code the default green: read `--accent` and let `accentPalette` decide.",
+        "section": "colors"
+      },
+      {
+        "name": "The Bar Exception Rule",
+        "body": "The accent is illegal on the espresso bar (2.3:1 at most, whatever the tile). Everything on the bar focuses and selects in Bar Cream instead.",
+        "section": "colors"
+      },
+      {
+        "name": "The 8% Wash Rule",
+        "body": "The tile color may tint the bench at 8% at most where text sits on it (a pure black tile still leaves Ink 3 at 5.25:1), and at 12% only where no text sits. Nothing lighter than Ink 3 goes on the wash.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Means Cut Rule",
+        "body": "Red is reserved for cut pieces and for what is wrong. It is never a primary action, never a brand color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Labels, buttons, tabs and headings are sentence case. The expanded uppercase lettering of the drafting world is retired; the only uppercase in the system is a hex code, which reads as a code.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every measurement, count and value is set with tabular figures, so columns of numbers and live-updating values never shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Warm Shadow Rule",
+        "body": "Every shadow is tinted from the espresso bar. A neutral grey or black shadow is off-system.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Lamp Rule",
+        "body": "Light comes from the upper left on every surface: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26), the hero wall's lamp gradient and the shadows that fall down and to the right. A new lit surface takes the same corner.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do read `--accent` and its four companions for every action, selection and focus, and let `accentPalette` hold the 6.5:1 floor for any tile color.",
+      "Do keep one accent-filled primary button per screen, at the 54 px size when it closes the screen.",
+      "Do lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone.",
+      "Do round everything: 11, 14 or 22 px, 8 px for controls nested in a track, full pills for counts, badges and step numbers.",
+      "Do set every measurement and count in tabular figures, and every label in sentence case.",
+      "Do light every new rendered or painted surface from the upper left.",
+      "Do say on a lid's face what has moved behind it.",
+      "Do give every target 24 px, and 44 px under a coarse pointer.",
+      "Do start every entrance from an already-legible state, with a fallback that shows the content if the entrance never runs, and collapse motion to nothing under reduced motion (`--t-fast`, `--t-med`, `--t-slow` already go to 0 ms).",
+      "Do redraw every state carried by color (selected, cut, pressed) in system colors or in a shape under forced colors."
+    ],
+    "donts": [
+      "Don't bring back the drafting sheet: square corners, a 2 px ink frame, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
+      "Don't build a grey form-sidebar configurator; the render leads and the rail is warm.",
+      "Don't put the accent on the espresso bar, or use it as decoration or status.",
+      "Don't use red for anything but cut pieces and what is wrong.",
+      "Don't tint the bench above 8% where text sits, or set anything lighter than Ink 3 on the wash.",
+      "Don't use grey or black shadows, or hard offset shadows.",
+      "Don't caption the swatches or relief samples, or draw anything brighter than them on the operating surfaces.",
+      "Don't select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
+      "Don't use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code; they exist only so older files resolve.",
+      "Don't introduce a second typeface or a system display face; Archivo is the whole voice."
+    ]
+  }
+}

@@ -55,6 +55,23 @@
   isolation: isolate;
 }
 
+// The room the wall is photographed in. A lamp hangs over the wall and the floor falls off toward the
+// edges of the frame, so the one lit thing on the first screen is the wall and the type stands in the
+// shade beside it. Both fall away along the bottom edge, which is plain --ground where the first band
+// pours out of it, so nothing marks the seam. The fall-off reaches 18% of the bar's espresso at the
+// top and right edges; the mask has taken most of it away by the small --ink-3 rows at the column's foot.
+.hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(38rem 30rem at 68% 45%, var(--panel), color-mix(in srgb, var(--panel) 50%, transparent) 45%, transparent 75%),
+    radial-gradient(95% 80% at 64% 42%, transparent 36%, color-mix(in srgb, var(--bar) 18%, transparent) 100%);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent 96%);
+  pointer-events: none;
+}
+
 .heroLede {
   position: relative;
   z-index: 1;
@@ -410,7 +427,7 @@
 .proof {
   display: grid;
   grid-template-columns: minmax(0, 36rem) minmax(0, 1fr);
-  align-items: end;
+  align-items: center;
   gap: var(--s-4) clamp(var(--s-5), 4vw, var(--s-7));
   padding-top: clamp(var(--s-3), 2vw, var(--s-5));
 }
@@ -437,11 +454,12 @@
 
 .studioNote {
   display: grid;
-  align-self: end;
+  // Level with the middle of the proof it answers, not dropped to its foot: at the foot it left a
+  // screen of empty band above it and read as a caption to nothing.
+  align-self: center;
   justify-items: start;
-  gap: var(--s-3);
+  gap: var(--s-4);
   max-width: 34rem;
-  padding-bottom: var(--s-5);
 }
 
 .studioText {
@@ -477,6 +495,9 @@
 // The joints switch sits above the samples it changes, and rules off at the same right-hand edge they
 // do: capped at 52rem it stopped 700 px short of the board below it and nothing lined up.
 .joints {
+  // As wide as its own words, so the switch sits beside the sentence it answers instead of a whole
+  // band's width away at the far edge.
+  max-width: 34rem;
   padding: var(--s-3) 0;
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
@@ -631,6 +652,12 @@
 
   .heroLede {
     align-content: start;
+  }
+
+  // Stacked, the type and the wall take turns down one column, so there is no shade beside the wall
+  // for the type to stand in; the wall keeps its own pool of light (HeroStage).
+  .hero::before {
+    display: none;
   }
 }
 

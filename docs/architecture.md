@@ -138,7 +138,8 @@ src/
                         SidePicker.tsx over the pure helpers and copy in edges.ts; step 7 "Putting it up"
                         is MountingGroup.tsx over mountingCopy.ts (explainMounting, the one source of
                         its words); tileBack.ts says whether the single tile has a back worth turning
-                        over (backHasPockets).
+                        over (backHasPockets). StepIndex.tsx is the pinned row of step numbers at the head
+                        of the column, over the section ids in stepIds.ts (studio-step-N, studio-plan).
     export/             the download page's parts: AccessoryTable.tsx (printed parts by group, each
                         downloadable alone), MountingGuide.tsx ("Putting it up", rendering
                         core/fixing/guide.ts step by step with its drawings), zipContents.ts (what the
