@@ -7,6 +7,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  // A <Link> styled as a button holds its icon and words as bare children: this keeps them apart, as
+  // .content does inside a <Button>.
+  gap: var(--s-2);
   flex: none;
   border: 1px solid transparent;
   border-radius: var(--radius-md);

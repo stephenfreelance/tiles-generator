@@ -1,8 +1,7 @@
 // "Putting it up": the way from a printed kit to a finished wall, in plain maker words and the design's own
 // numbers (counts, lengths, the marks on the parts). The one source of these steps: the download page shows
-// them with drawings, the README in the zip numbers them as text and the studio's "You'll do" reads
-// mountingSummary, so none of them can tell a maker something different. Pure, so every sentence is tested
-// without a DOM.
+// them with drawings and the README in the zip numbers them as text, so neither can tell a maker something
+// different. Pure, so every sentence is tested without a DOM.
 //
 // Two guides live here, both in GuideStep so one component renders either: mountingGuide (the wall) and
 // fitTestGuide (running the fit test, which has its own page and its own download). The fit is said in one
@@ -528,10 +527,10 @@ function keysOnlySteps(input: GuideInput): GuideStep[] {
 /**
  * The order a glued wall goes up in, by the rule the tiling plan's notes follow: the whole tiles first from
  * the setting-out point, unless the tile there is a cut (a row that starts on a cut cannot leave its cuts).
- * `file` names the plan's file, as the download and the README do; the studio has no file to name yet.
+ * It names the plan's file, as the download and the README do.
  */
-function glueOrder(config: DesignConfig, plan: LayoutPlan, file = true): string {
-  const from = `the setting-out point (SO) on the tiling plan${file ? ` (${SETTING_OUT_PLAN_FILE})` : ''}`
+function glueOrder(config: DesignConfig, plan: LayoutPlan): string {
+  const from = `the setting-out point (SO) on the tiling plan (${SETTING_OUT_PLAN_FILE})`
   if (plan.exact) return `Set the tiles from the bottom row up, starting at ${from}.`
   const model = buildPlanModel(config, plan)
   const first = tileAtPoint(model.tiles, model.settingOut.point)
@@ -598,46 +597,6 @@ export function mountingGuide(input: GuideInput): MountingGuide {
       `and ${plural(mount.clips, 'countersunk screw')} (3.5 mm) to suit them.`,
     steps,
   }
-}
-
-/**
- * The whole method in at most three short lines, for the studio's "You'll do": the same words as the steps
- * (and the glued lede), never worded anywhere else.
- */
-export function mountingSummary(input: GuideInput): string[] {
-  const { config, plan, mount, join } = input
-  const system = fixingSystem(config, mount, join, input.tab)
-  if (system === 'glue') {
-    return ['Put tile adhesive or double-sided mounting tape straight onto the flat backs.', glueOrder(config, plan, false)]
-  }
-  // One line, whatever the zip holds: the fit test is always a page and a download away. With the tabs it
-  // also says why it comes first, because the reprint it saves is a wall of tiles.
-  const fit = usesTabs(system)
-    ? 'Print the fit test and set the fit: the socket is cut into the tile itself.'
-    : 'Print the fit test and set the fit.'
-  if (system === 'keys') {
-    return [
-      fit,
-      'Lay the tiles face down and press a key into each pair of slots that meet across a joint.',
-      'Put the panel up with adhesive or tape, bottom edge first, on a level line.',
-    ]
-  }
-  if (system === 'tabs') {
-    return [
-      fit,
-      'Glue or tape the tiles on, bottom row first and each row from left to right.',
-      'Bring each tile square to the wall over the tab of the tile to its left, so the tab goes into the socket in its back.',
-    ]
-  }
-  return [
-    fit,
-    'Click a clip into each pocket until its stops touch the bottom, and put thin double-sided tape on it.',
-    system === 'both'
-      ? 'Press the tiles on, bottom row first, with keys in the slots that meet a tile not up yet.'
-      : system === 'clips-tabs'
-        ? "Press the tiles on, bottom row first and each row from left to right, so each tab goes into its neighbour's socket."
-        : 'Press the tiles on, bottom row first: the clips stay where the tile puts them.',
-  ]
 }
 
 // ---------------------------------------------------------------------------------------------------

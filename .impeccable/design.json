@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-23T22:36:04.439Z",
+  "generatedAt": "2026-09-28T13:54:52.000Z",
   "title": "Design System: Tessera",
   "extensions": {
     "colorMeta": {
@@ -334,6 +334,38 @@
           "#a0de8c",
           "#ceffbf"
         ]
+      },
+      "mark": {
+        "role": "primary",
+        "displayName": "Mark",
+        "oklch": "oklch(61.7% 0.128 138.3)",
+        "tonalRamp": [
+          "#020f00",
+          "#0d2d01",
+          "#1c4f02",
+          "#387122",
+          "#599445",
+          "#7bb868",
+          "#9fdd8b",
+          "#cfffbf"
+        ],
+        "note": "The whole tile of the mark in the app bar and the tab icon. Runtime value follows the tile color via markTones (src/core/accent.ts) at its own 2.5:1 floor on the espresso bar, capped at OKLCH L 0.93; never the accent. The hex is the default Green tile."
+      },
+      "mark-cut": {
+        "role": "primary",
+        "displayName": "Mark Cut",
+        "oklch": "oklch(75.8% 0.102 138.1)",
+        "tonalRamp": [
+          "#020f00",
+          "#0d2d01",
+          "#234e10",
+          "#426f32",
+          "#639153",
+          "#85b475",
+          "#a8d998",
+          "#cfffc0"
+        ],
+        "note": "The three cut pieces of the mark: the Mark tone one step (0.14 L) lighter at 0.8 chroma, or one step darker at 0.9 chroma when the mark is paler than L 0.78."
       }
     },
     "typographyMeta": {
@@ -368,6 +400,10 @@
       "note": {
         "displayName": "Note",
         "purpose": "Smallest text: swatch hints and hex codes, Ink 3 or darker."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "\"Tessera\" in the app bar only, live Archivo in Bar Cream at width 108% (font-stretch), 8 px from the mark."
       }
     },
     "shadows": [
@@ -536,6 +572,14 @@
       "description": "A panel lifted off the warm ground.",
       "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Tiling plan</h3><p class=\"ds-card-body\">32 tiles, no cuts. 4 files to print.</p></div>",
       "css": ".ds-card { padding: 1.5rem; border: 1px solid #e4d8c4; border-radius: 22px; background: #fffdf8; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-card-title { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 650; } .ds-card-body { margin: 0; color: #5c5044; font-size: 0.875rem; line-height: 1.45; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "App Bar Brand",
+      "kind": "nav",
+      "refersTo": "app-bar",
+      "description": "The mark (a wall's corner: one whole tile, three cut pieces) beside the live wordmark on the espresso bar, in the tile color's own mark tones.",
+      "html": "<div class=\"ds-bar\"><a class=\"ds-brand\" href=\"#\"><svg class=\"ds-mark\" viewBox=\"4 4 24 24\" aria-hidden=\"true\"><path class=\"ds-mark-whole\" d=\"M8 4H14A4 4 0 0 1 18 8V14A4 4 0 0 1 14 18H8A4 4 0 0 1 4 14V8A4 4 0 0 1 8 4Z\"/><path class=\"ds-mark-cut\" d=\"M24 4H28V18H24A4 4 0 0 1 20 14V8A4 4 0 0 1 24 4Z\"/><path class=\"ds-mark-cut\" d=\"M8 20H14A4 4 0 0 1 18 24V28H4V24A4 4 0 0 1 8 20Z\"/><path class=\"ds-mark-cut\" d=\"M24 20H28V28H20V24A4 4 0 0 1 24 20Z\"/></svg><span class=\"ds-wordmark\">Tessera</span></a></div>",
+      "css": ".ds-bar { display: flex; align-items: center; height: 56px; padding: 0 16px; background: #2e241b; } .ds-brand { display: flex; align-items: center; gap: 8px; border-radius: 8px; color: #f7f1e6; text-decoration: none; } .ds-brand:focus-visible { outline: 3px solid #f7f1e6; outline-offset: 3px; } .ds-mark { display: block; width: 1.5rem; height: 1.5rem; } .ds-mark-whole { fill: var(--mark, #5c9748); } .ds-mark-cut { fill: var(--mark-cut, #90c080); } .ds-wordmark { font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; font-size: 1.25rem; font-weight: 700; font-stretch: 108%; letter-spacing: -0.01em; }"
     }
   ],
   "narrative": {
@@ -566,6 +610,11 @@
         "section": "colors"
       },
       {
+        "name": "The Mark's Own Floor Rule",
+        "body": "The mark wears the tile color, never the accent, and keeps its own floor of 2.5:1 on the espresso bar: the tile color itself when it reaches that, otherwise the darkest color of its hue that does, capped at OKLCH lightness 0.93. The cut pieces sit one step (0.14) lighter at 80% of the chroma, or one step darker at 90% on a tile paler than 0.78, so the cuts always read against the whole tile.",
+        "section": "colors"
+      },
+      {
         "name": "The 8% Wash Rule",
         "body": "The tile color may tint the bench at 8% at most where text sits on it (a pure black tile still leaves Ink 3 at 5.25:1), and at 12% only where no text sits. Nothing lighter than Ink 3 goes on the wash.",
         "section": "colors"
@@ -591,6 +640,16 @@
         "section": "elevation"
       },
       {
+        "name": "The Well Needs a Panel Rule",
+        "body": "The recessed bench tone reads only on a panel: on the ground it is one step away (#EFE7D8 on #F2EADC) and a callout set in it vanishes. A well sits inside a panel (the fit test's \"You will need\" opens the step card); anything standing on the ground is a panel with a hairline (the download page's \"Test first\").",
+        "section": "elevation"
+      },
+      {
+        "name": "The Rule That Says Something Rule",
+        "body": "A hairline divides the rows of a list, a table or an accordion, the numbered steps of the rail and of a guide, and a pinned bar from what scrolls under it. It never runs on after a label, sits between a caption and what it names, rules off a card that already has an edge, or divides the lines inside one table row: space does those jobs.",
+        "section": "elevation"
+      },
+      {
         "name": "The One Lamp Rule",
         "body": "Light comes from the upper left on every surface: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26), the hero wall's lamp gradient and the shadows that fall down and to the right. A new lit surface takes the same corner.",
         "section": "elevation"
@@ -599,7 +658,7 @@
     "dos": [
       "Do read `--accent` and its four companions for every action, selection and focus, and let `accentPalette` hold the 6.5:1 floor for any tile color.",
       "Do keep one accent-filled primary button per screen, at the 54 px size when it closes the screen.",
-      "Do lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone.",
+      "Do lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone, only ever inside a panel.",
       "Do round everything: 11, 14 or 22 px, 8 px for controls nested in a track, full pills for counts, badges and step numbers.",
       "Do set every measurement and count in tabular figures, and every label in sentence case.",
       "Do light every new rendered or painted surface from the upper left.",
@@ -612,9 +671,11 @@
       "Don't bring back the drafting sheet: square corners, a 2 px ink frame, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
       "Don't build a grey form-sidebar configurator; the render leads and the rail is warm.",
       "Don't put the accent on the espresso bar, or use it as decoration or status.",
+      "Don't draw the mark in the accent or a fixed green, or give it relief, a bevel or a shadow: it is flat, in `--mark` and `--mark-cut`.",
       "Don't use red for anything but cut pieces and what is wrong.",
       "Don't tint the bench above 8% where text sits, or set anything lighter than Ink 3 on the wash.",
       "Don't use grey or black shadows, or hard offset shadows.",
+      "Don't set a recessed well straight on the ground, or draw a hairline that only repeats what space or a card's edge already says.",
       "Don't caption the swatches or relief samples, or draw anything brighter than them on the operating surfaces.",
       "Don't select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
       "Don't use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code; they exist only so older files resolve.",

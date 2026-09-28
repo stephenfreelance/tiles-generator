@@ -26,7 +26,7 @@
   }
 }
 
-// A plate: a caption ruled off the top, the drawing, then its words. No card: the drawing brings its
+// A plate: a caption over the drawing, then its words. No card: the drawing brings its
 // own surface, as the kit's parts and the three steps above do.
 .plate {
   display: grid;
@@ -43,8 +43,6 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s-2) var(--s-4);
-  padding-bottom: var(--s-2);
-  border-bottom: 1px solid var(--hairline);
 }
 
 .title {
@@ -119,13 +117,12 @@
   line-height: 1.5;
 }
 
-// The two things true of the pair, side by side under the plates, ruled off them.
+// The two things true of the pair, side by side under the plates, set apart by space.
 .notes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-4) clamp(var(--s-4), 2.5vw, var(--s-6));
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--hairline);
+  padding-top: var(--s-5);
 
   @media (max-width: 60rem) {
     grid-template-columns: minmax(0, 1fr);

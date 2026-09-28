@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { accentPalette, accentVariables, contrastRatio, type AccentPalette } from './accent'
+import { accentPalette, accentVariables, contrastRatio, markTones, type AccentPalette } from './accent'
 import { COLOR_PRESETS, DEFAULT_COLOR } from './colors'
 
 const PANEL = '#FFFDF8'
+const BAR = '#2E241B'
 const GROUND = '#F2EADC'
 const INK_3 = '#6B5D4D'
 const HEX = /^#[0-9A-F]{6}$/
@@ -141,5 +142,49 @@ describe('accentVariables', () => {
       '--accent-soft': palette.soft,
       '--accent-ink': palette.ink,
     })
+  })
+})
+
+describe('markTones', () => {
+  const byte = (n: number) => n.toString(16).padStart(2, '0')
+  const grid: string[] = []
+  for (let r = 0; r <= 255; r += 17) {
+    for (let g = 0; g <= 255; g += 17) {
+      for (let b = 0; b <= 255; b += 17) grid.push(`#${byte(r)}${byte(g)}${byte(b)}`.toUpperCase())
+    }
+  }
+
+  it('keeps both tones readable on the bar and apart from each other, for every color', () => {
+    for (const hex of [...COLOR_PRESETS.map((preset) => preset.hex), ...grid]) {
+      const tones = markTones(hex)
+      expect(tones.whole, hex).toMatch(HEX)
+      expect(tones.cut, hex).toMatch(HEX)
+      expect(contrastRatio(tones.whole, BAR), hex).toBeGreaterThanOrEqual(2.5)
+      expect(contrastRatio(tones.cut, BAR), hex).toBeGreaterThanOrEqual(2.5)
+      expect(contrastRatio(tones.whole, tones.cut), hex).toBeGreaterThanOrEqual(1.45)
+    }
+  })
+
+  it('draws the whole tile in the tile color itself when the bar can show it', () => {
+    expect(markTones(DEFAULT_COLOR).whole).toBe(DEFAULT_COLOR)
+    expect(markTones('#00A19B').whole).toBe('#00A19B')
+  })
+
+  it('keeps the hue of every chromatic preset in both tones', () => {
+    for (const preset of COLOR_PRESETS) {
+      const tile = oklch(preset.hex)
+      if (tile.c < 0.05) continue
+      const tones = markTones(preset.hex)
+      for (const key of ['whole', 'cut'] as const) {
+        expect(hueDistance(oklch(tones[key]).h, tile.h), `${preset.name} ${key}`).toBeLessThan(6)
+      }
+    }
+  })
+
+  it('steps the cut pieces lighter, and darker only on a pale tile', () => {
+    expect(oklch(markTones(DEFAULT_COLOR).cut).l).toBeGreaterThan(oklch(markTones(DEFAULT_COLOR).whole).l)
+    for (const pale of ['#F4F2EC', '#F6C343', '#FFFFFF']) {
+      expect(oklch(markTones(pale).cut).l, pale).toBeLessThan(oklch(markTones(pale).whole).l)
+    }
   })
 })

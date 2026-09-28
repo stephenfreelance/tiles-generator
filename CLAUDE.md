@@ -145,8 +145,9 @@ screens (`SCREENS`), the fixed events (`EVENTS`) and the events named after a ch
   `jointEdge 'chamfer'`, every piece id, mesh, file name, README and zip stays what it was before edges
   and fixings existed. Keep it so.
 - The "Putting it up" steps have one source, `src/core/fixing/guide.ts`: the download page renders
-  `mountingGuide`, the README numbers the same steps, and studio step 7's "You'll do" shows
-  `mountingSummary`, word for word. Word a step there and nowhere else.
+  `mountingGuide` and the README numbers the same steps. Word a step there and nowhere else. Studio
+  step 7 says what a choice does to the tiles and the fit, never what to print, buy or do: that is the
+  download page's.
 - Describe what the plans place, never the switches: `fixingSystem` (guide.ts), `keysPossible` /
   `tabsPossible` / `clipsPossible` (`src/core/fixing/capability.ts`) and `explainMounting` (the studio's
   step 7), not `config.lock` or `config.mount`. A lock or clips asked for on a thin plate, keys on a wall

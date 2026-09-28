@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useDesign } from '@/state/designStore'
 import { HelpTip, IconButton } from '@/ui'
 import styles from './AppShell.module.scss'
+import { BrandMark } from './BrandMark'
 import { DrawingTitle } from './DrawingTitle'
 import { isTypingTarget, MOD_KEY } from './keyboard'
 import { prefetchStudio } from './prefetchStudio'
@@ -72,14 +73,7 @@ export function AppShell() {
 
       <header className={styles.bar}>
         <Link to="/" className={styles.brand}>
-          <span className={styles.glyph} aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
+          <BrandMark />
           <span className={styles.wordmark}>Tessera</span>
         </Link>
 

@@ -7,6 +7,7 @@
 // step through `aside`, so the download page and this page number and draw their steps the same way.
 import type { ReactNode } from 'react'
 import { Wrench } from 'lucide-react'
+import { cx } from '@/ui/cx'
 import { usesClips, usesKeys, usesTabs, type FixingSystem, type GuideDrawing, type GuideStep } from '@/core/fixing/guide'
 import {
   ClipWallDiagram,
@@ -101,7 +102,9 @@ export interface GuideStepsProps {
 
 export function GuideSteps({ steps, system, needs, aside, className }: GuideStepsProps) {
   return (
-    <div className={className}>
+    // One card: what to have to hand opens it as a recessed well, which reads on the card and did not on
+    // the bench, where the recessed tone and the ground are one step apart.
+    <div className={cx(styles.guide, className)}>
       {needs && (
         <div className={styles.needs}>
           <Wrench className={styles.needsIcon} aria-hidden="true" />

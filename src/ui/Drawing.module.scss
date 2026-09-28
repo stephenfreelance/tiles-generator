@@ -199,7 +199,8 @@
   gap: var(--s-2);
 }
 
-// Section rule: a quiet label opening a group of settings.
+// Section rule: a quiet label opening a group of settings. No line runs after it: the label and the space
+// above it already open the group, and a hairline to the far edge only added one more stroke to read past.
 
 .rule {
   display: flex;
@@ -215,14 +216,9 @@
   color: var(--ink-2);
 }
 
-.ruleLine {
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--hairline);
-}
-
 .ruleAside {
   flex: none;
+  margin-left: auto;
   color: var(--ink-2);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;

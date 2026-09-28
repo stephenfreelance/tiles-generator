@@ -43,10 +43,10 @@
   background: var(--panel-2);
 }
 
-// Each group opens with its name, set like a small heading over its rows.
+// Each group opens with its name, set like a small heading over its rows. No rule under it: the rows are
+// ruled apart, and a line between a heading and its own first row only doubled the one above it.
 .groupTitle {
   padding: var(--s-4) var(--s-2) var(--s-2);
-  border-bottom: 1px solid var(--hairline);
   color: var(--ink);
   font-size: var(--text-sm);
   font-weight: 650;
@@ -55,6 +55,11 @@
 
 .table tbody:first-of-type .groupTitle {
   padding-top: var(--s-3);
+}
+
+// The panel's own edge closes the list.
+.table tbody:last-child tr:last-child td {
+  border-bottom: 0;
 }
 
 .numeric {
@@ -194,7 +199,8 @@
     justify-content: space-between;
     gap: var(--s-3);
     padding: var(--s-1) 0;
-    border-bottom: 1px solid var(--hairline);
+    // One rule per row, not one per line inside it: the label and its value share a line already.
+    border-bottom: 0;
     text-align: right;
   }
 

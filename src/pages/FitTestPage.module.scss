@@ -167,11 +167,13 @@
 // The outcome of the test, inside the step that asks for it: no max-width, because the step card it
 // sits in is what sets its measure.
 .fitControl {
+  // The well is recessed, so the picker's track takes the panel rather than vanishing into it.
+  --segmented-track: var(--panel);
   display: grid;
   justify-items: start;
-  gap: var(--s-2);
-  margin-top: var(--s-1);
-  padding: var(--s-3);
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+  padding: var(--s-4);
   border-radius: var(--radius-md);
   background: var(--panel-2);
 }
@@ -240,8 +242,35 @@
 
 // On a phone the drawing sits above the words that name what it shows.
 @media (max-width: 32rem) {
+  // The picker sizes itself to its words, which on a phone ran past the well: here it takes the well's
+  // width in three equal parts, and each fit's line wraps under its name instead.
+  .fitControl {
+    justify-items: stretch;
+    padding: var(--s-3);
+  }
+
+  .fitControl [role='radiogroup'] {
+    width: 100%;
+  }
+
+  .fitControl [role='radio'] {
+    flex: 1 1 0;
+  }
+
   .exits {
     display: grid;
     justify-items: stretch;
+  }
+}
+
+// Too narrow for three names side by side: the fits stack, each still a name over its notches.
+@media (max-width: 22rem) {
+  .fitControl [role='radiogroup'] {
+    flex-direction: column;
+  }
+
+  // A zero basis down a column squeezed each fit shorter than its two lines.
+  .fitControl [role='radio'] {
+    flex: none;
   }
 }

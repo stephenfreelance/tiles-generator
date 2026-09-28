@@ -1,6 +1,7 @@
 @use '@/styles/mixins' as *;
 
-// A pill group: the chosen segment is a dark plate, the rest are quiet.
+// A pill group: the chosen segment is a dark plate, the rest are quiet. The track is recessed; a well
+// that is itself recessed sets --segmented-track to the panel, or the track vanishes into it.
 
 .root {
   display: grid;
@@ -21,7 +22,7 @@
   padding: 3px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
-  background: var(--panel-2);
+  background: var(--segmented-track, var(--panel-2));
 }
 
 .fullWidth {
@@ -84,6 +85,19 @@
   min-height: 1.75rem;
   padding: 0 var(--s-2);
   font-size: var(--text-sm);
+}
+
+// A second line under the name needs air of its own: at the one-line height both lines touched the
+// plate's edges. Set left, like every other two-line label in the app.
+.segment:has(.description) {
+  justify-content: flex-start;
+  padding-block: 6px;
+  text-align: left;
+
+  // On a phone three named fits with a line each ran past the well they sit in: the words keep the room.
+  @media (max-width: 32rem) {
+    padding-inline: var(--s-2);
+  }
 }
 
 .icon {

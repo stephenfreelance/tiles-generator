@@ -166,6 +166,59 @@ export function accentPalette(hex: string): AccentPalette {
   }
 }
 
+/** The mark's two tones, each an uppercase '#RRGGBB'. */
+export interface MarkTones {
+  /** The whole tile: the tile color, kept inside the lightness band the espresso bar can show. */
+  whole: string
+  /** The pieces the wall cuts: one step lighter, or darker on a tile too pale to step up. */
+  cut: string
+}
+
+/** --bar, the espresso the mark stands on in the app bar and in the tab icon. */
+const BAR = '#2E241B'
+/** A dark tile lifted only this far still reads as a shape on the bar, where the retired glyph read at 2.1:1. */
+const MARK_FLOOR = 2.5
+/** Past this lightness a near-white tile leaves no room for a cut tone that still reads as the same material. */
+const MARK_CEILING = 0.93
+const MARK_STEP = 0.14
+/** Above this lightness the cut pieces step down instead of up, so a pale tile's cuts stay visible. */
+const MARK_PALE = 0.78
+
+/** The tile color when the bar can show it, otherwise the darkest color of its hue that reads there. */
+function markWhole(hex: string, tile: Lch): Lch {
+  if (tile.l > MARK_CEILING) return { ...tile, l: MARK_CEILING }
+  if (contrastRatio(hex, BAR) >= MARK_FLOOR) return tile
+  // The ceiling clears the floor for every hue, so the search always holds a passing candidate.
+  let best = MARK_CEILING
+  let lo = tile.l
+  let hi = MARK_CEILING
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (lo + hi) / 2
+    if (contrastRatio(inGamutHex({ ...tile, l: mid }), BAR) >= MARK_FLOOR) {
+      best = mid
+      hi = mid
+    } else {
+      lo = mid
+    }
+  }
+  return { ...tile, l: best }
+}
+
+/**
+ * The tones the bar mark and the tab icon are drawn in. The accent's floor is contrast on the panel;
+ * the mark stands on the espresso bar, so it keeps its own floor there rather than borrowing the accent.
+ */
+export function markTones(hex: string): MarkTones {
+  const tile = parseHex(hex) ?? DEFAULT_COLOR
+  const tileLch = toOklch(linearRgb(tile))
+  const whole = markWhole(tile, tileLch)
+  const pale = whole.l > MARK_PALE
+  return {
+    whole: whole === tileLch ? tile : inGamutHex(whole),
+    cut: inGamutHex({ l: pale ? whole.l - MARK_STEP : whole.l + MARK_STEP, c: whole.c * (pale ? 0.9 : 0.8), h: whole.h }),
+  }
+}
+
 /** The custom properties a palette writes, named as _tokens.scss declares them. */
 export function accentVariables(palette: AccentPalette): Record<string, string> {
   return {

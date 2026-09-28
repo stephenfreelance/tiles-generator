@@ -71,34 +71,30 @@
   }
 }
 
-// Six tiles laid up in the accent, the app's own subject as its mark.
-.glyph {
-  display: grid;
-  grid-template-columns: repeat(3, 7px);
-  grid-auto-rows: 7px;
-  gap: 2px;
-
-  > i {
-    display: block;
-    border-radius: 2px;
-    background: var(--accent);
-    // A dark tile's accent sinks into the espresso (Charcoal's is 1.15:1), so the mark never drops below
-    // the retired green's OKLCH lightness: every tile color keeps it at 2.1:1 or better, as that green was.
-    background: oklch(from var(--accent) max(l, 0.47) c h);
-  }
-
-  > i:nth-child(2),
-  > i:nth-child(4),
-  > i:nth-child(6) {
-    opacity: 0.55;
-  }
+// A wall's corner in the tile's own color (src/app/mark.ts). The tile color, not the accent: the accent
+// is illegal on the bar, and markTones keeps even a black tile light enough to read on it.
+.mark {
+  display: block;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
+.markWhole {
+  fill: var(--mark);
+}
+
+.markCut {
+  fill: var(--mark-cut);
+}
+
+// A touch wider and heavier than the interface's own lettering, so the name reads as a name.
 .wordmark {
   flex: none;
   font-size: var(--text-xl);
-  font-weight: 650;
-  letter-spacing: 0.005em;
+  font-weight: 700;
+  font-stretch: 108%;
+  letter-spacing: -0.01em;
 }
 
 .barDivider {

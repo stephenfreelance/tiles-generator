@@ -96,13 +96,12 @@
   }
 }
 
-// The plate caption, ruled off the object above it the way a catalogue rules its plates.
+// The plate caption under the object: its own space sets it apart, with no rule between them.
 .index {
   display: grid;
   gap: var(--s-2);
   min-width: 0;
   padding-top: var(--s-2);
-  border-top: 1px solid var(--hairline);
 }
 
 .caption {

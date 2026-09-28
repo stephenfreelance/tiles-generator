@@ -55,6 +55,11 @@
   --filament: #5c9748;
   --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
 
+  // The mark's two tones (markTones in src/core/accent.ts): the whole tile, and the pieces the wall
+  // cuts. useAccentTheme writes them beside the accent; these are the default tile's own.
+  --mark: #5c9748;
+  --mark-cut: #90c080;
+
   // Type
   --font: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --text-2xs: 0.6875rem;

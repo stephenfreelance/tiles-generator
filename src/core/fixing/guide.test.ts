@@ -27,7 +27,6 @@ import {
   listText,
   marksText,
   mountingGuide,
-  mountingSummary,
   type GuideInput,
   type MountingGuide,
 } from './guide'
@@ -545,70 +544,6 @@ describe('mountingGuide: tabs and wall clips', () => {
   })
 })
 
-describe('mountingSummary', () => {
-  it('says a glued wall in the words of its note', () => {
-    const glue = input(DEFAULT_CONFIG)
-    const lines = mountingSummary(glue)
-    expect(lines).toEqual([
-      'Put tile adhesive or double-sided mounting tape straight onto the flat backs.',
-      'Set the tiles from the bottom row up, starting at the setting-out point (SO) on the tiling plan.',
-    ])
-    // The same sentence as the guide's, less the file name the studio has not made yet.
-    expect(mountingGuide(glue).lede).toContain(lines[1].replace('tiling plan', 'tiling plan (setting-out-plan.svg)'))
-    const strip = input(design({ surface: { width: 1000, height: 640 } }))
-    expect(mountingSummary(strip)[1]).toBe('Set the whole tiles first, from the setting-out point (SO) on the tiling plan, then the cut pieces.')
-  })
-
-  it('says each fixed wall in three lines, in the words of its steps', () => {
-    const keys = mountingSummary({ ...input(design({ lock: 'keys' })), join: KEYED(4), accessories: KEY_PARTS })
-    expect(keys).toEqual([
-      'Print the fit test and set the fit.',
-      'Lay the tiles face down and press a key into each pair of slots that meet across a joint.',
-      'Put the panel up with adhesive or tape, bottom edge first, on a level line.',
-    ])
-    const clips = mountingSummary(clipsInput())
-    expect(clips).toEqual([
-      'Print the fit test and set the fit.',
-      'Click a clip into each pocket until its stops touch the bottom, and put thin double-sided tape on it.',
-      'Press the tiles on, bottom row first: the clips stay where the tile puts them.',
-    ])
-    const both = mountingSummary(bothInput())
-    expect(both[2]).toBe('Press the tiles on, bottom row first, with keys in the slots that meet a tile not up yet.')
-    // Every line's words come from the guide itself: its step titles and bodies.
-    const guide = allText(mountingGuide(clipsInput()))
-    for (const phrase of [
-      'print the fit test first',
-      'Press the tiles on, bottom row first',
-      'The clips stay where the tile puts them',
-      'thin double-sided tape',
-      'click',
-      'its stops touch the bottom',
-    ]) {
-      expect(guide.toLowerCase()).toContain(phrase.toLowerCase())
-    }
-    expect(allText(mountingGuide(bothInput()))).toContain('meet a tile not up yet')
-    for (const lines of [keys, clips, both]) expect(lines.length).toBeLessThanOrEqual(3)
-  })
-
-  it('says a tabbed wall in three lines, and says the fit is in the tile in the first', () => {
-    const tabs = mountingSummary(tabsInput())
-    expect(tabs).toEqual([
-      'Print the fit test and set the fit: the socket is cut into the tile itself.',
-      'Glue or tape the tiles on, bottom row first and each row from left to right.',
-      'Bring each tile square to the wall over the tab of the tile to its left, so the tab goes into the socket in its back.',
-    ])
-    const clipped = mountingSummary(clipsInput({ config: { ...CLIPS_ONLY, lock: 'tabs' }, tab: TABBED(20) }))
-    expect(clipped[0]).toBe(tabs[0])
-    expect(clipped[2]).toBe("Press the tiles on, bottom row first and each row from left to right, so each tab goes into its neighbour's socket.")
-    // Every line's words come from the guide itself.
-    const guide = allText(mountingGuide(tabsInput()))
-    for (const phrase of ['the socket is cut into the tile itself', 'each row from left to right', 'the socket in its back']) {
-      expect(guide.toLowerCase()).toContain(phrase.toLowerCase())
-    }
-    for (const lines of [tabs, clipped]) expect(lines.length).toBeLessThanOrEqual(3)
-  })
-})
-
 describe('mountingGuide on the real plans', () => {
   const real = (config: DesignConfig): GuideInput => {
     const plan = computeLayout(layoutInputOf(config, printerById(config.printerId)))
@@ -631,7 +566,6 @@ describe('mountingGuide on the real plans', () => {
       expect(text).toContain('print the fit test first')
       expect(text).not.toMatch(/\bF\d/)
       expect(text).toContain(`That is ${formatNumber(source.mount.clips, 0)} clips`)
-      expect(mountingSummary(source)).toHaveLength(3)
     }
   })
 })
@@ -650,17 +584,7 @@ describe('the copy rules', () => {
     mountingGuide(tabsInput({ config: { ...TABBED_CONFIG, joint: 2 } })),
     mountingGuide(clipsInput({ config: { ...CLIPS_ONLY, lock: 'tabs' }, tab: TABBED(20) })),
   ]
-  const summaries = (): string[] => [
-    ...mountingSummary(input(DEFAULT_CONFIG)),
-    ...mountingSummary(clipsInput()),
-    ...mountingSummary(bothInput()),
-    ...mountingSummary({ ...input(design({ lock: 'keys' })), join: KEYED(4), accessories: KEY_PARTS }),
-  ]
-  const tabSummaries = (): string[] => [
-    ...mountingSummary(tabsInput()),
-    ...mountingSummary(clipsInput({ config: { ...CLIPS_ONLY, lock: 'tabs' }, tab: TABBED(20) })),
-  ]
-  const everything = (): string[] => [...variants().map(allText), ...tabVariants().map(allText), ...summaries(), ...tabSummaries()]
+  const everything = (): string[] => [...variants().map(allText), ...tabVariants().map(allText)]
 
   it('names no rail, snap, gauge or mounting plan anywhere', () => {
     for (const text of everything()) {
@@ -669,7 +593,7 @@ describe('the copy rules', () => {
   })
 
   it('keeps the stops: nothing to break off a clip, and never claims no gap behind a tile', () => {
-    for (const text of [...variants().map(allText), ...summaries()]) {
+    for (const text of variants().map(allText)) {
       // A clip's stops are not tabs, and nothing on a clipped or keyed wall is: only a tabbed one may say it.
       expect(text).not.toMatch(/\btabs?\b/i)
     }
@@ -698,11 +622,7 @@ describe('the copy rules', () => {
   })
 
   it('makes the tabs the keys\' promise, never a click and never a hold on the wall', () => {
-    const texts = [
-      ...tabVariants().map(allText),
-      mountingSummary(tabsInput()).join('\n'),
-      mountingSummary(clipsInput({ config: { ...CLIPS_ONLY, lock: 'tabs' }, tab: TABBED(20) })).join('\n'),
-    ]
+    const texts = tabVariants().map(allText)
     for (const text of texts) {
       expect(text).toMatch(/\btabs?\b/)
       expect(text).not.toMatch(/tabs? (hold|holds|keep|keeps) (the tiles?|them|it) (on|to|against) the wall/i)

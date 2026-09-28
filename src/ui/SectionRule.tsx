@@ -11,12 +11,11 @@ export interface SectionRuleProps {
   className?: string
 }
 
-/** A hairline ruled across the sheet with a caps label at its start. */
+/** A quiet label opening a group of settings, with an optional aside at the far end of its line. */
 export function SectionRule({ label, as: Tag = 'div', aside, className }: SectionRuleProps) {
   return (
     <div className={cx(styles.rule, className)}>
       <Tag className={styles.ruleLabel}>{label}</Tag>
-      <span className={styles.ruleLine} aria-hidden="true" />
       {aside && <span className={styles.ruleAside}>{aside}</span>}
     </div>
   )

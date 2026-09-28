@@ -47,19 +47,26 @@
   padding: 0 var(--steps-pad-x) var(--s-4);
 }
 
-// One hairline between steps. The rule lives here rather than in the step itself so the panel that
-// folds and the fit block below it are ruled off on the same terms. The index draws its own.
+// One hairline between the numbered steps, which run long and need telling apart. The index draws its
+// own. The Advanced lid is a bordered surface already, so neither it nor the plan under it is ruled off:
+// a line either side of a card only drew its edge twice.
 .steps > * + * {
   border-top: 1px solid #f0e7d6;
 }
 
-.steps > nav + * {
+.steps > nav + *,
+.steps > .advanced,
+.steps > .advanced + * {
   border-top: 0;
 }
 
 .advanced,
 .plan {
   padding-block: var(--s-4);
+}
+
+.advanced + .plan {
+  padding-top: var(--s-2);
 }
 
 .plan {

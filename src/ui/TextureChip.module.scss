@@ -80,10 +80,17 @@
   position: absolute;
   inset: 0;
   @include hatch(rgb(36 28 20 / 0.16), 6px);
+  transition: opacity var(--t-med) var(--ease-out);
 
   @include motion-safe {
     animation: drift 2.4s linear infinite;
   }
+}
+
+// Fades out as the relief fades in, frozen where it stands so the hatch does not jump on its way out.
+.sample[data-loaded] .placeholder {
+  opacity: 0;
+  animation-play-state: paused;
 }
 
 .image {
@@ -94,10 +101,10 @@
   object-fit: cover;
   opacity: 0;
   transition: opacity var(--t-med) var(--ease-out);
+}
 
-  &[data-loaded] {
-    opacity: 1;
-  }
+.sample[data-loaded] .image {
+  opacity: 1;
 }
 
 // The tick is drawn over a lit relief of any colour, so it carries its own shadow.

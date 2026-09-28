@@ -92,12 +92,13 @@ async function captureOgCard(context) {
 }
 
 async function captureIcon(context) {
-  // The touch icon is the favicon rasterized on --ground, so iOS never rounds off transparency. The
+  // The touch icon is the favicon on a full-bleed square of --bar: iOS rounds the corners itself, so the
+  // plate's own rounding disappears into it, and the mark is drawn smaller to sit inside that mask. The
   // literal is the token's value: this page is set on its own, with none of the app's CSS behind it.
   const svg = await readFile(path.join(root, 'public/favicon.svg'), 'utf8')
   const page = await newPage(context, { width: 180, height: 180 })
   await page.setContent(
-    `<style>html,body{margin:0;background:#f2eadc}svg{display:block;width:180px;height:180px}</style>${svg}`,
+    `<style>html,body{margin:0;background:#2e241b}svg{display:block;width:150px;height:150px;margin:15px}</style>${svg}`,
   )
   const file = path.join(root, 'public/apple-touch-icon.png')
   await page.screenshot({ path: file })

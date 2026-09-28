@@ -1,4 +1,5 @@
 import styles from './AppShell.module.scss'
+import { BrandMark } from './BrandMark'
 import { useAccentTheme } from './useAccentTheme'
 
 /** The five choices are named before their values arrive, so the shape of the screen is already there. */
@@ -16,14 +17,7 @@ export function SheetFallback() {
     <div className={styles.app}>
       <header className={styles.bar}>
         <span className={styles.brand}>
-          <span className={styles.glyph} aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
+          <BrandMark />
           <span className={styles.wordmark}>Tessera</span>
         </span>
       </header>

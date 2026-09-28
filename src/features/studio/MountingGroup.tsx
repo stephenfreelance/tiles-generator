@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Box, ClipboardCheck, Eye, Info, Lightbulb, ListOrdered, Printer, ShoppingBasket, SlidersHorizontal, TriangleAlert } from 'lucide-react'
+import { ClipboardCheck, Eye, Info, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 import { accessoryParts } from '@/core/fixing/accessories'
 import type { FitClass, LayoutPlan, LockKind, MountKind } from '@/core/types'
@@ -9,7 +9,6 @@ import { useDesign } from '@/state/designStore'
 import { peekAfterChoice, peekAndShowView } from '@/state/viewPeek'
 import { announce, Button, buttonClassName, Segmented } from '@/ui'
 import { ChoiceGroup, type Choice } from './ChoiceGroup'
-import { Disclosure } from './Disclosure'
 import { FIT_NAMES, FIT_ORDER, plateRaisedFrom, withFixings, type TileModels } from './edges'
 import { EdgeRule, FieldGroup } from './FieldGroup'
 import { explainMounting, JOIN_CARDS, SIDE_BY_SIDE, WALL_CARDS, type MountingCard } from './mountingCopy'
@@ -28,24 +27,6 @@ const JOIN_OPTIONS = toChoices(JOIN_CARDS, JOIN_SAMPLES)
 
 const FIT_OPTIONS = FIT_ORDER.map((fit) => ({ value: fit, label: FIT_NAMES[fit] }))
 
-/** One row of the well: a named eyebrow with its own mark, and what it says across the whole width. */
-function Row({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
-  return (
-    <div className={styles.changesRow}>
-      <dt className={styles.changesLabel}>
-        {icon}
-        {label}
-      </dt>
-      <dd className={styles.changesValue}>{children}</dd>
-    </div>
-  )
-}
-
-function Lines({ lines, ordered = false }: { lines: readonly string[]; ordered?: boolean }) {
-  const items = lines.map((line) => <li key={line}>{line}</li>)
-  return ordered ? <ol className={styles.changesList}>{items}</ol> : <ul className={styles.changesList}>{items}</ul>
-}
-
 export interface MountingGroupProps extends CellProps {
   plan: LayoutPlan
   /** Tile files with and without the tile-to-tile lock: what that lock costs in files. */
@@ -55,9 +36,9 @@ export interface MountingGroupProps extends CellProps {
 /**
  * Choice 7: how the wall goes up. Two questions answered with drawn cards (on the wall, tile to tile) and
  * under them the "What changes" well, read off the plans, so choosing keys or clips shows at once what it
- * cuts into the tiles, what it prints and what to buy. What contradicts the card just clicked, and what
- * this step changed in another one, are flagged at the top of the well; the way up and the trade-offs,
- * both read once, fold behind one lid.
+ * cuts into the tiles and the fit it is made at. What contradicts the card just clicked, and what this
+ * step changed in another one, are flagged at the top of the well. What to print, what to buy and the way
+ * up are the download page's: the studio designs the tiles, the next step puts them up.
  */
 export function MountingGroup({ config, update, plan, models }: MountingGroupProps) {
   // The plate a keys or clips choice raised is read off the undo history, so undo and redo keep the note true.
@@ -132,53 +113,28 @@ export function MountingGroup({ config, update, plan, models }: MountingGroupPro
             {explained.alsoChanged}
           </p>
         )}
-        <dl className={styles.changesRows}>
-          {back && (
-            <Row label="On your tiles" icon={<Box aria-hidden="true" width={14} height={14} />}>
-              {/* A flat back draws an empty rectangle: the sentence says it, so nothing is drawn at all. */}
-              {back.peek ? (
-                <div className={styles.changesBack}>
-                  <div className={styles.changesFigure}>
-                    <TileBackFigure config={config} piece={back.piece} />
-                  </div>
-                  <div className={styles.changesBackText}>
-                    <p className={styles.changesCaption}>{back.caption}</p>
-                    <Button variant="secondary" size="sm" leadingIcon={<Eye />} onClick={peekAndShowView}>
-                      {back.peek}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className={styles.changesNote}>{back.caption}</p>
-              )}
-            </Row>
-          )}
-          <Row label="You'll print" icon={<Printer aria-hidden="true" width={14} height={14} />}>
-            <Lines lines={explained.print} />
-          </Row>
-          <Row label="You'll need" icon={<ShoppingBasket aria-hidden="true" width={14} height={14} />}>
-            <Lines lines={explained.need} />
-          </Row>
-        </dl>
-
-        <Disclosure className={styles.changesLid} label="How it goes up" badge={`${explained.steps.length} steps`}>
-          <dl className={styles.changesRows}>
-            <Row label="You'll do" icon={<ListOrdered aria-hidden="true" width={14} height={14} />}>
-              <Lines lines={explained.steps} ordered />
-            </Row>
-            <Row label="Good to know" icon={<Lightbulb aria-hidden="true" width={14} height={14} />}>
-              <Lines lines={explained.know} />
-            </Row>
-          </dl>
-        </Disclosure>
+        {back &&
+          // A flat back draws an empty rectangle: the sentence says it, so nothing is drawn at all.
+          (back.peek ? (
+            <div className={styles.changesBack}>
+              <div className={styles.changesFigure}>
+                <TileBackFigure config={config} piece={back.piece} />
+              </div>
+              <div className={styles.changesBackText}>
+                <p className={styles.changesCaption}>{back.caption}</p>
+                <Button variant="secondary" size="sm" leadingIcon={<Eye />} onClick={peekAndShowView}>
+                  {back.peek}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.changesCaption}>{back.caption}</p>
+          ))}
 
         {fit && (
           <div className={styles.changesFit}>
             <div className={styles.changesFitRow}>
-              <span className={styles.changesLabel}>
-                <SlidersHorizontal aria-hidden="true" width={14} height={14} />
-                Fit
-              </span>
+              <span className={styles.changesLabel}>Fit</span>
               <Segmented
                 aria-label={fit.label}
                 size="sm"
@@ -192,7 +148,7 @@ export function MountingGroup({ config, update, plan, models }: MountingGroupPro
                 Run the fit test
               </Link>
             </div>
-            <p className={styles.changesNote}>{fit.note}</p>
+            <p className={styles.changesCaption}>{fit.note}</p>
           </div>
         )}
       </section>

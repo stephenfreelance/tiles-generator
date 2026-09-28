@@ -383,7 +383,8 @@
   padding: 0;
 }
 
-// Ruled off with a border and nothing else, like the captions of section 04's plates.
+// A caption over the plate, set apart by its weight and the space under it. It is not ruled off: the pieces
+// under it are objects on the bench, and a line between a caption and what it names told the eye nothing.
 .plateCaption {
   display: flex;
   flex-wrap: wrap;
@@ -391,9 +392,6 @@
   justify-content: space-between;
   gap: var(--s-2) var(--s-4);
   padding-bottom: var(--s-2);
-  // The app owns one rule, and it is the hairline: a 2 px ink rule here drew a black band across the
-  // page. The plate still reads as a plate, ruled in the same line as the questions further down.
-  border-bottom: 1px solid var(--hairline);
   font-size: var(--text-md);
   font-weight: 650;
 }
@@ -476,8 +474,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-2) var(--s-6);
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--hairline);
+  padding-top: var(--s-4);
   color: var(--ink-3);
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -492,23 +489,18 @@
   }
 }
 
-// The joints switch sits above the samples it changes, and rules off at the same right-hand edge they
-// do: capped at 52rem it stopped 700 px short of the board below it and nothing lined up.
+// The joints switch sits above the samples it changes.
 .joints {
   // As wide as its own words, so the switch sits beside the sentence it answers instead of a whole
   // band's width away at the far edge.
   max-width: 34rem;
   padding: var(--s-3) 0;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
 }
 
 .colorHead {
   display: grid;
   gap: var(--s-2);
-  margin-top: var(--s-3);
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--hairline);
+  margin-top: var(--s-5);
 }
 
 // The last band, and the only one below the floor: the bench lamp is behind us, the sentence is set as
@@ -519,6 +511,8 @@
   justify-items: start;
   gap: clamp(var(--s-4), 2vw, var(--s-5));
   padding: clamp(var(--s-6), 6vw, var(--s-9)) var(--gutter);
+  // The lamp's gather scales it past the band's edges for a moment: clipped, it never widens the page.
+  overflow: clip;
   isolation: isolate;
   background:
     linear-gradient(to bottom, var(--lit), transparent var(--band-fade)),
@@ -526,14 +520,17 @@
 }
 
 // The page ends the way a shot ends: the room's light draws in on the last sentence and the way out
-// of it. Inset well inside the band and scaled by less than that inset, so the gather starts inside
-// the band's own edges and can never widen the document by a pixel.
+// of it. The lamp covers the whole band and is hung over the words, sized in rem so a wide screen does
+// not stretch it; the mask lets it die out before the band's top and bottom, so it never meets the
+// questions or the foot along a line. An inset box cut it off square 8% in from each side, which a
+// 2560 px screen showed as a hard edge 200 px from the window.
 .close::before {
   content: '';
   position: absolute;
   z-index: -1;
-  inset: 8%;
-  background: radial-gradient(62% 74% at 26% 46%, var(--lamp), transparent 70%);
+  inset: 0;
+  background: radial-gradient(64rem 30rem at calc(var(--gutter) + 20rem) 50%, var(--lamp), transparent 70%);
+  mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
   pointer-events: none;
 }
 

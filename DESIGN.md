@@ -24,6 +24,8 @@ colors:
   cut: "#a3321a"
   cut-soft: "#fbeae4"
   tile-default: "#5c9748"
+  mark: "#5c9748"
+  mark-cut: "#90c080"
 typography:
   display:
     fontFamily: "'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, sans-serif"
@@ -70,6 +72,12 @@ typography:
     fontSize: "0.6875rem"
     fontWeight: 500
     lineHeight: 1.3
+  wordmark:
+    fontFamily: "'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 700
+    letterSpacing: "-0.01em"
+    fontVariation: "'wdth' 108"
 rounded:
   control: "8px"
   sm: "11px"
@@ -207,6 +215,7 @@ A warm, low-chroma room of browns and creams, with one saturated voice that belo
 ### Primary
 - **Tile Accent** (accent, with accent-hover, accent-press, accent-ink and accent-soft): the primary action, the selected state and the focus ring. The frontmatter values are the palette for the default Green tile; at runtime `accentPalette` (`src/core/accent.ts`) recomputes all five from `config.color` and `useAccentTheme` writes them on the root element with no transition. It keeps the tile's OKLCH hue, uses the tile color itself when that already reaches 6.5:1 on the panel, and otherwise darkens it only as far as the floor needs (a white tile gives a warm grey, a yellow one a deep ochre). Hover and press are darker steps of the same hue; the soft tint is pale enough to carry accent lettering and the lightest ink at 4.5:1 or better, which is why step numbers and selected fills sit on it. `src/styles/tokens.test.ts` holds the stylesheet defaults equal to the script's answer for the default tile, so nothing jumps on load.
 - **Tile Color** (tile-default): the maker's own color, the content rather than the chrome. It paints the relief chips and swatches, washes the bench at 8% (`--filament-wash`) behind the fit strip and at 12% (`--filament-tint`) on drawn tiles that carry no text.
+- **Mark and Mark Cut** (mark, mark-cut): the two tones of the mark in the app bar and the tab icon, the tile color again but measured against the espresso bar instead of the panel. The frontmatter values are the default Green tile's; `markTones` (`src/core/accent.ts`) recomputes both from `config.color`, `useAccentTheme` writes them beside the accent, and `src/styles/tokens.test.ts` holds the stylesheet defaults equal to it.
 
 ### Neutral
 - **Espresso Bar** (espresso-bar): the one dark surface: the app bar, the selected segment of a pill group, the tooltip and the selection ring on color swatches. Its lettering is **Bar Cream** (bar-ink), at 13.49:1.
@@ -227,6 +236,8 @@ A warm, low-chroma room of browns and creams, with one saturated voice that belo
 **The Contrast Floor Rule.** The accent follows the tile, but no tile may drag it under 6.5:1 on the panel. Never hard-code the default green: read `--accent` and let `accentPalette` decide.
 
 **The Bar Exception Rule.** The accent is illegal on the espresso bar (2.3:1 at most, whatever the tile). Everything on the bar focuses and selects in Bar Cream instead.
+
+**The Mark's Own Floor Rule.** The mark wears the tile color, never the accent, and keeps its own floor of 2.5:1 on the espresso bar: the tile color itself when it reaches that, otherwise the darkest color of its hue that does, capped at OKLCH lightness 0.93. The cut pieces sit one step (0.14) lighter at 80% of the chroma, or one step darker at 90% on a tile paler than 0.78, so the cuts always read against the whole tile.
 
 **The 8% Wash Rule.** The tile color may tint the bench at 8% at most where text sits on it (a pure black tile still leaves Ink 3 at 5.25:1), and at 12% only where no text sits. Nothing lighter than Ink 3 goes on the wash.
 
@@ -249,6 +260,7 @@ A warm, low-chroma room of browns and creams, with one saturated voice that belo
 - **Figure** (650, 1.1875 rem, tabular): the number in a measurement field. Step values at the end of a heading use Body size at 650, also tabular.
 - **Label** (600, 0.75 rem, line-height 1.25): field names, list heads and the step index, in sentence case with near-zero tracking.
 - **Note** (500, 0.6875 rem): the smallest text, hints under swatches and hex codes, always Ink 3 or darker.
+- **Wordmark** (700, 1.25 rem, width 108%, tracking -0.01em): "Tessera" in the app bar only, live Archivo in Bar Cream, 8 px from the mark. A touch wider and heavier than the interface's own lettering, so the name reads as a name.
 
 ### Named Rules
 **The Sentence Case Rule.** Labels, buttons, tabs and headings are sentence case. The expanded uppercase lettering of the drafting world is retired; the only uppercase in the system is a hex code, which reads as a code.
@@ -280,11 +292,15 @@ Depth is soft, warm and mostly tonal. Surfaces lift off the ground on brown-tint
 ### Named Rules
 **The Warm Shadow Rule.** Every shadow is tinted from the espresso bar. A neutral grey or black shadow is off-system.
 
+**The Well Needs a Panel Rule.** The recessed bench tone reads only on a panel: on the ground it is one step away (#EFE7D8 on #F2EADC) and a callout set in it vanishes. A well sits inside a panel (the fit test's "You will need" opens the step card); anything standing on the ground is a panel with a hairline (the download page's "Test first").
+
+**The Rule That Says Something Rule.** A hairline divides the rows of a list, a table or an accordion, the numbered steps of the rail and of a guide, and a pinned bar from what scrolls under it. It never runs on after a label, sits between a caption and what it names, rules off a card that already has an edge, or divides the lines inside one table row: space does those jobs.
+
 **The One Lamp Rule.** Light comes from the upper left on every surface: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26), the hero wall's lamp gradient and the shadows that fall down and to the right. A new lit surface takes the same corner.
 
 ## Shapes
 
-Nothing in this world is square. Radii come in three sizes: 11 px (sm) for fields, chips, choice tiles and pill-group tracks; 14 px (md) for buttons, lids, wells, popovers and the hero wall; 22 px (lg) for panels, cards and dialogs. Inner controls nested in a track (segments, steppers, bar tabs) take 8 px, so the inner corner sits concentric with the outer one. Step numbers, the step index items, badges and switches are full pills or circles. Borders are 1 px hairlines; the focus ring is a 3 px accent outline drawn outside the element (inset by 3 px inside lists) so a rounded corner keeps its shape.
+Nothing in this world is square. Radii come in three sizes: 11 px (sm) for fields, chips, choice tiles and pill-group tracks; 14 px (md) for buttons, lids, wells, popovers and the hero wall; 22 px (lg) for panels, cards and dialogs. Inner controls nested in a track (segments, steppers, bar tabs) take 8 px, so the inner corner sits concentric with the outer one. Step numbers, the step index items, badges and switches are full pills or circles. The one square corner is in the mark, where the wall's edge cut a piece. Borders are 1 px hairlines; the focus ring is a 3 px accent outline drawn outside the element (inset by 3 px inside lists) so a rounded corner keeps its shape.
 
 ## Components
 
@@ -299,7 +315,7 @@ Tactile plates with a clear hierarchy of one.
 - **Disabled:** recessed fill, hairline, Ink 3 lettering, no shadow.
 
 ### Pill groups (segmented choices)
-- **Style:** a recessed track (11 px, 3 px padding, hairline) holding quiet Ink 2 segments at 550 weight.
+- **Style:** a recessed track (11 px, 3 px padding, hairline) holding quiet Ink 2 segments at 550 weight. Inside a recessed well the track takes the panel color instead (`--segmented-track`), or it vanishes into the well. A segment with a second line under its name is set left with 6 px above and below; on a phone the fit picker takes its well's width in equal parts, and stacks under 22 rem.
 - **Selected:** a word choice becomes the dark espresso plate with Bar Cream lettering. A picture choice (a "tile" with a drawn diagram) keeps its picture visible instead: accent border, a 1 px inner accent ring and the soft accent fill.
 
 ### Color swatches and relief samples
@@ -322,7 +338,7 @@ The brightest things on the screen, shown as a wall of lit samples with no capti
 - **Behavior:** the badge always says what is behind the lid (a changed count, a profile name, or "All standard", "None"), so a folded panel never changes a design silently. Its panel opens as a hairline panel below with 16 px padding. Inside a well, a lid drops its card and keeps only its line.
 
 ### Wells
-- **"What changes" well:** a recessed 14 px well with 16 px padding, its rows divided by hairlines. Each row is a term over its value: a small Ink 3 label (12 px, 650) with a line icon, then the words at the well's full measure, because a label column left the words about 45 characters a line at the rail's width. Anything the maker must act on is flagged at the top, before the rows.
+- **"What changes" well:** a recessed 14 px well with 16 px padding holding only what step 7 does to the tiles: anything the maker must act on flagged at the top, then tile A from the back beside its caption, then the Fit control. Its parts are set apart by 16 px of space, never a hairline, and the Fit picker's track takes the panel color, because a recessed track in a recessed well vanishes. What to print, buy and do is the download page's guide.
 - **Fit strip:** in the rail's foot, washed in the tile color at 8%, with the fit-green tick and the one sentence of counts.
 
 ### Cards and floating surfaces
@@ -332,8 +348,16 @@ The brightest things on the screen, shown as a wall of lit samples with no capti
 - **Dialog:** a 22 px panel up to 46 rem wide over an espresso scrim, its head ruled off by a hairline.
 
 ### Navigation (the app bar)
-- **Style:** the 56 px espresso bar carrying the six-tile wordmark, the design's name edited in place, the Studio and History tabs, and undo, redo and the shortcut key.
+- **Style:** the 56 px espresso bar carrying the mark beside the wordmark, the design's name edited in place, the Studio and History tabs, and undo, redo and the shortcut key.
 - **States:** quiet items in a muted cream, lifting to Bar Cream on a 10% cream wash under the hand; the active tab inverts to a Bar Cream pill with espresso lettering. Focus in the bar is drawn in Bar Cream (see The Bar Exception Rule).
+
+### The mark and the tab icon
+The corner of a wall as Tessera's default layout sets it out, drawn flat from one geometry (`src/app/mark.ts`) for the bar, the browser tab and the home-screen icon.
+- **Form:** one whole tile at the top left, where tiling starts, and the three pieces its wall cuts at the right and bottom edges (a side strip, a bottom strip, a corner). Every piece keeps its rounded corners (4 of 32) along the joints and goes square only where the wall's edge cut it. No relief, bevel or shadow.
+- **Grid:** a 32-unit square with a 4 inset, a 14 whole tile, a 2 joint and 8 for the cuts, so every edge lands on a whole pixel at 16 px and at the bar's 24 px crop.
+- **Color:** the whole tile in Mark, the three cut pieces in Mark Cut, both following the tile color (see The Mark's Own Floor Rule).
+- **In the bar:** the plate cropped away, 24 px, 8 px before the wordmark, hidden from assistive tech because the word beside it names the app.
+- **Tab icon:** the mark on a 32-unit espresso plate (7 radius), which reads the same in a light or a dark tab strip. It follows the tile color too: the page points the icon link at the mark in the current color, and `public/favicon.svg` is the default tile's. The home-screen icon is that file at 150 px on a full-bleed 180 px espresso square, whose corners the device rounds itself.
 
 ### The home hero wall (signature)
 The visitor's own wall, built from CPU-rendered relief chips, with no 3D engine on the page.
@@ -347,7 +371,7 @@ The visitor's own wall, built from CPU-rendered relief chips, with no 3D engine 
 ### Do:
 - **Do** read `--accent` and its four companions for every action, selection and focus, and let `accentPalette` hold the 6.5:1 floor for any tile color.
 - **Do** keep one accent-filled primary button per screen, at the 54 px size when it closes the screen.
-- **Do** lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone.
+- **Do** lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone, only ever inside a panel.
 - **Do** round everything: 11, 14 or 22 px, 8 px for controls nested in a track, full pills for counts, badges and step numbers.
 - **Do** set every measurement and count in tabular figures, and every label in sentence case.
 - **Do** light every new rendered or painted surface from the upper left.
@@ -360,9 +384,11 @@ The visitor's own wall, built from CPU-rendered relief chips, with no 3D engine 
 - **Don't** bring back the drafting sheet: square corners, a 2 px ink frame, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.
 - **Don't** build a grey form-sidebar configurator; the render leads and the rail is warm.
 - **Don't** put the accent on the espresso bar, or use it as decoration or status.
+- **Don't** draw the mark in the accent or a fixed green, or give it relief, a bevel or a shadow: it is flat, in `--mark` and `--mark-cut`.
 - **Don't** use red for anything but cut pieces and what is wrong.
 - **Don't** tint the bench above 8% where text sits, or set anything lighter than Ink 3 on the wash.
 - **Don't** use grey or black shadows, or hard offset shadows.
+- **Don't** set a recessed well straight on the ground, or draw a hairline that only repeats what space or a card's edge already says.
 - **Don't** caption the swatches or relief samples, or draw anything brighter than them on the operating surfaces.
 - **Don't** select a color swatch with the accent ring; it vanishes on a chip of its own hue.
 - **Don't** use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code; they exist only so older files resolve.

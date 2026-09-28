@@ -3,14 +3,21 @@
 // raft of separate cards, a number rail down the left joined by a spine, and the drawing beside the
 // words in a well shaped like the drawing it holds. The download page's guide and the fit-test page's
 // both render through this file, so they are laid out the same way by construction.
+//
+// The card runs the full width of the page's content, level with the panels above it; each step's words
+// keep their own measure (.stepBody) and the drawing column takes the width the prose leaves.
 
-// The measure the whole guide is set to: a step's words are prose, so the panel stops well short of a
-// 76rem page rather than running a 14 px line the full width of the window. A SCSS variable, not a
-// custom property, because the needs strip is a sibling of the list and nothing cascades between them.
-$measure: 58rem;
+.guide {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
 
-// What to have to hand before step 1: a strip of its own above the list, so it reads as a shopping list
-// rather than as an unnumbered first step.
+// What to have to hand before step 1: a recessed well at the head of the card, so it reads as a shopping
+// list rather than as an unnumbered first step.
 .needs {
   display: grid;
   grid-template-areas:
@@ -18,8 +25,7 @@ $measure: 58rem;
     'icon text';
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--s-1) var(--s-3);
-  max-width: $measure;
-  margin-bottom: var(--s-4);
+  margin: var(--s-5) var(--s-5) 0;
   padding: var(--s-3) var(--s-4);
   border-radius: var(--radius-md);
   background: var(--panel-2);
@@ -43,6 +49,7 @@ $measure: 58rem;
 
 .needsText {
   grid-area: text;
+  max-width: 76ch;
   color: var(--ink-2);
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -51,14 +58,8 @@ $measure: 58rem;
 
 .steps {
   display: grid;
-  max-width: $measure;
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
   list-style: none;
 }
 
@@ -69,7 +70,7 @@ $measure: 58rem;
     'num title drawing'
     'num text drawing';
   grid-template-rows: auto 1fr;
-  grid-template-columns: 2rem minmax(0, 1fr) 13rem;
+  grid-template-columns: 2rem minmax(0, 1fr) 16rem;
   align-items: start;
   gap: var(--s-2) var(--s-5);
   padding: var(--s-5);
@@ -117,13 +118,13 @@ $measure: 58rem;
 
 .drawing[data-shape='square'] {
   aspect-ratio: 1;
-  max-width: 11rem;
+  max-width: 13rem;
 }
 
 // A section is taller than it is wide: given the wide well it drew at 70 px across.
 .drawing[data-shape='section'] {
   aspect-ratio: 3 / 4;
-  max-width: 9rem;
+  max-width: 11rem;
 }
 
 // Laid over the well rather than in it, so a tall section is fitted to the well (the viewBox keeps its
@@ -168,7 +169,7 @@ $measure: 58rem;
 }
 
 .stepBody {
-  max-width: 66ch;
+  max-width: 72ch;
   color: var(--ink-2);
   font-size: var(--text-sm);
   line-height: 1.55;
@@ -205,6 +206,10 @@ $measure: 58rem;
 }
 
 @media (max-width: 32rem) {
+  .needs {
+    margin: var(--s-4) var(--s-4) 0;
+  }
+
   .step {
     padding: var(--s-4);
   }

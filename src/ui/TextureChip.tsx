@@ -52,7 +52,9 @@ export function TextureChip({ item }: TextureChipProps) {
       aria-label={item.mark ? `${item.mark} ${item.name}` : item.name}
       className={styles.chip}
     >
-      <span className={styles.sample}>
+      {/* Loaded also retires the placeholder: a tile that is not square leaves the image transparent
+          around it, and the drifting hatch would keep moving there. */}
+      <span className={styles.sample} data-loaded={(loaded && item.src !== null) || undefined}>
         <span className={styles.placeholder} aria-hidden="true" />
         {item.src && (
           <img
@@ -61,7 +63,6 @@ export function TextureChip({ item }: TextureChipProps) {
             alt=""
             draggable={false}
             decoding="async"
-            data-loaded={loaded || undefined}
             onLoad={() => setLoaded(true)}
           />
         )}

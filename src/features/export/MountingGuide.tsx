@@ -53,6 +53,8 @@ export function MountingGuide({ guide }: MountingGuideProps) {
           </div>
           <div className={styles.glueText}>
             <p className={styles.lede}>{guide.lede}</p>
+            {/* The one thing a glued wall needs that its lede leaves out, and the studio no longer says. */}
+            <p className={styles.glueNote}>The tiles follow your wall: fill any hollow before you start.</p>
             <p className={styles.glueNote}>
               Want tiles that pull off one at a time, or locked edge to edge with even joints? Wall clips and keys are
               in the studio, under Putting it up.{' '}
