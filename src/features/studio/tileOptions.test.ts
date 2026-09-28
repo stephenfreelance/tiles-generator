@@ -71,11 +71,40 @@ describe('tileChoices', () => {
     }
   })
 
-  it('keeps the rectangle when a full row has to give a chip up', () => {
-    // This wall divides into no square at all, so the recommendation is a rectangle and the nearest
-    // familiar square differs from it: the row overflows and a square, not the brick, gives way.
-    const choices = tileChoices({ width: 1000, height: 630 }, 0, OPTIONS)
+  it('offers bigger tiles with no cuts, square or not, where only a small square divides the wall', () => {
+    // 50 mm is the largest square that divides 350 x 500: every familiar square cuts it.
+    const choices = tileChoices({ width: 350, height: 500 }, 0, OPTIONS)
+    expect(choices.map((choice) => [choice.figure ?? choice.name, choice.fit.exact])).toEqual([
+      ['50 × 50 mm', true],
+      ['87.5 × 100 mm', true],
+      ['175 × 125 mm', true],
+      ['175 × 250 mm', true],
+      ['100 mm square', false],
+    ])
+  })
+
+  it('puts every size that leaves no cuts before any size that does', () => {
+    for (const surface of [...WALLS, { width: 350, height: 500 }, { width: 420, height: 420 }]) {
+      const exact = tileChoices(surface, 0, OPTIONS).map((choice) => choice.fit.exact)
+      expect({ surface, exact }).toEqual({ surface, exact: [...exact].sort((a, b) => Number(b) - Number(a)) })
+    }
+  })
+
+  it('never offers the same tile turned on its side as a second size', () => {
+    // A square wall fits 260 x 130 and 130 x 260 alike: one print, so one chip.
+    const choices = tileChoices({ width: 260, height: 260 }, 0, OPTIONS)
+    for (const choice of choices) {
+      const turned = { width: choice.fit.height, height: choice.fit.width }
+      expect(choices.filter((other) => sameTileSize(other.fit, turned) || sameTileSize(other.fit, choice.fit))).toHaveLength(1)
+    }
+  })
+
+  it('keeps the rectangle when a full row of squares has to give a chip up', () => {
+    // The stand-ins on this wall are squares too, so the row overflows and a square that cuts, not the
+    // brick, gives way.
+    const choices = tileChoices({ width: 420, height: 420 }, 0, OPTIONS)
     expect(choices).toHaveLength(MAX_TILE_CHIPS)
+    expect(choices.map((choice) => choice.name)).not.toContain('100 mm square')
     expect(choices.at(-1)?.fit).toMatchObject(BRICK_TILE_MM)
   })
 

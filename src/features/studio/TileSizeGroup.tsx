@@ -47,7 +47,8 @@ export interface TileSizeGroupProps extends CellProps {
 /**
  * Choice 2: how big one tile is. The recommendation is computed from the wall the maker just
  * measured, so "no cuts" is true by construction rather than by luck, and it is what loads. The
- * familiar sizes beside it are costed against the same wall, so choosing one is never a guess.
+ * sizes beside it are costed against the same wall, those with no cuts first whatever their shape,
+ * so choosing one is never a guess.
  */
 export function TileSizeGroup({ config, choice: current, onChoose }: TileSizeGroupProps) {
   // A size picked by name keeps its own chip even where the wall makes it the recommendation.

@@ -1,7 +1,8 @@
 // The sizes the Tile size group offers. Beside the recommendation computed from the wall, a short
-// row of sizes people already have a feel for: each one is costed against this wall by computeLayout,
-// the same path recommendedTile and squareTile are verified with, so a chip never promises a fit the
-// layout would not lay.
+// row of sizes people already have a feel for, and for each of those this wall would cut, the nearest
+// size it would not, square or not. Every one is costed against this wall by computeLayout, the same
+// path recommendedTile and squareTile are verified with, so a chip never promises a fit the layout
+// would not lay.
 
 import { LIMITS } from '@/core/config'
 import { tabLimits } from '@/core/fixing/capability'
@@ -80,11 +81,88 @@ function rectangleTile(
 /** A size that lays no whole tile at all is not an offer, whatever its name. */
 const worthOffering = (fit: TileFit | null): fit is TileFit => fit !== null && fit.whole > 0
 
+// layout.ts keeps these private too (its EPS and MAX_ASPECT), hence the repeats.
+/** Under computeLayout's own EPS: a residual it would treat as a cut must not pass as an exact fit. */
+const EXACT_EPS = 0.01
+/** A tile is a tile, not a plank: the recommendation stops here, and so does a stand-in. */
+const MAX_ASPECT = 2.5
+
+/** How far from a familiar size a cut-free size may land and still stand in for it: a quarter either way. */
+const STAND_IN_REACH = Math.log(1.25)
+/** What each unit of aspect costs against nearness in size, so a squarer tile wins a near tie. */
+const ASPECT_COST = 0.3
+/** What a size that is not a whole or half millimetre costs: 87.5 x 100 reads better than 83.33 x 100. */
+const UNTIDY_COST = 0.1
+/** Stand-ins proved with computeLayout before giving up, as recommendedTile caps its own. */
+const MAX_VERIFIED_STAND_INS = 8
+
+const tidy = (mm: number): boolean => Math.abs(mm * 2 - Math.round(mm * 2)) < 1e-6
+
+/** Sizes between `low` and `high` that fill `length` with whole tiles and their joints. */
+function exactSizes(length: number, joint: number, low: number, high: number): number[] {
+  const sizes: number[] = []
+  for (let count = 1; ; count++) {
+    const raw = (length - (count - 1) * joint) / count
+    if (raw < low) break
+    if (raw > high) continue
+    const size = Math.round(raw * 100) / 100
+    if (Math.abs(length - (count * size + (count - 1) * joint)) < EXACT_EPS) sizes.push(size)
+  }
+  return sizes
+}
+
 /**
- * The chips the group shows, in reading order: the recommendation, the nearest familiar square when
- * it differs, then familiar sizes. No size appears twice, and the row is never longer than
- * MAX_TILE_CHIPS. When it has to be trimmed the rectangle stays: it is the only chip offering a
- * different shape, so dropping it would cost the row more than dropping one more square.
+ * The size that stands in for a familiar one this wall would cut: the cut-free size nearest to it,
+ * square or not, a squarer and tidier tile winning a near tie. Only a size the row does not already
+ * offer either way round, and only once computeLayout has laid it with no cuts.
+ */
+function cutFreeNear(
+  surface: DesignConfig['surface'],
+  joint: number,
+  target: number,
+  options: TileSuggestOptions,
+  taken: readonly TileFit[],
+): TileFit | null {
+  const layout = options.layout ?? PRESET_LAYOUT
+  // Past half or twice the target no pair of sides can land within reach of it at an allowed aspect.
+  const low = Math.max(options.min ?? 20, target / 2)
+  const high = Math.min(options.max ?? 400, target * 2)
+  const widths = exactSizes(surface.width, joint, low, high)
+  // Shifted rows cut every row end, so only a single row can be laid whole under them.
+  const heights = layout.rowOffset === 0 ? exactSizes(surface.height, joint, low, high) : [surface.height]
+  const candidates: { width: number; height: number; cost: number }[] = []
+  for (const width of widths) {
+    for (const height of heights) {
+      const aspect = Math.max(width, height) / Math.min(width, height)
+      const distance = Math.abs(Math.log(Math.sqrt(width * height) / target))
+      if (aspect > MAX_ASPECT || distance > STAND_IN_REACH) continue
+      // Turned a quarter, a tile the row already offers is no new choice: the same print, laid on its side.
+      if (taken.some((fit) => sameTileSize(fit, { width, height }) || sameTileSize(fit, { width: height, height: width }))) continue
+      const cost = distance + (aspect - 1) * ASPECT_COST + (tidy(width) && tidy(height) ? 0 : UNTIDY_COST)
+      candidates.push({ width, height, cost })
+    }
+  }
+  candidates.sort((a, b) => a.cost - b.cost)
+  for (const size of candidates.slice(0, MAX_VERIFIED_STAND_INS)) {
+    // rectangleTile applies the limits and the bed, and its layout is the proof of "no cuts".
+    const fit = rectangleTile(surface, joint, size, options)
+    if (fit?.exact) return fit
+  }
+  return null
+}
+
+const oblongFit = (fit: TileFit): boolean => Math.abs(fit.width - fit.height) >= 0.05
+const oblong = (choice: TileChoice): boolean => oblongFit(choice.fit)
+const squareName = (fit: TileFit): string => `${formatLength(fit.width, 'mm', false)} mm square`
+
+/**
+ * The chips the group shows, in reading order: the recommendation, then every size that leaves no
+ * cuts, then the sizes that do. The rest are the nearest familiar square when it differs from the
+ * recommendation, the familiar squares, each one this wall would cut preceded by the cut-free size
+ * nearest to it, and the brick. No size appears twice, and the row is never longer than
+ * MAX_TILE_CHIPS, so a size that cuts is the first to give way. When the row would lose its only
+ * rectangle, the rectangle takes the last square's place, since it is the only chip offering a
+ * different shape, unless it cuts and that square does not.
  *
  * `picked` is a size the maker chose by name: its familiar chip stays beside a recommendation of the
  * same size, so the group can keep showing what they picked rather than Recommended, which follows
@@ -106,42 +184,53 @@ export function tileChoices(
       fit: recommended,
     })
   }
+
+  // Everything after the recommendation, in reading order until the cut-free sizes are moved ahead.
+  const offers: TileChoice[] = []
   if (square) {
-    chips.push({ value: SQUARE, name: 'Square tile', figure: formatSize(square.width, square.height), fit: square })
+    offers.push({ value: SQUARE, name: 'Square tile', figure: formatSize(square.width, square.height), fit: square })
   }
 
   const alreadyOffered = (fit: TileFit) =>
-    chips.some((chip) => sameTileSize(chip.fit, fit) && !(picked && chip.value === RECOMMENDED && sameTileSize(fit, picked)))
+    offers.some((offer) => sameTileSize(offer.fit, fit)) ||
+    chips.some((chip) => sameTileSize(chip.fit, fit) && !(picked && sameTileSize(fit, picked)))
 
-  const squares: TileFit[] = []
   for (const size of FAMILIAR_SQUARES_MM) {
     // squareTile snaps to the nearest standard size the bed and the limits allow, so a bed too small
     // for 200 mm answers with the largest square it can print rather than with nothing.
     const fit = squareTile(surface, joint, size, options)
-    if (!worthOffering(fit)) continue
-    if (alreadyOffered(fit) || squares.some((kept) => sameTileSize(kept, fit))) continue
-    squares.push(fit)
+    if (!worthOffering(fit) || alreadyOffered(fit)) continue
+    if (!fit.exact) {
+      const taken = [...chips, ...offers].map((offer) => offer.fit)
+      const standIn = cutFreeNear(surface, joint, fit.width, options, taken)
+      if (standIn) {
+        offers.push({
+          value: `fit-${standIn.width}x${standIn.height}`,
+          name: oblongFit(standIn) ? formatSize(standIn.width, standIn.height) : squareName(standIn),
+          fit: standIn,
+        })
+      }
+    }
+    offers.push({ value: `familiar-${fit.width}x${fit.height}`, name: squareName(fit), fit })
   }
 
   const brick = rectangleTile(surface, joint, BRICK_TILE_MM, options)
-  const rectangle = worthOffering(brick) && !alreadyOffered(brick) ? brick : null
+  if (worthOffering(brick) && !alreadyOffered(brick)) {
+    offers.push({
+      value: `familiar-${brick.width}x${brick.height}`,
+      name: `${formatSize(brick.width, brick.height)} brick`,
+      fit: brick,
+    })
+  }
 
-  const room = Math.max(0, MAX_TILE_CHIPS - chips.length)
-  for (const fit of squares.slice(0, Math.max(0, room - (rectangle ? 1 : 0)))) {
-    chips.push({
-      value: `familiar-${fit.width}x${fit.height}`,
-      name: `${formatLength(fit.width, 'mm', false)} mm square`,
-      fit,
-    })
+  const ranked = [...offers.filter((offer) => offer.fit.exact), ...offers.filter((offer) => !offer.fit.exact)]
+  const kept = ranked.slice(0, Math.max(0, MAX_TILE_CHIPS - chips.length))
+  const rectangle = ranked.slice(kept.length).find(oblong)
+  const last = kept.at(-1)
+  if (rectangle && last && ![...chips, ...kept].some(oblong) && (rectangle.fit.exact || !last.fit.exact)) {
+    kept[kept.length - 1] = rectangle
   }
-  if (rectangle && chips.length < MAX_TILE_CHIPS) {
-    chips.push({
-      value: `familiar-${rectangle.width}x${rectangle.height}`,
-      name: `${formatSize(rectangle.width, rectangle.height)} brick`,
-      fit: rectangle,
-    })
-  }
-  return chips
+  return [...chips, ...kept]
 }
 
 /** What the group costs every chip against: the tile limits, this design's bed and its own layout. */
