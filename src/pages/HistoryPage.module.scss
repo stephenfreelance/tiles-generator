@@ -1,3 +1,5 @@
+@use '@/styles/mixins' as *;
+
 // The shelf: every design this browser kept, on one warm panel, newest at the top.
 
 .page {
@@ -5,11 +7,15 @@
   align-content: start;
   gap: var(--s-5);
   width: 100%;
+  // Wider than the download and fit-test pages on purpose: this is a REGISTER, not a document. Seven
+  // columns and four row actions; at the document's 76 rem the actions broke onto a second line and
+  // every row grew taller for it. Under 88 rem the two frames are identical anyway, because they share
+  // --page-x, so the measures only part on a wide screen, where the register has the rows to fill it.
   max-width: 88rem;
   margin-inline: auto;
-  padding: clamp(var(--s-4), 1.6vw, var(--s-6));
-  background: var(--ground);
+  padding: var(--page-top) var(--page-x) var(--page-bottom);
   color: var(--ink);
+  @include head-wash;
 }
 
 .head {
@@ -20,11 +26,9 @@
   gap: var(--s-3) var(--s-5);
 }
 
+// The page's title in the display face.
 .title {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
+  @include display(clamp(2.25rem, 1.5rem + 1.8vw, 3.25rem), 1.02);
 }
 
 .count {
@@ -74,7 +78,8 @@
 
 // Inset by the register's corner radius, so the note clears the curve it hangs under.
 .footnote {
-  padding-inline-start: var(--radius-lg);
+  // Flush with the panel above it and the title above that: the page's strongest vertical line is its
+  // own edge, and an indent here lined the note up with nothing.
   color: var(--ink-3);
   font-size: var(--text-xs);
   line-height: 1.5;

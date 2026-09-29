@@ -31,12 +31,10 @@
 // is far enough down to read as the second voice in the hero and far enough up that it can never be
 // taken for the "Width" and "Height" labels under it, which it used to match exactly.
 .head {
+  @include display(clamp(1.5rem, 1.05rem + 0.95vw, 2rem), 1.05);
+
   margin: 0 0 var(--s-1);
   color: var(--ink);
-  font-size: clamp(1.25rem, 0.95rem + 0.85vw, 1.75rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
 }
 
 // The short laptop screens the hero already tightens for (LandingPage.module.scss runs the same
@@ -44,7 +42,7 @@
 // at 720.
 @media (min-width: 62.0625rem) and (max-height: 50rem) {
   .head {
-    font-size: 1.5rem;
+    font-size: 1.625rem;
   }
 }
 

@@ -10,14 +10,15 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scrollbar-color: #cdbfa6 transparent;
+  scrollbar-color: #c9c3b8 transparent;
   scrollbar-width: thin;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
-  background-color: var(--ground);
+  // The stock and its grain (the stock mixin), written out: _base is not a module and takes no mixins.
+  background: var(--grain) 0 0 / var(--grain-size), var(--ground);
   color: var(--ink);
   font-family: var(--font);
   font-size: var(--text-md);
@@ -51,7 +52,7 @@ body {
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 999px;
-  background: #cdbfa6;
+  background: #c9c3b8;
   background-clip: content-box;
 }
 

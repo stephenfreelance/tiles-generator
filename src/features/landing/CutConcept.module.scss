@@ -151,7 +151,9 @@
   place-items: center;
   margin-bottom: var(--s-2);
   padding: clamp(var(--s-3), 2vw, var(--s-5));
-  border-radius: var(--radius-md);
+  // The mat a drawing is printed on is a mounted panel, so it takes the panel's own corner (the user's
+  // call, 2026-09-28): the square 2px mat is kept for the small drawn glyphs, not for a plate this size.
+  border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow-sm);
   color: var(--ink-2);
@@ -170,13 +172,16 @@
 }
 
 .title {
+  @include display(clamp(1.25rem, 1rem + 0.55vw, 1.5rem), 1.15);
+
   display: flex;
   align-items: baseline;
   gap: var(--s-2);
-  font-size: clamp(var(--text-lg), 0.9rem + 0.5vw, var(--text-xl));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+
+  // Beside its drawing a phone's column is 13rem wide: a step down keeps each title to two lines.
+  @media (max-width: 48rem) {
+    font-size: 1.125rem;
+  }
 }
 
 // The step's number in the soft accent disc the studio numbers its steps with.
@@ -191,11 +196,12 @@
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
+  font-family: var(--font);
   font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0;
   // Sits on the title's first line rather than on its baseline, which is what a disc lines up with.
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .text {

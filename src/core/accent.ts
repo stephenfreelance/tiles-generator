@@ -31,7 +31,7 @@ const DARK_LIMIT = 0.2
 const SOFT_LIGHTNESS = 0.956
 const SOFT_CHROMA = 0.02
 /** --panel-2, the recessed bench tone a near-grey tile's soft fill takes its warmth from. */
-const BENCH = '#EFE7D8'
+const BENCH = '#EEEBE4'
 
 type Rgb = [number, number, number]
 

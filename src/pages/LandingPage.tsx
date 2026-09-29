@@ -1,9 +1,10 @@
 // The front page runs Tessera instead of describing it: one wall, the visitor's own, photographed in
 // the hero and then rendered, recolored and packed in front of them. Every number the page gives is a
 // computeLayout result for that wall, so a reader who counts always finds it agreeing with itself; the
-// one exception is section 01, which explains the cuts on a fixed wall that always has some. The hero
-// is a product photograph and the sections under it are the plates of a catalogue: how it cuts, the
-// patterns, the download and how the tiles go up, then the questions and the close.
+// one exception is section 01, which explains the cuts on a fixed wall that always has some. The page is
+// a pattern book printed in the tile's own ink: the hero is its title page with the wall as frontispiece,
+// and the sections under it are its plates: how it cuts, the patterns, the download and how the tiles go
+// up, then the questions and the colophon.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { track } from '@/app/analytics'
@@ -51,13 +52,13 @@ const plural = (value: number, noun: string): string => `${count(value)} ${noun}
  */
 const SETTLE_MS = 500
 
-/** How far up the window a band's top edge has to come before the lamp over it is raised. */
+/** How far up the window a plate's top edge has to come before its ink is printed. */
 const REACH_FRACTION = 0.88
 
 /**
- * True from the moment a band has been reached, and true forever after. The light it raises and the
- * plates it lays in are both decoration over content that is already on the page (the plates start
- * lower and fainter, never hidden), so the worst a missed trigger can do is leave a lamp off, and
+ * True from the moment a plate has been reached, and true forever after. The ink it prints and the
+ * drawings it lays in are both decoration over content that is already on the page (they start paler
+ * and off register, never hidden), so the worst a missed trigger can do is leave a wash pale, and
  * reduced motion never asks the question at all.
  *
  * Measured against the window on arrival and on every scroll until it fires: a jump (a restored scroll
@@ -160,7 +161,7 @@ export function LandingPage() {
   // The object, the accent and the fit line take every frame of a wheel drag. The 23 samples and the
   // kit chips are worker renders, so they follow the color only once the gesture behind it has settled.
   const [settledColor, setSettledColor] = useState(LANDING_DESIGN_START.color)
-  // One per band, so each turns its own light on as it is read rather than the page lighting at once.
+  // One per plate, so each prints its own ink as it is read rather than the page printing at once.
   const [cutsRef, cutsLit] = useReached<HTMLElement>()
   const [patternsRef, patternsLit] = useReached<HTMLElement>()
   const [deliverRef, deliverLit] = useReached<HTMLElement>()
@@ -254,6 +255,7 @@ export function LandingPage() {
     <LandingMotion>
       <div className={styles.page}>
         <section className={styles.hero}>
+          <div className={cx(styles.wash, styles.titleCloud)} aria-hidden="true" />
           {/* The words come first in the DOM, as they come first on the page: the object is placed by
               the grid and never stands between the headline and the controls in the tab order. */}
           <div className={styles.heroLede}>
@@ -313,6 +315,8 @@ export function LandingPage() {
         </section>
 
         <section className={styles.section} ref={cutsRef} data-lit={cutsLit ? '' : undefined}>
+          {/* The plate's own skyline of spot ink, across its whole width (page styles). */}
+          <div className={cx(styles.wash, styles.proofCloud)} aria-hidden="true" />
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               01
@@ -357,6 +361,7 @@ export function LandingPage() {
         </section>
 
         <section className={styles.section} ref={patternsRef} data-lit={patternsLit ? '' : undefined}>
+          <div className={cx(styles.wash, styles.patternsCloud)} aria-hidden="true" />
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               02
@@ -403,6 +408,7 @@ export function LandingPage() {
 
           {/* One plate, the width of the page: the parts on the bench, each with the file it prints from. */}
           <section className={styles.plate}>
+            <div className={cx(styles.wash, styles.kitCloud)} aria-hidden="true" />
             <div className={styles.plateCaption}>
               <h3 className={styles.plateLabel}>In the zip</h3>
               {/* The only place the page counts the files. */}
@@ -423,6 +429,7 @@ export function LandingPage() {
         </section>
 
         <section className={styles.section} ref={fixingRef} data-lit={fixingLit ? '' : undefined}>
+          <div className={cx(styles.wash, styles.fixingCloud)} aria-hidden="true" />
           <header className={styles.plateHead}>
             <p className={styles.plateNo} aria-hidden="true">
               04
@@ -452,6 +459,8 @@ export function LandingPage() {
         </section>
 
         <section className={styles.close} ref={closeRef} data-lit={closeLit ? '' : undefined}>
+          <div className={cx(styles.wash, styles.closeCloud)} aria-hidden="true" />
+          <div className={cx(styles.wash, styles.closeCloudEcho)} aria-hidden="true" />
           <h2 className={styles.closeHeading}>
             Measure the wall. <span className={styles.closeTail}>Tessera works out the rest.</span>
           </h2>

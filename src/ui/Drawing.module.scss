@@ -71,7 +71,8 @@
   }
 }
 
-// The stage: the render sits on a lit bench under a warm lamp from the top left.
+// The stage: the render stands on its own neutral plate, inside the one frame in the app that carries a
+// corner of its own.
 
 .view {
   display: flex;
@@ -87,22 +88,22 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid #e0d6c4;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #eeece5 0%, #eeece5 45%, #eceae4 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.85),
-    0 18px 44px -30px rgb(46 36 27 / 0.55);
-}
-
-// The warm lamp above the bench. Decorative and inert: it must never eat a pointer.
-.viewBody::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: radial-gradient(120% 78% at 26% -8%, rgb(255 241 214 / 0.75), rgb(255 241 214 / 0) 62%);
-  pointer-events: none;
+  // The 3D render's own corners: TileViewport clips its canvas to this, because a GPU-composited canvas
+  // can escape an ancestor's rounded overflow in some browsers and show square corners.
+  // The panel corner (--radius-lg), the same one the choices rail beside it wears, so the two halves of
+  // the studio are cut alike. Written out rather than derived: a token that ever failed to resolve would
+  // square the frame silently, because `var(--x, fallback)` does not help when --x is defined but
+  // invalid at computed-value time. Keep these two in step with --radius-lg by hand.
+  --view-radius: 21px;
+  border: 1px solid var(--hairline);
+  border-radius: 22px;
+  // The render's plate (LOOK.palette.sheet), a lighter neutral than the stock, so its rounded edge reads
+  // on the page. No lamp: the page is printed, and only the tiles are lit.
+  background: var(--stage-plate);
+  box-shadow: var(--shadow-md);
+  // The corner painted over the view, in the PAGE's stock: the last guard, and the only one that does
+  // not depend on a clip being honoured on the canvas's layer.
+  @include corner-mat(var(--view-radius));
 }
 
 // Controls on the view start one corner radius in from the side (less the frame's 1px border they sit
@@ -113,7 +114,7 @@
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  padding: var(--s-3) calc(var(--radius-lg) - 1px);
+  padding: var(--s-3) var(--view-radius);
 }
 
 .topLeft {
@@ -313,9 +314,7 @@
 }
 
 .emptyHeading {
-  font-size: var(--text-xl);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  @include display(clamp(1.5rem, 1.2rem + 0.8vw, 2rem), 1.1);
 }
 
 .emptyText {

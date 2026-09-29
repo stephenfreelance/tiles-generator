@@ -1,52 +1,44 @@
-// The front page as a catalogue: one photograph of the visitor's wall filling the first screen, then
-// how it is cut, the patterns it can wear, the zip it leaves in and the ways it goes up. Nothing here
-// is a card. The object sits on the page, the plates are ruled off it, and the
-// figures are set big enough to be read across a room.
-//
-// The page is one warm room lit at two levels: the floor the hero stands on, and a lit band over it.
-// A section is a whole width of one of those levels, and its head is a dissolve out of the level
-// above rather than a rule drawn across the page.
+// The front page as a pattern book: the visitor's wall as the frontispiece of the first screen, then the
+// numbered plates: how it cuts, the patterns, the zip and the ways it goes up, then the questions and a
+// colophon. It is printed in black and one spot ink, the tile's own color, on grained stock, and a color
+// pick reprints every cloud of it. No rule is drawn across the page: a plate is told from the next by its
+// number, its title and the air around it.
 @use '@/styles/mixins' as *;
 
 .page {
-  --pad: clamp(1rem, 0.4rem + 2vw, 3rem);
+  --pad: var(--page-x);
   --gutter: max(var(--pad), calc((100% - 88rem) / 2));
-  // The lamp on the bench: one step up from the floor and well short of --panel's near-white, so a
-  // plate laid on it reads by its shadow rather than by an edge. Every ink weight measures higher
-  // here than on --ground (--ink-3 is 5.86:1 against 5.33:1), so nothing loses contrast to the band.
-  --lit: color-mix(in srgb, var(--panel) 58%, var(--ground));
-  // What a row takes when the hand is on it. Ink rather than a surface color, because it has to
-  // darken whichever of the two levels the row happens to be standing on.
+  // What a ring around a chip is held off by (ColorStrip, SpecimenStrip): the stock every plate is on.
+  --band: var(--ground);
+  // What a row takes when the hand is on it. Ink rather than a surface color, so it darkens the stock
+  // and a wash alike.
   --wash: color-mix(in srgb, var(--ink) 5%, transparent);
-  // How far into a band the level above it is still showing. It follows the width, because a phone
-  // gives a band a fifth of the height a desktop does and a 13rem dissolve there is the whole head.
-  --band-fade: clamp(5rem, 16vw, 13rem);
-  // The lamp that comes up over a band as it is reached. --panel is the brightest paper this room
-  // has, so the light is that and nothing whiter: what it can do is lift whichever of the two levels
-  // it lands on almost all the way to the paper, and fall off across the rest of the band.
-  --lamp: color-mix(in srgb, var(--panel) 88%, transparent);
+  // The book is black plus ONE spot ink, so the cut pieces drawn on its plates are printed in the tile's
+  // ink too: the hatching is what says "cut" here. The studio's plan keeps its red, where red means cut.
+  --cut: var(--accent);
+  --cut-soft: var(--accent-soft);
   display: grid;
   align-content: start;
-  background: var(--ground);
+  // A cloud's box may reach the window's edge (it is spent to nothing there) but never widens the page.
+  overflow-x: clip;
+  @include stock;
   color: var(--ink);
 }
 
 // ---------------------------------------------------------------------------------------------
-// The hero: a product photograph with its caption.
+// The title page: the headline and the caption fields in one column, the wall as its frontispiece.
 // ---------------------------------------------------------------------------------------------
 
-// The object is the first screen: a wall of printed tiles standing on the page with its own light
-// pooled behind it and its own shadow under it. No border, no card. Both halves share ONE grid: the
-// wall used to be absolutely positioned and took whatever the type column left over, so the type
-// stayed frozen at 27rem from 1024 px to 1920 px while the wall grew from 476 px to 1018 px and broke
-// out past the 88rem measure every band below it keeps to.
+// Both halves share ONE grid, so the type column and the wall grow together and the wall never breaks
+// out past the 88rem measure every plate below keeps to.
 .hero {
   position: relative;
   display: grid;
   grid-template-areas:
     'lede object'
     'caption object';
-  grid-template-columns: minmax(19rem, 30rem) minmax(0, 1fr);
+  // Shares, not a fixed type column: at 40rem the words left a 1024 px screen's wall a third of it.
+  grid-template-columns: minmax(21rem, 0.92fr) minmax(0, 1fr);
   align-content: center;
   align-items: center;
   gap: clamp(var(--s-4), 2vw, var(--s-6)) clamp(var(--s-6), 4vw, var(--s-8));
@@ -55,23 +47,19 @@
   isolation: isolate;
 }
 
-// The room the wall is photographed in. A lamp hangs over the wall and the floor falls off toward the
-// edges of the frame, so the one lit thing on the first screen is the wall and the type stands in the
-// shade beside it. Both fall away along the bottom edge, which is plain --ground where the first band
-// pours out of it, so nothing marks the seam. The fall-off reaches 18% of the bar's espresso at the
-// top and right edges; the mask has taken most of it away by the small --ink-3 rows at the column's foot.
-.hero::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background:
-    radial-gradient(38rem 30rem at 68% 45%, var(--panel), color-mix(in srgb, var(--panel) 50%, transparent) 45%, transparent 75%),
-    radial-gradient(95% 80% at 64% 42%, transparent 36%, color-mix(in srgb, var(--bar) 18%, transparent) 100%);
-  mask-image: linear-gradient(to bottom, #000 40%, transparent 96%);
-  pointer-events: none;
+// The title page's figure: one great ARC struck over the headline, its head heavy at the left margin and
+// its tail spent away to the right, printed through the dither so its fall-off dissolves into dots. Every
+// oval it is built from is spent inside the box, so neither the window nor the bar can cut it.
+.titleCloud {
+  --register: -18px 10px;
+  top: 0;
+  left: 0;
+  width: min(74rem, 76%);
+  height: min(32rem, 66%);
+  @include ink-figures(0.95, ink-arc(56, 74, 46, 56, 178, 330, 22, 13, 4, 0.76));
 }
 
+// The words and the caption fields.
 .heroLede {
   position: relative;
   z-index: 1;
@@ -90,15 +78,14 @@
   grid-area: caption;
   align-content: start;
   gap: var(--s-3);
+  // The fields were drawn for a column this wide: past it their labels and wells drift apart.
+  max-width: 34rem;
   min-width: 0;
-  // No rule: the drafting sheet's 2 px ink frame is retired, and the block's own head and the air
-  // above it separate it from the wall without drawing a black line across the first screen.
   padding-top: clamp(var(--s-3), 2vw, var(--s-4));
 }
 
-// The column the object stands in: a cell of the hero's own grid, spanning both type rows. The wall is
-// capped rather than left to swallow the window, so past about 1500 px it stops growing and centres in
-// the space instead, which is what keeps it reading as a wall on a page and not as a backdrop.
+// The column the frontispiece stands in. Capped, so past about 1500 px it stops growing and centres
+// in the space: a wall on a page, never a backdrop.
 .heroObject {
   position: relative;
   z-index: 0;
@@ -111,22 +98,25 @@
   min-height: 0;
 }
 
-// The LCP element: never animated, never faded in, never moved.
+// The LCP element: never animated, never faded in, never moved. One size throughout, on a narrow measure,
+// so Basteleur's swash runs down four short lines with a ragged, wavy right edge, the way the face was
+// chosen from its specimen. The rag is the point, so the lines are left to break where they fall.
 .headline {
-  font-size: clamp(2.25rem, 1rem + 2.9vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 0.98;
-  text-wrap: balance;
+  @include display(clamp(2.5rem, 1.6rem + 2.2vw, 3.5rem), 1.04);
+
+  max-width: 9.5em;
+  // Basteleur's caps sit high: an optical margin, not a metric one.
+  margin-left: -0.03em;
+  text-wrap: pretty;
 }
 
-// The second half takes its own line at every width: this headline is a two-beat line, not a paragraph.
+// "Design" keeps a line of its own at every width.
 .headlineTail {
   display: block;
 }
 
 .support {
-  max-width: 34ch;
+  max-width: 36ch;
   color: var(--ink-2);
   font-size: var(--text-lg);
   line-height: 1.55;
@@ -138,6 +128,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-3) var(--s-4);
+  padding-top: var(--s-1);
 }
 
 // The way back to the wall the visitor just sized, when the primary action is busy protecting theirs.
@@ -147,8 +138,9 @@
   min-height: 1.5rem;
   color: var(--ink-2);
   font-size: var(--text-sm);
-  text-decoration-color: var(--hairline);
+  text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
   text-decoration-line: underline;
+  text-underline-offset: 0.2em;
 
   &:hover {
     color: var(--ink);
@@ -185,27 +177,21 @@
   line-height: 1.5;
 }
 
-// A laptop screen is short before it is narrow, and 1280 x 720 and 1366 x 768 are the two commonest
-// of them: at both, the hero's desk-sized rhythm pushed its own caption off the bottom of the first
-// screen. Nothing is dropped here and nothing moves, only the air between the lines closes up, so the
-// render, the action and the fit line all land above the fold at 720 px of height. Wide frames only:
-// below 62rem the hero is already a stack that scrolls, and tightening it there buys nothing.
+// 1280 x 720 and 1366 x 768 are short before they are narrow: the air closes up and "Design" steps down,
+// so the action and the fit line still land above the fold. Nothing is dropped and nothing moves.
 @media (min-width: 62.0625rem) and (max-height: 50rem) {
   .hero {
-    gap: var(--s-4);
+    gap: var(--s-3) clamp(var(--s-6), 4vw, var(--s-8));
     padding-top: var(--s-4);
     padding-bottom: var(--s-4);
   }
 
-  // The wall is a grid cell now, so the short-screen case only has to cap its height: nothing here
-  // repeats the hero's geometry, which used to live in two places and drift between them.
   .heroObject {
     width: min(100%, 34rem);
   }
 
-  // Still the largest thing on the page, and still two beats: a size, not a step down in rank.
   .headline {
-    font-size: clamp(2.25rem, 0.9rem + 2.4vw, 3rem);
+    font-size: 3rem;
   }
 
   .heroLede {
@@ -218,7 +204,7 @@
 
   .heroCaption {
     gap: var(--s-2);
-    padding-top: var(--s-3);
+    padding-top: var(--s-2);
   }
 }
 
@@ -226,140 +212,66 @@
 // The plates.
 // ---------------------------------------------------------------------------------------------
 
-// A band of floor at one light level, edge to edge, poured out of the level above it: the first
-// --band-fade of it is still the color of whatever it followed, so a section dissolves into the next
-// and no line is drawn between them. --band is inherited by everything inside, which is how a plate, a
-// focus ring or a shutter can match the surface it is standing on without being told which one it is.
-//
-// The bands alternate by sibling chain rather than by :nth-of-type, because the hero and the close are
-// <section> as well and would shift a type index; each chain is one class deeper than the last, so the
-// cascade does the alternating. Five bands are covered (01 to 04 and the questions); a sixth would need
-// one more rule.
+// A plate: the width of the measure, on the same stock as the title page. Plates are told apart by their
+// numbers, their titles and the air between them, never by a rule or a band of another paper.
 .section {
-  --band: var(--lit);
-  --band-from: var(--ground);
   position: relative;
   display: grid;
   align-content: start;
   gap: clamp(var(--s-4), 3vw, var(--s-7));
-  padding: clamp(var(--s-5), 7vw, var(--s-9)) var(--gutter);
-  // The lamp below is a negative-z child, so the band has to be a stacking context of its own or it
-  // would sink behind the page's ground and never be seen.
+  padding: clamp(var(--s-7), 8vw, 8rem) var(--gutter) clamp(var(--s-4), 3vw, var(--s-6));
+  // The washes are negative-z children: the plate is their stacking context, or they would sink under
+  // the stock and never print.
   isolation: isolate;
-  background:
-    linear-gradient(to bottom, var(--band-from), transparent var(--band-fade)),
-    var(--band);
 }
 
-// What a reader arrives into: the light over the bench comes up where the band begins, once, as the
-// band is reached, and then stays. It is light and nothing else, so a band whose trigger never fires
-// is a band with the lamp off, never a band with something missing. Paints above the section's own
-// background and below every word on it.
-.section::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  // 18rem down, not at the top edge: the first --band-fade of a band is still dissolving out of the
-  // level above it and is already the brighter of the two, so a light hung there lands on nothing.
-  // The lamp sits just under the head instead, where the plate number and the heading are, and falls
-  // off over the work below them.
-  background: radial-gradient(56rem 24rem at 24% 18rem, var(--lamp), transparent 70%);
-  pointer-events: none;
-}
-
-@include motion-safe {
-  .section::before {
-    opacity: 0;
-    transition: opacity 1200ms var(--ease-out);
-  }
-
-  .section[data-lit]::before {
-    opacity: 1;
-  }
-}
-
-.section + .section {
-  --band: var(--ground);
-  --band-from: var(--lit);
-}
-
-.section + .section + .section {
-  --band: var(--lit);
-  --band-from: var(--ground);
-}
-
-.section + .section + .section + .section {
-  --band: var(--ground);
-  --band-from: var(--lit);
-}
-
-// The questions: lit again, which is also what the close dissolves out of.
-.section + .section + .section + .section + .section {
-  --band: var(--lit);
-  --band-from: var(--ground);
-}
-
-// A running head: the plate number out in the margin, then the title and the argument for it side by
-// side. Two columns rather than one stack, so the heading can be set at a size worth reading instead
-// of at the size a paragraph running the width of the page would force on it.
+// A plate's head: the number out in the margin, then the title and its argument side by side.
 .plateHead {
-  // One leading for the number and the heading beside it, so their cap lines are the same line.
+  // One leading for the number and the heading beside it, so their first lines share a cap line.
   --head-leading: 1.02;
 
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   gap: var(--s-4) var(--s-5);
   align-items: start;
-  padding-top: var(--s-2);
 }
 
-// The plate number sits on the heading's own cap line, and equal leading is the only thing that puts
-// it there: both boxes start at the top of the row, so each first baseline lands at half the leading
-// plus the font's ascent, and only an equal line-height makes those two sums equal. The negative
-// margin this replaces could not do it, because the gap it had to close grows with the font-size
-// clamp: it was 9 px out at 900 px of window and 14 px out at 1440.
+// The plate number, in the spot ink: the one piece of type on a plate that is printed in color, because
+// it is the plate's mark and not something read.
 .plateNo {
   @include tabular;
+  @include display(clamp(2.5rem, 1.1rem + 2.8vw, 3.75rem), var(--head-leading));
 
   color: var(--accent);
-  font-size: clamp(2.25rem, 1rem + 2.6vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: var(--head-leading);
 }
 
 .plateTitle {
   display: grid;
-  grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
   align-items: start;
   gap: var(--s-4) clamp(var(--s-6), 5vw, var(--s-9));
 }
 
-// A band with no number has no margin to keep for one: its heading starts where its content does.
-// Doubled, so the narrower screens' own number column below cannot come back over it.
+// A plate with no number has no margin to keep for one. Doubled, so the narrower screens' own number
+// column below cannot come back over it.
 .plateHead.plateHeadBare {
   grid-template-columns: minmax(0, 1fr);
 }
 
-// Second only to the headline, and set from the same two beats: it has a column of its own now, so it
-// stays under the h1 at every width while reading as the title of the plate rather than as a label.
+// Second only to the headline, in the same face: the title of the plate.
 .heading {
-  font-size: clamp(1.9rem, 1.05rem + 2.3vw, 3.1rem);
-  font-weight: 700;
-  letter-spacing: -0.028em;
-  line-height: var(--head-leading);
+  @include display(clamp(2rem, 1.05rem + 2.1vw, 3.125rem), var(--head-leading));
+
   text-wrap: balance;
 }
 
 .subheading {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  @include display(clamp(1.5rem, 1.1rem + 0.9vw, 2rem), 1.05);
 }
 
 .lede {
   max-width: 54ch;
+  padding-top: 0.35em;
   color: var(--ink-2);
   font-size: clamp(1rem, 0.94rem + 0.3vw, 1.2rem);
   line-height: 1.55;
@@ -373,42 +285,130 @@
   line-height: 1.55;
 }
 
-// A plate: a caption ruled off the top, the work under it, a line under that. No border, no card.
-// What is on the plate brings its own surface and its own shadow, which is what lifts it off the band.
+// The ink a plate is printed with. Each impression is laid a few pixels off register and paler, and lands
+// in register at full strength once the plate is reached: the ink pass. --register is the direction each
+// one comes in from, set beside the shape below, so no two plates are pulled off the same way. It is
+// decoration over content that is already there, so a pass that never runs leaves a paler wash, never a
+// missing thing, and reduced motion simply sees it printed.
+.wash {
+  --register: 14px 10px;
+  position: absolute;
+  z-index: -1;
+}
+
+@include motion-safe {
+  .wash {
+    opacity: 0.35;
+    translate: var(--register);
+    transition:
+      opacity 900ms var(--ease-out),
+      translate 1300ms var(--ease-out);
+  }
+
+  [data-lit] .wash {
+    opacity: 1;
+    translate: none;
+  }
+
+  // The title page is never "reached": it is where the reader starts, so its ink is printed as it loads.
+  .hero > .wash {
+    opacity: 1;
+    translate: none;
+    animation: ink-pass 1300ms var(--ease-out) 250ms backwards;
+  }
+}
+
+@keyframes ink-pass {
+  from {
+    opacity: 0.35;
+    translate: var(--register);
+  }
+}
+
+// Plate 01: an ARCH struck over the note that sends the reader to the studio, so the words stand in the
+// arc's own hollow instead of being wrapped by it. Its left leg comes down in the gutter beside the
+// corner proof, which is what ties the drawn half of the plate to the written one.
+.proofCloud {
+  --register: 13px 13px;
+  right: calc(-1 * var(--pad));
+  bottom: 4%;
+  left: 40%;
+  height: min(32rem, 54%);
+  @include ink-figures(0.8, ink-arc(52, 86, 38, 64, 190, 350, 22, 13, 5, 0.58));
+
+  // Stacked, the note is no longer beside the proof but under it, and the arch spans the whole column.
+  @media (max-width: 68rem) {
+    left: calc(-1 * var(--pad));
+    height: min(26rem, 40%);
+  }
+}
+
+// Plate 02: the arc stood on its end, a crescent bowing out into the right margin and back, so the ink
+// runs the height of the plate where plate 01's ran across it.
+.patternsCloud {
+  --register: 20px -10px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(32rem, 36%);
+  @include ink-figures(0.5, ink-arc(50, 50, 38, 40, 288, 72, 20, 12, 5, 0.58));
+}
+
+// Plate 03: a wide BOWL the kit is laid in. Its ends rise clear of the pieces at either side and its
+// belly runs behind them, so the ink is the surface the parts are set out on rather than a band beside
+// them. The pieces are opaque, so it shows around and between them.
+.kitCloud {
+  --register: -22px 8px;
+  top: 0;
+  left: calc(-1 * var(--pad));
+  width: min(78rem, 92%);
+  height: 27rem;
+  @include ink-figures(1, ink-arc(50, 14, 40, 58, 168, 12, 22, 12, 6, 0.55));
+}
+
+// Plate 04: a CAP struck over the foot of the plate, the last of the ink arching away under the closing
+// notes and carrying the eye on to the questions. Ink 2 stands on it, so this is the lightest in the book.
+.fixingCloud {
+  --register: 18px 14px;
+  right: calc(-1 * var(--pad));
+  bottom: -3rem;
+  width: min(76rem, 88%);
+  height: 28rem;
+  @include ink-figures(0.58, ink-arc(52, 84, 38, 58, 194, 346, 20, 13, 6, 0.48));
+}
+
+// A plate's own caption, set apart by its weight and the space under it.
 .plate {
+  position: relative;
   display: grid;
   align-content: start;
   gap: var(--s-3);
   margin: 0;
   padding: 0;
+  // The kit's cloud is a negative-z child: the plate is its stacking context.
+  isolation: isolate;
 }
 
-// A caption over the plate, set apart by its weight and the space under it. It is not ruled off: the pieces
-// under it are objects on the bench, and a line between a caption and what it names told the eye nothing.
+// The caption over the kit: a title and a count, set apart by the space under them.
 .plateCaption {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s-2) var(--s-4);
-  padding-bottom: var(--s-2);
-  font-size: var(--text-md);
-  font-weight: 650;
+  margin-bottom: var(--s-3);
 }
 
-// An h3 on the download plate: the caption row sets the type, so the heading never arrives at the
-// browser's own size.
+// An h3 on the download plate, in the display face.
 .plateLabel {
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: -0.01em;
+  @include display(clamp(1.375rem, 1.1rem + 0.6vw, 1.75rem), 1.05);
 }
 
 .plateNote {
   @include tabular;
 
-  color: var(--ink-3);
-  font-size: var(--text-xs);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -419,9 +419,7 @@
   line-height: 1.5;
 }
 
-// The proof beside the note that sends the reader to the studio for their own wall's plan. Bottom
-// aligned and on a wider figure: centred against a 30rem figure this row left roughly 800 x 520 px of
-// the band empty under the note.
+// The proof beside the note that sends the reader to the studio for their own wall's plan.
 .proof {
   display: grid;
   grid-template-columns: minmax(0, 36rem) minmax(0, 1fr);
@@ -432,17 +430,16 @@
 
 .proofFigure {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s-4);
   margin: 0;
 }
 
-// The four pieces are 192 px chips. Past 2x they start to soften, which at this size they can carry:
-// the corner is the proof, and a fragment lost in the middle of its own field is not one. A phone
+// The four pieces are 192 px chips. Past 2x they start to soften, so the corner stops at 36rem; a phone
 // column is nearly 2x on its own, so the drawing stops there rather than filling the gutters.
 .plateWall {
+  position: relative;
+  isolation: isolate;
   width: 100%;
-  // Not past 36rem: PROOF_CHIP_PX is 192, so a wider box renders the widest piece past 1.8x and the
-  // relief starts to soften.
   max-width: 36rem;
 
   @media (max-width: 48rem) {
@@ -452,8 +449,6 @@
 
 .studioNote {
   display: grid;
-  // Level with the middle of the proof it answers, not dropped to its foot: at the foot it left a
-  // screen of empty band above it and read as a caption to nothing.
   align-self: center;
   justify-items: start;
   gap: var(--s-4);
@@ -489,10 +484,8 @@
   }
 }
 
-// The joints switch sits above the samples it changes.
+// The joints switch sits above the samples it changes, as wide as its own words.
 .joints {
-  // As wide as its own words, so the switch sits beside the sentence it answers instead of a whole
-  // band's width away at the far edge.
   max-width: 34rem;
   padding: var(--s-3) 0;
 }
@@ -503,58 +496,68 @@
   margin-top: var(--s-5);
 }
 
-// The last band, and the only one below the floor: the bench lamp is behind us, the sentence is set as
-// large as the headline, and the foot of the page runs on out of it without a rule.
+// ---------------------------------------------------------------------------------------------
+// The colophon: the one sentence the book ends on, printed over the largest field of ink on the page.
+// ---------------------------------------------------------------------------------------------
+
 .close {
   position: relative;
   display: grid;
   justify-items: start;
   gap: clamp(var(--s-4), 2vw, var(--s-5));
-  padding: clamp(var(--s-6), 6vw, var(--s-9)) var(--gutter);
-  // The lamp's gather scales it past the band's edges for a moment: clipped, it never widens the page.
-  overflow: clip;
+  margin-top: clamp(var(--s-5), 4vw, var(--s-8));
+  padding: clamp(var(--s-7), 8vw, 9rem) var(--gutter) clamp(var(--s-7), 7vw, 8rem);
   isolation: isolate;
-  background:
-    linear-gradient(to bottom, var(--lit), transparent var(--band-fade)),
-    var(--panel-2);
 }
 
-// The page ends the way a shot ends: the room's light draws in on the last sentence and the way out
-// of it. The lamp covers the whole band and is hung over the words, sized in rem so a wide screen does
-// not stretch it; the mask lets it die out before the band's top and bottom, so it never meets the
-// questions or the foot along a line. An inset box cut it off square 8% in from each side, which a
-// 2560 px screen showed as a hard edge 200 px from the window.
-.close::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: radial-gradient(64rem 30rem at calc(var(--gutter) + 20rem) 50%, var(--lamp), transparent 70%);
-  mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
-  pointer-events: none;
-}
+// The last and heaviest ink in the book, and the only place it is printed TWICE: a full impression in the
+// colophon's empty right half and a second, lighter one a little off register over it, the way the last
+// sheet of a run comes off the press. The two land from opposite sides, so the misregistration closes up
+// as the plate is reached. Each box runs to the window's edge, where its ink is already spent, and starts
+// where the sentence ends, so the words stand on the fringe of both.
+.closeCloud {
+  --register: 24px -12px;
+  top: 2%;
+  right: 0;
+  bottom: 2%;
+  left: 48%;
+  @include ink-figures(
+    0.95,
+    ink-arc(52, 88, 38, 62, 194, 346, 22, 14, 6, 0.4),
+    radial-gradient(closest-side, var(--spot-ink), color-mix(in oklab, var(--spot-ink) 74%, white))
+  );
 
-@include motion-safe {
-  .close::before {
-    opacity: 0;
-    transform: scale(1.12);
-    transition:
-      opacity 1200ms var(--ease-out),
-      transform 1400ms var(--ease-out);
-  }
-
-  .close[data-lit]::before {
-    opacity: 1;
-    transform: none;
+  // A column this narrow puts the words across the whole width: the ink gathers under the action instead.
+  @media (max-width: 48rem) {
+    top: 46%;
+    left: 8%;
+    bottom: 0;
   }
 }
+
+// The second pull: the same arc struck again inside the first and a little off register, so the colophon
+// closes the book on one figure printed twice rather than on two fighting each other.
+.closeCloudEcho {
+  --register: -22px 16px;
+  top: 14%;
+  right: 8%;
+  bottom: 16%;
+  left: 54%;
+  @include ink-figures(0.62, ink-arc(50, 84, 30, 54, 208, 326, 16, 10, 3, 0.78));
+
+  @media (max-width: 48rem) {
+    top: 52%;
+    right: 6%;
+    bottom: 6%;
+    left: 14%;
+  }
+}
+
 
 .closeHeading {
-  max-width: 22ch;
-  font-size: clamp(2.25rem, 1rem + 3.6vw, 4.25rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 0.98;
+  @include display(clamp(2.75rem, 1rem + 4.6vw, 5.5rem), 1);
+
+  max-width: 13em;
   text-wrap: balance;
 }
 
@@ -568,8 +571,8 @@
 .footer {
   display: grid;
   gap: var(--s-2);
-  padding: clamp(var(--s-4), 2vw, var(--s-5)) var(--gutter) clamp(var(--s-5), 4vw, var(--s-7));
-  background: var(--panel-2);
+  margin-inline: var(--gutter);
+  padding: var(--s-4) 0 clamp(var(--s-5), 4vw, var(--s-7));
   color: var(--ink-2);
   font-size: var(--text-xs);
   line-height: 1.55;
@@ -586,8 +589,9 @@
     align-items: center;
     min-height: 1.5rem;
     color: var(--ink);
-    text-decoration-color: var(--hairline);
+    text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
     text-decoration-line: underline;
+    text-underline-offset: 0.2em;
 
     &:hover {
       text-decoration-color: currentcolor;
@@ -609,22 +613,26 @@
   }
 
   .plateHead {
-    grid-template-columns: 3.5rem minmax(0, 1fr);
+    grid-template-columns: 3.75rem minmax(0, 1fr);
     gap: var(--s-3);
   }
 }
 
 // The head holds its two columns 8rem longer than the grids below it: a 1024 px screen still has room
-// for a heading and the argument for it side by side, and stacking them there costs most of a screen.
+// for a heading and the argument for it side by side.
 @media (max-width: 60rem) {
   .plateTitle {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--s-3);
   }
+
+  .lede {
+    padding-top: 0;
+  }
 }
 
-// The object stops being a column beside the words and becomes a plate under them: full width, its
-// own height, and the caption under it the way it reads on a desk.
+// The frontispiece stops being a column beside the words and becomes a plate under them: full width,
+// its own height, and the caption fields under it the way they read on a desk.
 @media (max-width: 62rem) {
   .hero {
     grid-template-areas:
@@ -636,12 +644,8 @@
     align-content: start;
     min-height: 0;
     gap: clamp(var(--s-4), 2.5vw, var(--s-5));
-    isolation: auto;
   }
 
-  // No height to work out here any more: the frame carries the wall's own aspect ratio, so the object
-  // is as tall as the wall standing in it. The hardcoded 1.4 this replaces was a guess at the shape of
-  // the walls on offer and had stopped matching any of them.
   .heroObject {
     width: 100%;
     max-width: none;
@@ -651,10 +655,15 @@
     align-content: start;
   }
 
-  // Stacked, the type and the wall take turns down one column, so there is no shade beside the wall
-  // for the type to stand in; the wall keeps its own pool of light (HeroStage).
-  .hero::before {
-    display: none;
+  .heroCaption {
+    max-width: none;
+  }
+
+  // Stacked, the title page is a tall column, and a box sized as a share of it makes the ink a vertical
+  // smear down the headline. Here it is a low band across the top instead, the width of the page.
+  .titleCloud {
+    width: 100%;
+    height: min(22rem, 38%);
   }
 }
 
@@ -677,13 +686,11 @@
   .plateHead {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--s-2);
-    padding-top: 0;
   }
 
-  // Stacked, the number sits over the heading rather than beside it, so there is nothing to align to
-  // and the tight measure is what keeps it close to the title it numbers.
+  // Stacked, the number sits over the heading rather than beside it.
   .plateNo {
-    line-height: 0.8;
+    line-height: 0.9;
   }
 
   .joints {
@@ -693,5 +700,11 @@
   .colorHead {
     margin-top: 0;
     padding-top: var(--s-3);
+  }
+}
+
+@include forced-colors {
+  .wash {
+    display: none;
   }
 }

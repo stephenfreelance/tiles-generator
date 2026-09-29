@@ -140,7 +140,7 @@
     box-shadow var(--t-fast) var(--ease-out);
 
   &:hover {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
   }
 
   &:focus-within {

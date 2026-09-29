@@ -4,7 +4,8 @@ import { COLOR_PRESETS, DEFAULT_COLOR } from './colors'
 
 const PANEL = '#FFFDF8'
 const BAR = '#2E241B'
-const GROUND = '#F2EADC'
+// The grained stock every page is printed on (--ground): plate numbers and links stand on it in the accent.
+const GROUND = '#E9E5DD'
 const INK_3 = '#6B5D4D'
 const HEX = /^#[0-9A-F]{6}$/
 
@@ -120,7 +121,7 @@ describe('accentPalette', () => {
   })
 
   it('warms the soft fill of a near-grey tile with the bench tone instead of its own cold cast', () => {
-    const bench = oklch('#EFE7D8')
+    const bench = oklch('#EEEBE4')
     for (const grey of ['#2F3033', '#808285', '#F4F2EC', '#000000', '#FFFFFF']) {
       expect(hueDistance(oklch(accentPalette(grey).soft).h, bench.h), grey).toBeLessThan(15)
     }

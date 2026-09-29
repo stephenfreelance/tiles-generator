@@ -33,7 +33,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid #e7dcc8;
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow-md);
@@ -51,7 +51,7 @@
 // own. The Advanced lid is a bordered surface already, so neither it nor the plan under it is ruled off:
 // a line either side of a card only drew its edge twice.
 .steps > * + * {
-  border-top: 1px solid #f0e7d6;
+  border-top: 1px solid var(--hairline);
 }
 
 .steps > nav + *,
@@ -97,10 +97,9 @@
 }
 
 .planTitle {
+  @include display(1.375rem, 1.1);
+
   margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 650;
-  letter-spacing: 0.005em;
 }
 
 .planNow {

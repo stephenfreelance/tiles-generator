@@ -65,10 +65,9 @@
   line-height: 1;
 }
 
+// A step's title in the display face: the seven questions read as the chapter heads of the rail.
 .groupTitle {
-  font-size: var(--text-xl);
-  font-weight: 650;
-  letter-spacing: 0.005em;
+  @include display(1.375rem, 1.1);
 
   // Focused only when the step index jumps here: a mouse jump shows nothing, a keyboard one shows where
   // reading carries on from.
@@ -100,7 +99,7 @@
   // Full bleed across the column's own padding, so what scrolls under it is covered edge to edge.
   margin-inline: calc(-1 * var(--steps-pad-x, var(--s-5)));
   padding-inline: calc(var(--steps-pad-x, var(--s-5)) - var(--s-2));
-  border-bottom: 1px solid #f0e7d6;
+  border-bottom: 1px solid var(--hairline);
   background: var(--panel);
 }
 
@@ -217,6 +216,21 @@
   padding-inline: var(--s-2);
 }
 
+// Under about 20 rem the spelled-out name of the step being read cannot share the row with the other
+// six numbers and the plan, and the row was running off the side of the screen. There the current step
+// keeps its filled disc and gives up its word: every step stays reachable, the name stays in the
+// accessibility tree and on hover, and the step's own heading is the next line down anyway.
+@media (max-width: 20rem) {
+  .stepLink[aria-current] .stepLinkLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 @include forced-colors {
   .stepLink[aria-current] {
     outline: 2px solid Highlight;
@@ -281,7 +295,7 @@
     box-shadow var(--t-fast) var(--ease-out);
 
   &:hover:not([aria-checked='true'], [data-disabled]) {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
     background: #fbf5ea;
   }
 
@@ -932,7 +946,7 @@
     border-color var(--t-fast) var(--ease-out);
 
   &:hover {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
     background: var(--panel-2);
   }
 

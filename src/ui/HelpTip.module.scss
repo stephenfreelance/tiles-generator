@@ -74,7 +74,7 @@
   cursor: pointer;
 
   &:hover {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
     background: #fbf5ea;
     color: var(--ink);
   }

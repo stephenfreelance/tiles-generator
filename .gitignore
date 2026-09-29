@@ -4,8 +4,15 @@ dist
 .DS_Store
 .impeccable/config.local.json
 .impeccable/review
+# Intermediate design comps, kept beside the work and never shipped: 8 MB of PNGs that every clone
+# would carry forever. The durable records (design.json, surfaces/) are tracked.
+.impeccable/mocks
 test-output
 *.log
 
 # Workflow worktrees, never part of the project
 .claude/worktrees/
+
+# Skills fetched from elsewhere for local tooling, not part of this project.
+.agents/
+skills-lock.json

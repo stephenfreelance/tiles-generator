@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "basteleur",
+        "createdAt": "2026-09-28T15:17:53.754Z",
+        "reason": "user confirmed: picked Basteleur from two rendered specimen spreads on 2026-09-28; DESIGN.md is rewritten from the build at finish"
+      }
+    ]
+  }
+}

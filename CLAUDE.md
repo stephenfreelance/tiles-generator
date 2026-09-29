@@ -20,14 +20,21 @@ Read before working, in this order:
 - `docs/architecture.md`: contracts, units, the module map and who owns which directory.
 - `PRODUCT.md`: product truth. It also lists what may not be claimed (no testimonials, users, press,
   pricing or print photos exist, so never invent any).
-- `.impeccable/surfaces/src-pages-studiopage-tsx.md` plus `src/styles/_tokens.scss`: the binding
-  visual direction for anything with a surface.
+- `.impeccable/surfaces/src-pages-landingpage-tsx.md` (the world every route shares) and
+  `.impeccable/surfaces/src-pages-studiopage-tsx.md` (the studio's structure), plus
+  `src/styles/_tokens.scss`: the binding visual direction for anything with a surface.
 
-The "Visual world" section of `docs/architecture.md` predates that brief and still describes the
-retired drafting sheet: square corners, a 2px ink frame, expanded uppercase labels, red for the primary
-action and chalk blue for focus. The brief replaced it with the maker workshop (espresso bar, rounded
-warm panels, one accent for the primary action, selection and focus), and wherever the two disagree
-the brief and the tokens win. That accent follows the tile color with an enforced contrast floor:
+Since 2026-09-28 the world is the pattern book (`DESIGN.md` and the "Visual world" section of
+`docs/architecture.md` record it): every page is printed on grained stock (`--ground` with `--grain`, the
+`stock` mixin) under the espresso bar, titles (h1 to h3, plate captions, the wordmark) are set in
+Basteleur (`--font-display`, the `display` mixin; one weight, declared at 400) and everything read or
+operated in Archivo, and the tile's color is laid as grainy spot-ink clouds (`ink-cloud`, `ink-wash`,
+`head-wash`) that fade to nothing inside their own box, so no edge ever cuts them. No rule is drawn
+across a page for decoration. Printed things are square; what a hand presses stays round. Two faces
+only, both self-hosted in `public/fonts` (Basteleur's OFL reserves its name, so it ships unmodified:
+never subset it). Wherever the briefs and `docs/architecture.md` disagree the briefs and the tokens win.
+One accent carries the primary action, selection and focus, and it follows the tile color with an
+enforced contrast floor:
 `accentPalette` in `src/core/accent.ts` keeps the color's hue and darkens it only as far as 6.5:1 on
 `--panel` needs, and `src/app/useAccentTheme.ts` (called once in `AppShell`) writes it on the root
 element from `config.color`, or from `useThemeColor`'s override while the home page's sample board

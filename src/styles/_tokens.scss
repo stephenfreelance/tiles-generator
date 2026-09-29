@@ -1,33 +1,54 @@
-// Tessera design tokens, direction A: a well-lit maker's workbench.
-// A dark espresso bar anchors the page, the ground is a warm off-white, panels are soft rounded
-// surfaces with gentle depth, and one accent, drawn from the chosen tile color, carries the primary
-// action. Every ratio quoted below was computed against that exact pair, not estimated.
+// The tile colour is registered as a real colour rather than a bare custom property, so it INTERPOLATES:
+// picking a new colour on the home page then prints every impression of spot ink across to the new one
+// instead of swapping it between frames. Everything derived from it (--spot-ink, the washes and tints)
+// re-resolves as it goes. Registering it also means a junk value is ignored rather than inherited.
+@property --filament {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #5c9748;
+}
+
+// Tessera design tokens: the pattern book. Every page is printed on heavy grained stock in black ink and
+// one spot ink, the tile's own color, under the espresso bar it is bound in. Panels are the lighter mat a
+// plate is mounted on, and one accent, drawn from the chosen tile color, carries the primary action.
+// Every ratio quoted below was computed against that exact pair, not estimated.
 
 :root {
   // Chrome: the espresso bar is the only dark surface in the app.
   --bar: #2e241b;
   --bar-ink: #f7f1e6; // 13.49:1 on --bar
 
-  // The bench: a warm ground, panels lifted off it, and one recessed surface for wells and strips.
-  --ground: #f2eadc;
+  // The stock every page is printed on (its grain is --grain, below), the mat panels are mounted on, and one
+  // recessed surface for wells and strips. The stock is a greyer, cooler paper than the mat, so a plate reads
+  // as a lighter sheet laid on it.
+  --ground: #e9e5dd;
   --panel: #fffdf8;
-  --panel-2: #efe7d8;
+  // Recessed wells, pill tracks and table heads: tempered to the stock, so it reads as a shade of the same
+  // paper rather than the yellow a warmer beige turns beside it.
+  --panel-2: #eeebe4;
 
   // Ink. Three weights, each measured on the lightest ground it is allowed to sit on.
-  --ink: #241c14; // 16.51:1 on --panel, 14.05:1 on --ground
-  --ink-2: #5c5044; // 7.69:1 on --panel, 6.54:1 on --ground, 6.36:1 on --panel-2
-  --ink-3: #6b5d4d; // 6.26:1 on --panel, 5.18:1 on --panel-2: still AA at 12 px
+  --ink: #241c14; // 16.51:1 on --panel, 13.36:1 on --ground
+  --ink-2: #5c5044; // 7.69:1 on --panel, 6.22:1 on --ground, 6.57:1 on --panel-2
+  --ink-3: #6b5d4d; // 6.26:1 on --panel, 5.07:1 on --ground, 5.35:1 on --panel-2: still AA at 12 px
 
-  --hairline: #e4d8c4;
+  // The neutral plate the 3D render stands on: LOOK.palette.sheet in src/three/look.ts, and the fill of
+  // the frame around it, a little lighter and cooler than the stock so the frame's rounded edge reads.
+  --stage-plate: #f3f2ee;
+
+  --hairline: #dcd7ce;
+  // A rule printed on the stock: the hairline is drawn for panels and all but vanishes on the grained
+  // paper, so a list or a caption standing on the stock is ruled in thinned ink instead.
+  --rule-ink: color-mix(in srgb, var(--ink) 24%, transparent);
 
   // The one accent. It carries the primary action, selection and focus, and it follows the tile
   // color: src/app/useAccentTheme.ts writes accentPalette() (src/core/accent.ts) on the root element.
   // The contrast floor that once kept it fixed now lives in accentPalette: a white or a yellow tile
-  // keeps its hue but darkens until --accent reaches 6.5:1 on --panel (4.5:1 on --ground), and
+  // keeps its hue but darkens until --accent reaches 6.5:1 on --panel (5.2:1 on --ground), and
   // --accent-soft keeps --accent and --ink-3 at 4.5:1 or better. These defaults are that palette for
   // DEFAULT_COLOR (src/styles/tokens.test.ts holds them equal), so a default design paints the same
   // before and after the script runs. The ratios below are for these defaults.
-  --accent: #306918; // 6.54:1 on --panel, 5.56:1 on --ground
+  --accent: #306918; // 6.54:1 on --panel, 5.29:1 on --ground
   --accent-hover: #265f09;
   --accent-press: #1d5300;
   --accent-ink: #fffdf8; // 6.54:1 on --accent
@@ -41,7 +62,7 @@
 
   // Cut pieces and warnings, and nothing else. Dark enough to be read as text as well as drawn
   // as a stroke, so a cut note and a cut tile are the same colour.
-  --cut: #a3321a; // 6.82:1 on --panel, 5.64:1 on --panel-2
+  --cut: #a3321a; // 6.82:1 on --panel, 5.82:1 on --panel-2
   --cut-soft: #fbeae4;
 
   // The chosen tile color (the token keeps its old name). useAccentTheme writes it on the root element
@@ -54,14 +75,21 @@
   // ceiling: at that strength a pure black tile still leaves --ink-3 at 5.25:1 on the wash.
   --filament: #5c9748;
   --filament-wash: color-mix(in srgb, var(--filament) 8%, var(--panel));
+  // The spot ink the washes print with: the tile color, but never darker than a mid tint (OKLCH lightness
+  // 0.62), so a black or charcoal tile prints a grey wash that the accent plate numbers and the ink type
+  // still read on at 3:1, where the tile's own black would take them under. Browsers without relative
+  // colors print the tile color as it is (the @supports rule below).
+  --spot-ink: var(--filament);
 
   // The mark's two tones (markTones in src/core/accent.ts): the whole tile, and the pieces the wall
   // cuts. useAccentTheme writes them beside the accent; these are the default tile's own.
   --mark: #5c9748;
   --mark-cut: #90c080;
 
-  // Type
+  // Type. Archivo is everything read or operated; Basteleur (one weight, declared at 400 in index.html) sets
+  // titles only: h1 to h3, plate captions and the wordmark.
   --font: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Basteleur', ui-serif, Georgia, 'Times New Roman', serif;
   --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
@@ -71,6 +99,15 @@
   --text-2xl: 1.75rem;
   --text-3xl: clamp(2.25rem, 1.2rem + 3.2vw, 3.75rem);
   --text-display: clamp(2.75rem, 1rem + 6vw, 6rem);
+
+  // The inset every document page keeps from the window: the home page's own gutter, promoted to a
+  // token so the download, fit test and history pages open on the same margin instead of three. The
+  // studio keeps its own tighter padding: it is a tool that fills the window, not a page.
+  --page-x: clamp(1rem, 0.4rem + 2vw, 3rem);
+  // Air under the sticky running head, and the foot a page ends on. A page title is display type and
+  // needs more room above it than the page keeps at its sides.
+  --page-top: clamp(1.5rem, 3vw, 2.75rem);
+  --page-bottom: clamp(2rem, 5vw, 6rem);
 
   // Space (4 px grid)
   --s-1: 0.25rem;
@@ -83,7 +120,8 @@
   --s-8: 4rem;
   --s-9: 6rem;
 
-  // Corners. Nothing in this world is square: a panel is a rounded surface, a chip is a pressable.
+  // Corners. What a hand presses or lifts is round (a panel, a chip, a button); what is printed is square
+  // (rules, ink washes, the 2px mat a drawing is printed on).
   --radius-sm: 11px;
   --radius-md: 14px;
   --radius-lg: 22px;
@@ -99,6 +137,19 @@
   --t-med: 260ms;
   --t-slow: 560ms;
 
+  // The paper. Two tiles of grain, drawn inline so the page stays offline: black and white specks at a fixed
+  // alpha, composited normally, so they show on any stock or ink beneath them without a blend mode to repaint.
+  // --grain is the stock's own tooth (painted with --ground by the stock mixin); --grain-ink is heavier, and
+  // rides on the spot-ink washes (the ink-wash mixin), where a flat colour would read as a screen, not print.
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='3' intercept='-1'/%3E%3CfeFuncG type='linear' slope='3' intercept='-1'/%3E%3CfeFuncB type='linear' slope='3' intercept='-1'/%3E%3CfeFuncA type='table' tableValues='0.075 0.075'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='3.2' intercept='-1.1'/%3E%3CfeFuncG type='linear' slope='3.2' intercept='-1.1'/%3E%3CfeFuncB type='linear' slope='3.2' intercept='-1.1'/%3E%3CfeFuncA type='table' tableValues='0.15 0.15'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-size: 256px;
+  // The dither the plates are printed THROUGH: a fine stipple, near enough black and white, intersected
+  // with a figure's own mask so the ink is laid as dots and its fall-off dissolves into them instead of
+  // airbrushing out. This is the texture, so a dithered figure carries no --grain-ink over it.
+  --dither: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='d' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='luminanceToAlpha'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0.2 0.9 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E");
+  --dither-size: 160px;
+
   // Layout
   --header-h: 3.5rem;
 
@@ -107,6 +158,13 @@
   --register-row: 5rem;
 
   color-scheme: light;
+
+  // The ink settles into its new colour rather than snapping. The accent, which the same pick rewrites,
+  // stays instant on purpose: an action must not look like it is still making up its mind. --t-med is
+  // 0ms under prefers-reduced-motion, so there the whole page reprints at once, as it always did.
+  // Evenly paced rather than the interface's own ease-out, which front-loads the change so hard that
+  // the ink looks as though it swapped. Built from --t-med so reduced motion still zeroes it.
+  transition: --filament calc(var(--t-med) * 1.5) var(--ease-in-out);
 
   // ---------------------------------------------------------------------------------------------
   // Names from the drafting-sheet world, kept alive and pointed at the workbench palette.
@@ -118,12 +176,13 @@
   // so the 2 px ink frame and the paper tooth cannot come back by inheritance.
   // ---------------------------------------------------------------------------------------------
   --desk: var(--ground);
-  --desk-deep: #e7dcc8;
+  --desk-deep: #e0dcd4;
   --sheet: var(--panel);
   --sheet-raised: var(--panel);
   --sheet-sunk: var(--panel-2);
   --rule: var(--hairline);
-  --rule-strong: #d8c9af;
+  // The hairline's hover step on bordered controls.
+  --rule-strong: #cdc7bc;
   --pencil: var(--ink-3);
   --line: 1px solid var(--hairline);
   --frame: 1px solid var(--hairline);
@@ -147,6 +206,12 @@
   --hatch-red: repeating-linear-gradient(-45deg, rgb(163 50 26 / 0.55) 0 1px, transparent 1px 6px);
   --hatch-ink: repeating-linear-gradient(-45deg, rgb(36 28 20 / 0.28) 0 1px, transparent 1px 6px);
   --filament-tint: color-mix(in srgb, var(--filament) 12%, var(--panel));
+}
+
+@supports (color: oklch(from red max(l, 0.62) c h)) {
+  :root {
+    --spot-ink: oklch(from var(--filament) max(l, 0.62) c h);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

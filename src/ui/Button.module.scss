@@ -140,7 +140,7 @@
 
   &:hover:not(:disabled, [aria-busy='true']) {
     background: #fbf5ea;
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
   }
 
   &:active:not(:disabled, [aria-busy='true']) {

@@ -7,6 +7,10 @@ related_targets: ["src/pages/LandingPage.tsx","src/pages/ExportPage.tsx","src/pa
 
 # Studio surface brief
 
+World (2026-09-28): every route now shares the pattern book recorded in `src-pages-landingpage-tsx.md`: grained stock for the ground, Basteleur for titles (the step titles, the plan title, page titles, dialog titles), and faint spot-ink washes of the tile color. Where the OWN-WORLD below describes the ground (#F2EADC), says Archivo throughout, or puts a warm lamp on the 3D bench, that brief wins; this brief still owns the studio's structure, its controls and its states.
+
+The render stage (2026-09-28, the user's call): the frame around the 3D view, here and on the download page, is the one surface in the app that takes the xl corner (30 px, `--radius-xl`), filled with `--stage-plate` and lit by nothing; everything resting on it is held in by that radius, and the view's own chrome (the WebGL notice's Basteleur title and secondary button, the cut legend as a sentence-case panel chip) is the system's rather than the retired drafting voice.
+
 Scope: the Studio route (configurator), plus the Landing, Download and History routes that share its world. Visitor mode: Operate for Studio, Download and History; Persuade for Landing.
 
 Audience and job: hobbyist makers covering a real wall, backsplash or floor with printed relief tiles. Task: answer seven questions (the wall, the tile size, the thickness, the texture, the color, how the edges finish, and how the tiles go up), understand the fit in one sentence, then download STL or STEP for every unique piece and any printed parts. Constraints: frontend only, localStorage persistence, English, pure heightfield relief.

@@ -24,7 +24,7 @@ export interface LightformerSpec {
 
 export const LOOK = {
   palette: {
-    sheet: '#ECEAE4',
+    sheet: '#F3F2EE',
     ink: '#2A2826',
     pencil: '#8C877F',
     red: '#C8412F',
@@ -143,7 +143,7 @@ export const LOOK = {
     shadowColor: '#3A3129',
     /** Soft warm light pool on the sheet behind the tiles (additive; 0 disables). */
     poolIntensity: 0.07,
-    poolColor: '#FFF1DE',
+    poolColor: '#FFFFFF',
     poolScale: 2.4,
     /** Offset of the pool toward the key light, in fractions of the span. */
     poolShift: 0.18,

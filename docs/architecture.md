@@ -537,16 +537,18 @@ What gets described follows what the plans place, not the switches: `fixingSyste
 
 ## Visual world (UI owners: read before any UI work)
 
-Direction: the tiler's setting-out drawing come alive. Read `.impeccable/surfaces/src-pages-studiopage-tsx.md` (direction contract) and `src/styles/_tokens.scss`. In short:
+Direction (since 2026-09-28): a tile works' pattern book, printed in black and one spot ink, the tile's own color, on grained paper. `DESIGN.md` records the whole system; read it with `.impeccable/surfaces/src-pages-landingpage-tsx.md` (the world every route shares), `.impeccable/surfaces/src-pages-studiopage-tsx.md` (the studio's structure) and `src/styles/_tokens.scss`. In short:
 
-- A warm drafting sheet (`--sheet`) on a desk (`--desk`), graphite ink (`--ink`), pencil construction lines (`--pencil`, `--rule`), red pencil (`--red`) only for cuts/partial tiles and the primary action, chalk-line blue (`--chalk`) for guides, selection and focus.
-- Archivo Variable only. Title-block field labels: `font-stretch: 125%`, uppercase, `--text-2xs`, weight 600, letter-spacing 0.06em. Body `--text-md`. Every number `tabular-nums` with its unit.
-- Square corners (paper), 1px hairlines, 2px ink frame on sheets and views, hatching (`--hatch-red`) as the only fill texture. Views carry drawing titles under them ("1  ELEVATION", "2  PLAN").
+- Grained paper stock (`--ground` with `--grain`, the `stock` mixin) under the espresso bar (`--bar`); the lighter mat (`--panel`) for cards, panels and fields; one recessed tone (`--panel-2`) for wells, pill tracks and table heads; one hairline (`--hairline`), with `--rule-strong` as its hover step. The 3D render stands on its own lighter neutral plate (`LOOK.palette.sheet`), clipped to its host's rounded corners through `--view-radius`.
+- One accent, drawn from the tile color by `accentPalette` with its 6.5:1 floor, for the primary action, selection and focus, never on the bar. Red (`--cut`) means cut or wrong on the working pages; the home page prints its cut pieces in the accent instead.
+- The spot ink: the tile color, never darker than OKLCH lightness 0.62 (`--spot-ink`), laid as grainy clouds (`ink-cloud`, `ink-wash`, `head-wash` mixins) that are spent to nothing before the edge of their own box, so nothing ever cuts them. Small text stands only on a cloud's fringe.
+- Two faces, both self-hosted in `public/fonts`: Basteleur (`--font-display`, the `display` mixin, one weight declared at 400) for titles only (h1 to h3, plate captions, the wordmark), Archivo for everything read or operated. Sentence case everywhere; the only uppercase is a hex code. Every number `tabular-nums` with its unit.
+- No rule is drawn across a page for decoration: sections are told apart by their numbers, titles and air. A hairline divides only the rows of a table or list, and the steps of the studio rail. What a hand presses is round (11, 14 and 22 px radii, 8 px nested, pills); what is printed is square.
 - No cards-as-structure, no eyebrow/kicker labels above headings, no gradient text, no glass, no colored side stripes, no hard offset shadows, no emoji or unicode icons (use lucide-react), no monospace costume.
 - Theme browser surfaces (selection, focus, scrollbars) from tokens (done in `_base.scss`); every interactive element needs hover, focus-visible, active, disabled states; honour `prefers-reduced-motion`.
-- Motion: one authored moment (the re-lay wave in 3D); UI transitions use `--ease-out` and `--t-*` tokens, from an already-visible default.
+- Motion: the home page's authored moments are the wall's lay-in and the ink pass (each cloud lands in register as its plate is reached); the studio's is the re-lay wave in 3D. UI transitions use `--ease-out` and `--t-*` tokens, from an already-visible default.
 - Copy: plain, spatial, the product's own words ("Your wall takes 40 full tiles and 8 cuts."). Controls name their action. Errors say what is wrong and how to fix it, with a one-click fix when possible. No em-dashes anywhere (use a colon, parentheses or a hyphen). English.
-- Component styles: CSS modules (`Component.module.scss`) using the tokens; `@use '@/styles/mixins'` if you need shared mixins (the ui owner creates `src/styles/_mixins.scss`).
+- Component styles: CSS modules (`Component.module.scss`) using the tokens, with `@use '@/styles/mixins' as *` for the shared mixins.
 
 ## Code conventions
 

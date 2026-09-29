@@ -50,6 +50,7 @@ Unlike parametric generators that feel like engineering forms (gridfinitygenerat
 - Name: Tessera (chosen by Claude on the user's delegation).
 - The 3D preview is the center of the app and must be spectacular; the interface must feel warm and beautiful, never cold or engineering-grey.
 - Structure: a landing page whose hero is the visitor's own wall, built from CPU-rendered relief chips and answering the pointer and the scroll (no 3D engine on that page), then Studio, Download and History pages.
+- Look (chosen by the user, 2026-09-28): a pattern book printed in the tile's own ink. Grained paper stock with a subtle grainy gradient in one hue only, the tile color the visitor picks, never a spread of colors; Basteleur (Velvetyne, OFL) for titles and Archivo for everything else.
 
 ## Evidence on Hand
 

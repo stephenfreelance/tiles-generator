@@ -83,7 +83,7 @@
   background: var(--panel);
 
   &:hover:not(:disabled) {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
     background: #fbf5ea;
   }
 

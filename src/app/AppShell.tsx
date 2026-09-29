@@ -38,12 +38,36 @@ export function AppShell() {
   const canUndo = useDesign((s) => s.past.length > 0)
   const canRedo = useDesign((s) => s.future.length > 0)
   const helpRef = useRef<HTMLSpanElement>(null)
+  const barRef = useRef<HTMLElement>(null)
 
   const isStudio = pathname === '/studio'
   useDocumentTitle(isStudio ? `${designName} · Studio · Tessera` : (PAGE_TITLES[pathname] ?? 'Not found · Tessera'))
   // Every screen, and every portal under body, takes its accent from the tile color.
   useAccentTheme()
   useAnalytics()
+
+  // The running head casts nothing while the page is at its top: there is nothing under it yet, and a
+  // shadow on the first screen only draws a line the design does not want. It lifts as soon as the page
+  // moves under it. Written straight onto the node from a rAF-throttled passive listener, so scrolling
+  // never costs a render; re-read on every route, because a new screen starts at its own scroll position.
+  useEffect(() => {
+    const bar = barRef.current
+    if (!bar) return
+    let frame = 0
+    const read = () => {
+      frame = 0
+      bar.toggleAttribute('data-lifted', window.scrollY > 2)
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(read)
+    }
+    read()
+    window.addEventListener('scroll', schedule, { passive: true })
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+    }
+  }, [pathname])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -71,9 +95,12 @@ export function AppShell() {
         Skip to your wall
       </a>
 
-      <header className={styles.bar}>
+      <header ref={barRef} className={styles.bar}>
         <Link to="/" className={styles.brand}>
-          <BrandMark />
+          {/* The label: the mark on its espresso plate, exactly as the tab icon wears it, then the name. */}
+          <span className={styles.markPlate} aria-hidden="true">
+            <BrandMark />
+          </span>
           <span className={styles.wordmark}>Tessera</span>
         </Link>
 

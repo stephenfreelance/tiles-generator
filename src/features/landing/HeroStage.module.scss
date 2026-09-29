@@ -1,9 +1,9 @@
 @use '@/styles/mixins' as *;
 
-// The object has no board. It is a wall of printed tiles standing on the page, with the light it is
-// lit by pooled on the page behind it and its own shadow under it: no border, no radius, no panel, no
-// card around any of it. Everything here places that object and captions it the way a plate in a
-// catalogue is captioned.
+// The frontispiece. The wall has no board: it is a wall of printed tiles standing on the page, with a
+// block of its own spot ink printed behind it and its own shadow under it, and no border, panel or card
+// around any of it. Everything here places that object and captions it the way a plate in a pattern
+// book is captioned.
 
 .stage {
   display: grid;
@@ -69,23 +69,19 @@
   align-self: center;
 }
 
-// The pool of light the object is standing in, painted on the page itself: a photograph of a lit thing
-// has lit air around it, and this is the only mark an object with no frame leaves on the page.
+// The spot ink the frontispiece stands in: the one ROUND impression in the book, because it surrounds an
+// object rather than being struck across a plate. A little wider than the wall on every side, printed
+// through the dither like every other figure, and spent to nothing at the edge of its own box. On the right the box stops one --pad past the frame, which is the window's edge at most; the
+// caption under the wall stands on its last trace.
 .pool {
   position: absolute;
   z-index: -1;
-  // It spills onto the page, which is the point, but never past it: the frame's own right edge is
-  // exactly one --pad in from the window, so that is how far the light may reach sideways. A wider
-  // spill is out of flow but still scrollable overflow, and it grew the document by 92 px at 1920.
-  inset-block: -12%;
-  inset-inline: calc(-1 * var(--pad));
-  background: radial-gradient(
-    52% 50% at 44% 40%,
-    color-mix(in srgb, var(--panel) 78%, transparent) 0%,
-    color-mix(in srgb, var(--panel) 34%, transparent) 46%,
-    transparent 76%
+  inset: -16% calc(-1 * var(--pad)) -20% -18%;
+  @include ink-cloud(
+    0.92,
+    radial-gradient(closest-side, var(--spot-ink) 35%, color-mix(in oklab, var(--spot-ink) 70%, white)),
+    $dither: true
   );
-  pointer-events: none;
 }
 
 // Reduced motion keeps the composition and drops every move: the resting turn stays, the hand and the
@@ -96,19 +92,19 @@
   }
 }
 
-// The plate caption under the object: its own space sets it apart, with no rule between them.
+// The plate caption under the object, set apart by its own space: the name in the display face, the
+// counts set against the right-hand edge, then the other plates it could be.
 .index {
   display: grid;
   gap: var(--s-2);
   min-width: 0;
-  padding-top: var(--s-2);
 }
 
 .caption {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--s-1) var(--s-2);
+  gap: var(--s-1) var(--s-3);
   min-height: 1.25rem;
 }
 
@@ -124,16 +120,16 @@
 }
 
 .captionName {
+  @include display(clamp(1.25rem, 1rem + 0.6vw, 1.625rem), 1.1);
+
   color: var(--ink);
-  font-size: var(--text-md);
-  font-weight: 650;
-  letter-spacing: -0.005em;
 }
 
 .captionNote {
   @include tabular;
 
-  // --ink-2, not --ink-3: this line sits inside the wall's cast shadow, where --ink-3 measured 4.2:1.
+  // --ink-2, not --ink-3: this line can sit in the wall's cast shadow, where --ink-3 measured 4.2:1.
+  margin-left: auto;
   color: var(--ink-2);
   font-size: var(--text-xs);
 }
@@ -210,8 +206,7 @@
   }
 
   .pool {
-    inset-block: -8%;
-    inset-inline: calc(-1 * var(--pad));
+    inset: -10% calc(-1 * var(--pad)) -12%;
   }
 }
 

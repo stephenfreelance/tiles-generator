@@ -1,3 +1,6 @@
+@use 'sass:list';
+@use 'sass:math';
+
 // Shared UI mixins. Tokens live in _tokens.scss; these only compose them into the workbench's habits.
 // Every name here is load-bearing outside this folder (src/three and the other four screens include
 // them), so names stay put even where a body was rewritten for the new world.
@@ -96,6 +99,66 @@ $warn-ink-fallback: #8a4216;
   text-align: inherit;
 }
 
+/// The corner mat: four quarter-discs of the page's stock painted OVER the corners of a view, on the
+/// element that FRAMES it rather than inside it. It clips nothing, so nothing a compositor does to the
+/// layers underneath can defeat it, and it sits in the frame's own stacking context, which paints after
+/// the whole subtree the canvas lives in.
+///
+/// $fill must be what lies BEHIND the frame, not the frame's own colour: a render clears its canvas to
+/// the plate, so a notch painted in the plate leaves the corner exactly as square as it was.
+@mixin corner-mat($radius, $fill: var(--ground)) {
+  position: relative;
+
+  &::after {
+    --mat: #{$radius};
+    content: '';
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    // A hair of feather on each arc, or the quarter-disc steps against what is behind it.
+    background:
+      radial-gradient(circle at 100% 100%, transparent calc(var(--mat) - 0.5px), #{$fill} calc(var(--mat) + 0.5px))
+        top left / var(--mat) var(--mat) no-repeat,
+      radial-gradient(circle at 0 100%, transparent calc(var(--mat) - 0.5px), #{$fill} calc(var(--mat) + 0.5px))
+        top right / var(--mat) var(--mat) no-repeat,
+      radial-gradient(circle at 100% 0, transparent calc(var(--mat) - 0.5px), #{$fill} calc(var(--mat) + 0.5px))
+        bottom left / var(--mat) var(--mat) no-repeat,
+      radial-gradient(circle at 0 0, transparent calc(var(--mat) - 0.5px), #{$fill} calc(var(--mat) + 0.5px))
+        bottom right / var(--mat) var(--mat) no-repeat;
+    pointer-events: none;
+  }
+}
+
+/// A rounded rectangle as a MASK rather than a clip, for the one element that needs it: a WebGL canvas.
+/// A clip on a composited layer can be reduced to its bounding rectangle, which is how a rounded corner
+/// comes back square on some GPUs; a mask has to go through the mask path and cannot be. Six layers that
+/// union into the shape: the four corners, then a bar across and a bar down.
+@mixin rounded-mask($radius) {
+  --mask-r: #{$radius};
+  mask-image:
+    radial-gradient(circle at 100% 100%, #000 calc(var(--mask-r) - 0.5px), transparent calc(var(--mask-r) + 0.5px)),
+    radial-gradient(circle at 0 100%, #000 calc(var(--mask-r) - 0.5px), transparent calc(var(--mask-r) + 0.5px)),
+    radial-gradient(circle at 100% 0, #000 calc(var(--mask-r) - 0.5px), transparent calc(var(--mask-r) + 0.5px)),
+    radial-gradient(circle at 0 0, #000 calc(var(--mask-r) - 0.5px), transparent calc(var(--mask-r) + 0.5px)),
+    linear-gradient(#000, #000),
+    linear-gradient(#000, #000);
+  mask-position:
+    top left,
+    top right,
+    bottom left,
+    bottom right,
+    0 var(--mask-r),
+    var(--mask-r) 0;
+  mask-size:
+    var(--mask-r) var(--mask-r),
+    var(--mask-r) var(--mask-r),
+    var(--mask-r) var(--mask-r),
+    var(--mask-r) var(--mask-r),
+    100% calc(100% - 2 * var(--mask-r)),
+    calc(100% - 2 * var(--mask-r)) 100%;
+  mask-repeat: no-repeat;
+}
+
 /// A card lifted off the bench: the panels, and the surfaces that float over the stage.
 @mixin card($radius: var(--radius-lg)) {
   border: 1px solid var(--hairline);
@@ -141,4 +204,181 @@ $warn-ink-fallback: #8a4216;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
+}
+
+/// The stock a page is printed on: the ground colour with its own grain over it. Anything that paints
+/// --ground as a surface paints this instead, or the paper goes smooth wherever that surface starts.
+@mixin stock {
+  background: var(--grain) 0 0 / var(--grain-size), var(--ground);
+}
+
+/// A title in the display face. Basteleur has one weight, declared at 400: never ask it for more.
+@mixin display($size: null, $leading: 1.02) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+  line-height: $leading;
+  @if $size {
+    font-size: $size;
+  }
+}
+
+/// A wash of spot ink: the tile's colour, grained, laid in the shape the mask gives it and fading into the
+/// stock. $ink is what is printed (a colour or a gradient); $shape is an alpha mask. Small text never sits
+/// on more than 8% of it, where a black tile would take --ink-3 under AA.
+@mixin ink-wash($shape, $ink: var(--spot-ink), $dither: false) {
+  @if $dither {
+    // The dither IS the texture, so a dithered wash carries no grain over it: the two only muddy
+    // each other. It is intersected, so the ink is present only where the stipple leaves a dot.
+    background: $ink;
+    mask-image: var(--dither), $shape;
+    mask-composite: intersect, add;
+    mask-size: var(--dither-size) var(--dither-size), auto;
+    mask-repeat: repeat, no-repeat;
+  } @else {
+    background: var(--grain-ink) 0 0 / var(--grain-size), $ink;
+    mask-image: $shape;
+  }
+  pointer-events: none;
+}
+
+/// The ink at the head of a working page: a faint cloud of the tile's colour in the top-left corner,
+/// behind the title. At 12% at its core it stays under every line of text that stands in it (--ink-2 at
+/// 4.9:1 on a black tile's), so it never needs to know what the page puts there. The element becomes a
+/// positioned stacking context and gives up its ::after.
+@mixin head-wash {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    width: min(56rem, 100%);
+    height: 22rem;
+    // Spent before every edge of its box, so neither the page's own edge nor the bar can cut it square.
+    @include ink-wash(radial-gradient(closest-side at 50% 42%, rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.05) 55%, transparent));
+  }
+}
+
+/// One soft crest of ink: the single oval every figure in the book is multiplied out of. $rx by $ry of
+/// the box, centred at $x $y in it, spent to nothing before its own edge. Keep $rx inside $x and
+/// 100% - $x (and $ry likewise), or the element's box clips the crest square.
+@function ink-crest($alpha, $rx, $ry, $x, $y) {
+  @return radial-gradient(
+    $rx $ry at $x $y,
+    // rgba(), not rgb(0 0 0 / $alpha): Sass reads that slash as a division and drops the alpha.
+    rgba(0, 0, 0, $alpha),
+    // Flat through its middle, then a short shoulder: a crest has to hold its strength long enough for
+    // its neighbours to run into it, or the union is a haze with no edge to read instead of a figure.
+    rgba(0, 0, 0, $alpha) 40%,
+    rgba(0, 0, 0, $alpha * 0.74) 62%,
+    rgba(0, 0, 0, $alpha * 0.26) 84%,
+    transparent
+  );
+}
+
+/// An ARC of ink: crests walked along an elliptical path, so the union is a CRESCENT, hollow through its
+/// middle, heavy at its head and spent at its tail. It is the book's signature figure, and it is built by
+/// multiplying the one oval rather than by any second effect. Every number is a share of the box (0 to
+/// 100, no unit); angles are degrees, 0 at the right of the path and turning clockwise down the page, so
+/// 180 to 0 through 90 draws a bowl and 180 to 360 through 270 draws a cap.
+///
+/// $head and $tail are the crest radius at each end, $fade how far the ink is spent by the tail. Each
+/// crest is clamped to its own distance from the edges of the box, so an arc can run to a window's edge
+/// and still be spent before it.
+@function ink-arc($cx, $cy, $rx, $ry, $from, $to, $count, $head, $tail, $fade: 0.7) {
+  $crests: ();
+  @for $i from 0 through $count - 1 {
+    $t: 0;
+    @if $count > 1 {
+      $t: math.div($i, $count - 1);
+    }
+    $angle: ($from + ($to - $from) * $t) * 1deg;
+    $x: $cx + $rx * math.cos($angle);
+    $y: $cy + $ry * math.sin($angle);
+    $size: $head + ($tail - $head) * $t;
+    $size: math.min($size, $x, 100 - $x, $y, 100 - $y);
+    @if $size > 0 {
+      $crests: list.append($crests, ($size * 1% $size * 1% $x * 1% $y * 1% (1 - $fade * $t)), comma);
+    }
+  }
+  @return $crests;
+}
+
+/// Lays a set of figures (crests, or the arcs built from them) as one impression of the spot ink. Mask
+/// layers add, so the crests union into a single form with no seam; the dither is laid over the top and
+/// INTERSECTED, so the whole impression is printed as dots. Crests union rather than sum, so two at $peak
+/// reach 1 - (1 - $peak)^2 where they cross: read a plate's ceiling off the built page, not off $peak.
+@mixin ink-figures($peak: 0.5, $crests: (), $ink: var(--spot-ink), $dither: true) {
+  $mask: ();
+  $composite: ();
+  $sizes: ();
+  $repeats: ();
+  @if $dither {
+    $mask: list.append($mask, var(--dither), comma);
+    $composite: list.append($composite, intersect, comma);
+    $sizes: list.append($sizes, var(--dither-size) var(--dither-size), comma);
+    $repeats: list.append($repeats, repeat, comma);
+  }
+  @each $crest in $crests {
+    $weight: 1;
+    @if list.length($crest) > 4 {
+      $weight: list.nth($crest, 5);
+    }
+    $mask: list.append(
+      $mask,
+      ink-crest($peak * $weight, list.nth($crest, 1), list.nth($crest, 2), list.nth($crest, 3), list.nth($crest, 4)),
+      comma
+    );
+    $composite: list.append($composite, add, comma);
+    $sizes: list.append($sizes, auto, comma);
+    $repeats: list.append($repeats, no-repeat, comma);
+  }
+
+  // The dither IS the texture, so a dithered impression carries no grain over it: the two together only
+  // muddy each other. An undithered one keeps the grain the rest of the book is printed with.
+  @if $dither {
+    background: $ink;
+  } @else {
+    background: var(--grain-ink) 0 0 / var(--grain-size), $ink;
+  }
+  mask-image: $mask;
+  mask-composite: $composite;
+  mask-size: $sizes;
+  mask-repeat: $repeats;
+  pointer-events: none;
+}
+
+/// A single round impression of the spot ink: an ellipse of $size, centred at $at inside its own box, flat
+/// through $flat of its radius and spent to nothing before its edge, so no edge, window or neighbour can
+/// ever cut it square. Use it for ink that surrounds an object (the frontispiece's halo, a page head);
+/// a plate whose ink is a FIELD takes `ink-ridge` instead, so the book is not a run of ovals.
+///
+/// $size is `closest-side` (fill the box) or an explicit `<rx> <ry>` pair. With an explicit pair, keep
+/// $at ± the radius inside 0% to 100%, or the element's box clips the ink square. Do not `rotate` the
+/// box either: each plate is its own stacking context, so a turned box spills its corners over the plate
+/// before it, which paints above that plate's words.
+@mixin ink-shape($peak: 0.5, $size: closest-side, $at: 50% 50%, $flat: 0.5, $ink: var(--spot-ink), $dither: false) {
+  @include ink-wash(
+    radial-gradient(
+      $size at $at,
+      // rgba(), not rgb(0 0 0 / $peak): Sass reads that slash as a division and drops the alpha.
+      rgba(0, 0, 0, $peak),
+      rgba(0, 0, 0, $peak * 0.9) math.percentage($flat),
+      rgba(0, 0, 0, $peak * 0.45) math.percentage($flat + (1 - $flat) * 0.52),
+      transparent
+    ),
+    $ink,
+    $dither
+  );
+}
+
+/// The round impression: an ellipse that fills its own box. The frontispiece's halo and the head of every
+/// working page are printed with it; the plates below the title page each take a shape of their own.
+@mixin ink-cloud($peak: 0.5, $ink: var(--spot-ink), $dither: false) {
+  @include ink-shape($peak, closest-side, 50% 50%, 0.5, $ink, $dither);
 }

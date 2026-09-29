@@ -28,7 +28,7 @@
     box-shadow var(--t-fast) var(--ease-out);
 
   &:hover {
-    border-color: #d8c9af;
+    border-color: var(--rule-strong);
   }
 
   // The ring sits on the whole well so the unit and the steppers read as part of what is focused.
@@ -69,6 +69,12 @@
     color: inherit;
     cursor: not-allowed;
   }
+}
+
+// The number is what the row is for, so typing gets the whole height of the well as its target, at every
+// pointer: a 20 px input inside a 48 px well is under this system's own 24 px floor for a mouse too.
+.input {
+  align-self: stretch;
 }
 
 .suffix {
@@ -205,11 +211,6 @@
   .control,
   .compact .control {
     height: 3rem;
-  }
-
-  // The number is what the row is for, so typing gets the whole height of the well as its target.
-  .input {
-    align-self: stretch;
   }
 
   .steppers {

@@ -1,3 +1,5 @@
+@use '@/styles/mixins' as *;
+
 // The fit-test bench: what the test is at the top, the parts and the one download on a panel of their own,
 // the numbered steps below, and the fit the test decides at the foot. Built from the download page's own
 // head, section and warning rules, so the two handover screens read as one place.
@@ -9,9 +11,23 @@
   width: 100%;
   max-width: 76rem;
   margin-inline: auto;
-  padding: clamp(var(--s-4), 1.6vw, var(--s-6));
-  background: var(--ground);
+  // The shared page inset, so the three working pages and the home page all open on one margin, with
+  // more air above the title than at the sides: a display page title needs room under the running head.
+  padding: var(--page-top) var(--page-x) var(--page-bottom);
   color: var(--ink);
+  @include head-wash;
+}
+
+// Rhythm, not repetition: everything the page stacks sits a step apart, and a major section (the ones
+// that carry a title of their own) opens on a step and a half, so the page reads as groups rather than
+// as a list of equal blocks.
+.page > section {
+  margin-top: var(--s-2);
+}
+
+// An empty page is centred on its message, with no head to print the ink under.
+.pageEmpty::after {
+  content: none;
 }
 
 .pageEmpty {
@@ -34,11 +50,9 @@
   max-width: 56ch;
 }
 
+// The page's title in the display face.
 .title {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
+  @include display(clamp(2.25rem, 1.5rem + 1.8vw, 3.25rem), 1.02);
 }
 
 .subject {
@@ -88,9 +102,7 @@
 }
 
 .sectionTitle {
-  font-size: var(--text-xl);
-  font-weight: 650;
-  letter-spacing: -0.008em;
+  @include display(clamp(1.5rem, 1.25rem + 0.6vw, 1.875rem), 1.08);
 }
 
 // The parts, the picture of them and the one button they come from: one panel, open, because this is what

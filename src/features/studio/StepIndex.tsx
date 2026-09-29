@@ -24,8 +24,13 @@ const PLAN_LABEL = 'Tiling plan'
 
 type Place = number | 'plan'
 
-/** How far down the visible column a heading has to come before its step counts as the one being read. */
-const READ_LINE = 0.3
+/**
+ * How far below the pinned index a heading has to come before its step counts as the one being read.
+ * A share of the column BELOW the index, not of the whole column: at 0.3 the line fell about 180 px
+ * down, which is past the end of step 1 ("Your wall" is a heading and two fields), so a column resting
+ * at its very top marked step 2. It is also why `atTop` below is not just a tidy special case.
+ */
+const READ_LINE = 0.12
 
 /** A jump scrolls past every step between; the index holds the one asked for until the scroll has landed. */
 const JUMP_HOLD_MS = 800
@@ -65,7 +70,13 @@ export function StepIndex({ scroller }: StepIndexProps) {
       const height = own ? scroller.clientHeight : window.innerHeight
       const index = navRef.current?.getBoundingClientRect().height ?? 0
       const line = top + index + (height - index) * READ_LINE
-      let next: Place = 1
+      // Nothing has been scrolled past yet, so the first step is the one being read whatever the
+      // headings measure. Without this a short first step is already above the line on arrival.
+      if ((own ? scroller.scrollTop : window.scrollY) <= 2) {
+        setCurrent(STEPS[0].step)
+        return
+      }
+      let next: Place = STEPS[0].step
       for (const { step } of STEPS) {
         const section = sectionFor(step)
         if (section && section.getBoundingClientRect().top <= line) next = step

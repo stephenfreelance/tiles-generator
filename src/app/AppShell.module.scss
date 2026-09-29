@@ -8,9 +8,14 @@
   // that is meant to be exactly as tall as the window.
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  // A fixed first row rather than `auto`: the bar spans both rows so it has room to stick in (a sticky
+  // grid item can only move inside its own grid area, and an auto row is exactly its own height).
+  grid-template-rows: var(--header-h) minmax(0, 1fr);
+  // An implicit `auto` column is floored by its content's min-content width, so one nowrap pill deep in
+  // the studio pushed the whole shell 12 px wider than a phone and the page scrolled sideways.
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100dvh;
-  background: var(--ground);
+  @include stock;
 }
 
 // The studio is the size of the window: its own columns scroll, the page never does.
@@ -39,36 +44,64 @@
   }
 }
 
-// The espresso bar: the only dark surface in the app, and what the page hangs from.
+// The RUNNING HEAD, printed at the top of the sheet. There is no dark slab any more: the bar is the same
+// grained stock as everything under it, so the whole site is one continuous page and the tile's colour is
+// the only colour on it. What carries the identity instead is a printed label, the mark on its own
+// espresso plate (the same plate the tab icon wears) beside the wordmark in ink. Nothing is ruled across
+// it; it is told from the page by its own warm shadow, which is what the page passing under it casts.
 .bar {
+  // Spans both rows so it can stick; the page below is pinned to row 2 (see .main).
+  grid-row: 1 / -1;
+  grid-column: 1;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  // Over the page and over any ink a plate prints near its top edge.
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: var(--s-3);
-  min-height: var(--header-h);
+  width: 100%;
+  height: var(--header-h);
   padding-inline: var(--s-4);
-  background: var(--bar);
-  color: var(--bar-ink);
+  @include stock;
+  color: var(--ink);
+  // Nothing under it yet, so it casts nothing; AppShell lifts it the moment the page moves under it.
+  box-shadow: 0 12px 24px -18px rgb(46 36 27 / 0);
+  transition: box-shadow var(--t-med) var(--ease-out);
+}
 
-  // The accent reaches 2.3:1 at most on the bar, whatever the tile color, so everything up here
-  // focuses in the bar's own light ink (13.49:1) instead. Without this the ring would be all but invisible.
-  :focus-visible {
-    outline-color: var(--bar-ink);
-  }
+.bar[data-lifted] {
+  box-shadow: 0 12px 24px -18px rgb(46 36 27 / 0.62);
 }
 
 .brand {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-3);
   border-radius: 8px;
-  color: var(--bar-ink);
+  color: var(--ink);
   text-decoration: none;
 
   &:focus-visible {
-    outline: 3px solid var(--bar-ink);
-    outline-offset: 3px;
+    @include focus-ring(3px);
   }
+}
+
+// The one dark thing left in the chrome, and the whole of it: the plate the mark is printed on, drawn at
+// the same 32-unit proportions as the tab icon so the label in the bar and the icon in a tab strip are
+// the same object. The mark keeps its own floor against this plate (markTones), which is why the palette
+// did not have to move when the bar stopped being dark.
+.markPlate {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 7px;
+  background: var(--bar);
+  box-shadow: 0 1px 2px rgb(46 36 27 / 0.22);
 }
 
 // A wall's corner in the tile's own color (src/app/mark.ts). The tile color, not the accent: the accent
@@ -76,8 +109,8 @@
 .mark {
   display: block;
   flex: none;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.375rem;
+  height: 1.375rem;
 }
 
 .markWhole {
@@ -88,30 +121,33 @@
   fill: var(--mark-cut);
 }
 
-// A touch wider and heavier than the interface's own lettering, so the name reads as a name.
+// The name in the display face, the one title every page carries. On the stock it can carry its own
+// weight, so it is set a step larger than it was on the dark bar, and on the plate's centre line rather
+// than on its baseline, because Basteleur's caps sit high.
 .wordmark {
+  @include display(1.625rem, 1);
+
   flex: none;
-  font-size: var(--text-xl);
-  font-weight: 700;
-  font-stretch: 108%;
-  letter-spacing: -0.01em;
+  padding-bottom: 0.08em;
+  color: var(--ink);
 }
 
+// Parts the design's name from the label. A separator inside one line of chrome, not a rule drawn
+// across a page: it is the only line in the running head.
 .barDivider {
   flex: none;
   width: 1px;
-  height: 1.625rem;
-  background: rgb(247 241 230 / 0.22);
+  height: 1.5rem;
+  background: var(--rule-ink);
 }
 
+// The tabs are quiet words printed beside the label; the one you are on is the only thing up here the
+// accent touches, because the screen you are on is a selection.
 .nav {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--s-1);
   margin-left: auto;
-  padding: 3px;
-  border-radius: var(--radius-sm);
-  background: rgb(247 241 230 / 0.1);
 }
 
 .navLink {
@@ -119,9 +155,9 @@
   align-items: center;
   height: 2rem;
   padding: 0 var(--s-4);
-  border-radius: 8px;
-  // 10.17:1 on the bar.
-  color: #ded2c0;
+  border-radius: 999px;
+  // 6.22:1 on the stock.
+  color: var(--ink-2);
   font-size: var(--text-md);
   font-weight: 550;
   text-decoration: none;
@@ -131,19 +167,18 @@
     color var(--t-fast) var(--ease-out);
 
   &:hover {
-    background: rgb(247 241 230 / 0.1);
-    color: var(--bar-ink);
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    color: var(--ink);
   }
 }
 
-// The screen you are on wears the light plate, and its label darkens to the bar's own colour:
-// the dim label would only be 1.33:1 against it.
+// The screen you are on: the soft accent, the same pill the studio's step index marks the step being
+// read with, so "where I am" reads the same everywhere. The accent on it is 5.88:1.
 .navLinkActive,
 .navLinkActive:hover {
-  background: var(--bar-ink);
-  color: var(--bar);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: 650;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
 }
 
 .tools {
@@ -153,44 +188,33 @@
   gap: 2px;
 }
 
-// The bar's own tools: light glyphs that warm on hover, never the panel's dark ink.
+// The running head's own tools: quiet ink glyphs that darken under the hand.
 .barTool {
-  color: #ded2c0;
+  color: var(--ink-2);
 
   &:hover:not(:disabled) {
-    background: rgb(247 241 230 / 0.1);
-    color: var(--bar-ink);
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    color: var(--ink);
   }
 
   &:active:not(:disabled) {
-    background: rgb(247 241 230 / 0.16);
+    background: color-mix(in srgb, var(--ink) 11%, transparent);
   }
 
   &:disabled {
-    color: rgb(222 210 192 / 0.45);
+    color: color-mix(in srgb, var(--ink-3) 45%, transparent);
   }
 }
 
+// HelpTip's key cap is drawn for a panel, which is now what the running head is printed on, so it
+// needs nothing but its open state marking.
 .help {
   display: inline-flex;
 
-  // HelpTip's key cap is drawn for a panel; on the bar it takes the bar's own palette.
-  > * {
-    border-color: rgb(247 241 230 / 0.3);
-    background: rgb(247 241 230 / 0.12);
-    color: #ded2c0;
-
-    &:hover {
-      border-color: rgb(247 241 230 / 0.5);
-      background: rgb(247 241 230 / 0.2);
-      color: var(--bar-ink);
-    }
-
-    &[data-state='open'] {
-      border-color: var(--bar-ink);
-      background: var(--bar-ink);
-      color: var(--bar);
-    }
+  > *[data-state='open'] {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--panel);
   }
 }
 
@@ -204,7 +228,7 @@
 
 .drawingLabel {
   flex: none;
-  color: #ded2c0;
+  color: var(--ink-3);
   font-size: var(--text-md);
 }
 
@@ -216,7 +240,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: var(--bar-ink);
+  color: var(--ink);
   font-size: var(--text-md);
   font-weight: 650;
   text-overflow: ellipsis;
@@ -225,17 +249,21 @@
     border-color var(--t-fast) var(--ease-out);
 
   &:hover {
-    background: rgb(247 241 230 / 0.09);
+    background: var(--panel);
+    border-color: var(--hairline);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--bar-ink);
-    background: rgb(247 241 230 / 0.12);
+    border-color: var(--accent);
+    background: var(--panel);
+    box-shadow: 0 0 0 1px var(--accent);
   }
 }
 
 .main {
+  grid-row: 2;
+  grid-column: 1;
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -261,6 +289,49 @@
 
   .navLink {
     padding: 0 var(--s-3);
+  }
+}
+
+// A 360 px phone on the studio carries the label, both tabs and undo/redo on one line. The label gives
+// up a step of its wordmark and the tabs their outer padding rather than any of them being cut off.
+@media (max-width: 26rem) {
+  // The label keeps the page's own gutter at its side, so the wordmark never sits closer to the window
+  // than the words under it do.
+  .bar {
+    gap: var(--s-2);
+    padding-inline: var(--s-3);
+  }
+
+  .brand {
+    gap: var(--s-2);
+  }
+
+  .markPlate {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .wordmark {
+    font-size: 1.3125rem;
+  }
+
+  .navLink {
+    padding: 0 var(--s-2);
+  }
+}
+
+// Narrower than any phone in use but still a width the app must not break at: the label falls back to
+// the mark alone, which is the identity anyway. The name stays in the accessibility tree, so the link
+// that goes home keeps its own name.
+@media (max-width: 20rem) {
+  .wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
@@ -310,10 +381,11 @@
   animation: waiting 0s linear 200ms both;
 }
 
+// The shape of the 3D view while its chunk is still arriving, so the frame does not jump when it lands.
 .fallbackView {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #eeece5 0%, #eceae4 100%);
+  background: var(--stage-plate);
 }
 
 .fallbackBlock {
@@ -387,10 +459,9 @@
 }
 
 .errorHeading {
+  @include display(clamp(1.75rem, 1.3rem + 1.2vw, 2.5rem), 1.08);
+
   max-width: 24ch;
-  font-size: var(--text-2xl);
-  font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .errorBody {

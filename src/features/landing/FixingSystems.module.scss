@@ -46,10 +46,7 @@
 }
 
 .title {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  @include display(clamp(1.375rem, 1.05rem + 0.6vw, 1.625rem), 1.15);
 }
 
 // Standard or Optional, set as a small pill: the standard one in the accent, because it is the one a
@@ -76,7 +73,9 @@
 .figure {
   position: relative;
   aspect-ratio: 4 / 3;
-  border-radius: var(--radius-md);
+  // The mat a drawing is printed on is a mounted panel, so it takes the panel's own corner (the user's
+  // call, 2026-09-28), which is also the corner the download page's guide drawings already sit in.
+  border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow-sm);
   color: var(--ink-2);

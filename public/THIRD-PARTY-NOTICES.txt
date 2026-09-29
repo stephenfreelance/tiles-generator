@@ -1,8 +1,9 @@
 Tessera: third-party notices
 ============================
 
-This file covers third-party source ported or adapted into Tessera's own tree. Tessera's npm
-dependencies are not repeated here: each one ships its own license inside the package it comes from.
+This file covers third-party source ported or adapted into Tessera's own tree, and the one font that
+does not come from npm. Tessera's npm dependencies are not repeated here: each one ships its own
+license inside the package it comes from.
 
 
 React Bits
@@ -29,3 +30,16 @@ both files repeat the notice above as well:
   GlareHover  ->  src/features/landing/_glaze.scss
                   A slow sheen crossing a lit sample, rewritten as one ::after and one
                   background-position transition.
+
+
+Basteleur
+---------
+
+https://gitlab.com/velvetyne/basteleur
+Copyright (c) 2021, Keussel (www.keussel.studio|contact@keussel.studio),
+with Reserved Font Name Basteleur.
+SIL Open Font License, Version 1.1
+
+The display face every title is set in, served unmodified from public/fonts/basteleur-bold.woff2 (the
+foundry's own webfont of Basteleur Bold, published by Velvetyne). The full license travels beside it
+in public/fonts/basteleur-OFL.txt.

@@ -7,8 +7,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 0 clamp(var(--s-5), 4vw, var(--s-8));
-  // No cap: the band rules off at the same right-hand edge as sections 03 and 04.
-  border-top: 1px solid var(--hairline);
+  // No cap: the list runs to the same right-hand edge as sections 03 and 04.
 
   @media (max-width: 48rem) {
     grid-template-columns: minmax(0, 1fr);
@@ -20,8 +19,10 @@
   min-width: 0;
 }
 
-.question {
-  border-bottom: 1px solid var(--hairline);
+// No rule between questions: each is a bold line with its own chevron, and the air around it is the
+// division.
+.question + .question {
+  margin-top: var(--s-1);
 }
 
 .head {
@@ -29,6 +30,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--s-4);
+  // The same measure the answer under it is set to, so the chevron ends the question's own line instead
+  // of drifting a column's width away from the words it belongs to.
+  max-width: 36rem;
   min-height: 3.25rem;
   padding: var(--s-3) 0;
   font-size: var(--text-lg);
@@ -73,7 +77,7 @@
 }
 
 .answer {
-  max-width: 72ch;
+  max-width: 36rem;
   padding: 0 0 var(--s-4);
   color: var(--ink-2);
   font-size: var(--text-lg);

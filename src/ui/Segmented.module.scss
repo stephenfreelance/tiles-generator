@@ -159,7 +159,7 @@
 
     &:hover:not([data-disabled], [aria-checked='true']) {
       background: #fbf5ea;
-      border-color: #d8c9af;
+      border-color: var(--rule-strong);
     }
 
     // A tile is a picture: inverting it to the dark plate would hide the diagram, so the chosen one

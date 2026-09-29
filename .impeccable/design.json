@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-28T13:54:52.000Z",
+  "generatedAt": "2026-09-28T17:10:56.600Z",
   "title": "Design System: Tessera",
   "extensions": {
     "colorMeta": {
       "espresso-bar": {
         "role": "neutral",
         "displayName": "Espresso Bar",
-        "oklch": "oklch(26.9% 0.022 63.7)",
+        "canonical": "oklch(26.9% 0.022 63.7)",
         "tonalRamp": [
           "#120903",
           "#2c2219",
@@ -22,7 +22,7 @@
       "bar-ink": {
         "role": "neutral",
         "displayName": "Bar Cream",
-        "oklch": "oklch(96.0% 0.016 82.8)",
+        "canonical": "oklch(96.0% 0.016 82.8)",
         "tonalRamp": [
           "#0e0b05",
           "#28231b",
@@ -34,25 +34,26 @@
           "#f4eee3"
         ]
       },
-      "ground": {
+      "stock": {
         "role": "neutral",
-        "displayName": "Warm Ground",
-        "oklch": "oklch(94.0% 0.021 81.8)",
+        "displayName": "Stock",
+        "canonical": "oklch(92.3% 0.012 84.6)",
         "tonalRamp": [
-          "#0f0a03",
-          "#292319",
-          "#453f34",
-          "#635d51",
-          "#867f73",
-          "#aba496",
-          "#d1cabc",
-          "#f5eddf"
-        ]
+          "#0d0b06",
+          "#27241e",
+          "#433f39",
+          "#615d56",
+          "#838079",
+          "#a8a49d",
+          "#cecac2",
+          "#f2eee6"
+        ],
+        "note": "CSS --ground, always painted with --grain (256px tile of black and white specks at 7.5% alpha) through the stock mixin. Ink 13.36:1, Ink 2 6.22:1, Ink 3 5.07:1 on it."
       },
       "panel": {
         "role": "neutral",
-        "displayName": "Panel Cream",
-        "oklch": "oklch(99.4% 0.007 88.6)",
+        "displayName": "Panel Mat",
+        "canonical": "oklch(99.4% 0.007 88.6)",
         "tonalRamp": [
           "#0c0b08",
           "#252420",
@@ -66,53 +67,72 @@
       },
       "panel-recessed": {
         "role": "neutral",
-        "displayName": "Recessed Bench",
-        "oklch": "oklch(93.0% 0.022 83.3)",
+        "displayName": "Recessed Mat",
+        "canonical": "oklch(94.0% 0.010 87.5)",
         "tonalRamp": [
-          "#100a03",
-          "#292318",
-          "#453f33",
-          "#645d50",
-          "#877f72",
-          "#aba496",
-          "#d1cabb",
-          "#f6eede"
-        ]
+          "#0d0b07",
+          "#272520",
+          "#45423c",
+          "#64625c",
+          "#86837d",
+          "#a9a69f",
+          "#cdcac3",
+          "#f1eee7"
+        ],
+        "note": "CSS --panel-2, tempered to the grey stock. src/core/accent.ts BENCH follows it. Ink 2 6.57:1, Ink 3 5.35:1 on it."
       },
       "hairline": {
         "role": "neutral",
         "displayName": "Hairline",
-        "oklch": "oklch(88.7% 0.030 80.6)",
+        "canonical": "oklch(88.1% 0.013 82.4)",
         "tonalRamp": [
-          "#120a00",
-          "#2c2313",
-          "#483e2e",
-          "#665c4b",
-          "#8a7f6c",
-          "#aea390",
-          "#d5c9b5",
-          "#f9edd9"
-        ]
+          "#0e0b05",
+          "#28251e",
+          "#46423a",
+          "#666159",
+          "#87837a",
+          "#aaa59d",
+          "#cfcac1",
+          "#f3eee5"
+        ],
+        "note": "Panel borders and the only rule in the system: table and list rows, the studio rail steps, a dialog head."
       },
       "hairline-strong": {
         "role": "neutral",
         "displayName": "Hairline Strong",
-        "oklch": "oklch(84.1% 0.039 81.5)",
+        "canonical": "oklch(83.1% 0.017 82.8)",
         "tonalRamp": [
-          "#120a00",
-          "#2e220c",
-          "#4a3e28",
-          "#695c45",
-          "#8c7e66",
-          "#b1a38a",
-          "#d8c9af",
-          "#fcedd2"
-        ]
+          "#0f0b04",
+          "#29251c",
+          "#474239",
+          "#666157",
+          "#888278",
+          "#aba59b",
+          "#d0cabf",
+          "#f4eee2"
+        ],
+        "note": "CSS --rule-strong: every bordered control's hover step."
+      },
+      "stage-plate": {
+        "role": "neutral",
+        "displayName": "Stage Plate",
+        "canonical": "oklch(96.1% 0.005 95.1)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#262522",
+          "#43423f",
+          "#63625e",
+          "#848380",
+          "#a7a6a2",
+          "#cbcac7",
+          "#efeeea"
+        ],
+        "note": "LOOK.palette.sheet in src/three/look.ts and the 3D view frame's fill (.viewBody): a neutral plate a little lighter and cooler than the stock. No lamp overlay on the frame."
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
-        "oklch": "oklch(23.3% 0.019 66.6)",
+        "canonical": "oklch(23.3% 0.019 66.6)",
         "tonalRamp": [
           "#110a04",
           "#2b221a",
@@ -127,7 +147,7 @@
       "ink-2": {
         "role": "neutral",
         "displayName": "Ink 2",
-        "oklch": "oklch(44.0% 0.025 67.1)",
+        "canonical": "oklch(44.0% 0.025 67.1)",
         "tonalRamp": [
           "#120902",
           "#2c2217",
@@ -142,7 +162,7 @@
       "ink-3": {
         "role": "neutral",
         "displayName": "Ink 3",
-        "oklch": "oklch(48.7% 0.031 70.7)",
+        "canonical": "oklch(48.7% 0.031 70.7)",
         "tonalRamp": [
           "#130900",
           "#2d2113",
@@ -157,53 +177,53 @@
       "accent": {
         "role": "primary",
         "displayName": "Tile Accent",
-        "oklch": "oklch(46.5% 0.127 138.2)",
+        "canonical": "oklch(46.5% 0.127 138.2)",
         "tonalRamp": [
-          "#020f00",
-          "#0c2c00",
-          "#1b4d02",
+          "#001400",
+          "#003000",
+          "#134e00",
           "#346d1d",
           "#579243",
           "#7bb767",
           "#a1de8c",
-          "#cfffbf"
+          "#c4ffaf"
         ],
-        "note": "Runtime value follows the tile color via accentPalette (src/core/accent.ts); the hex is the default Green tile. White tile gives #5E5C57, yellow #765800."
+        "note": "Runtime value follows the tile color via accentPalette (src/core/accent.ts), floor 6.5:1 on --panel (5.2:1 on the stock); accent-soft is measured against BENCH (#EEEBE4, --panel-2). White tile gives #5E5C57, yellow #765800."
       },
       "accent-hover": {
         "role": "primary",
         "displayName": "Tile Accent Hover",
-        "oklch": "oklch(43.0% 0.127 138.1)",
+        "canonical": "oklch(43.0% 0.127 138.1)",
         "tonalRamp": [
-          "#020f00",
-          "#0d2c01",
-          "#1b4d01",
+          "#001400",
+          "#003000",
+          "#134e00",
           "#356d1d",
           "#579243",
           "#7bb767",
           "#a1de8c",
-          "#cfffbf"
+          "#c4ffaf"
         ]
       },
       "accent-press": {
         "role": "primary",
         "displayName": "Tile Accent Press",
-        "oklch": "oklch(39.0% 0.121 138.2)",
+        "canonical": "oklch(39.0% 0.121 138.2)",
         "tonalRamp": [
-          "#020f00",
-          "#0c2c00",
-          "#1a4d00",
+          "#001300",
+          "#002f00",
+          "#174d00",
           "#376d22",
           "#5a9147",
           "#7eb76b",
           "#a3de90",
-          "#cfffbf"
+          "#c6ffb3"
         ]
       },
       "accent-ink": {
         "role": "primary",
-        "displayName": "On Accent",
-        "oklch": "oklch(99.4% 0.007 88.6)",
+        "displayName": "Accent Lettering",
+        "canonical": "oklch(99.4% 0.007 88.6)",
         "tonalRamp": [
           "#0c0b08",
           "#252420",
@@ -217,8 +237,8 @@
       },
       "accent-soft": {
         "role": "primary",
-        "displayName": "Tile Accent Soft",
-        "oklch": "oklch(95.6% 0.020 138.4)",
+        "displayName": "Accent Soft",
+        "canonical": "oklch(95.6% 0.020 138.4)",
         "tonalRamp": [
           "#070d06",
           "#1f261d",
@@ -230,85 +250,149 @@
           "#e8f2e5"
         ]
       },
+      "tile-default": {
+        "role": "primary",
+        "displayName": "Tile Color",
+        "canonical": "oklch(61.7% 0.128 138.3)",
+        "tonalRamp": [
+          "#001400",
+          "#003000",
+          "#124e00",
+          "#346e1d",
+          "#579243",
+          "#7bb767",
+          "#a0de8c",
+          "#c3ffaf"
+        ],
+        "note": "CSS --filament. Written from config.color by useAccentTheme."
+      },
+      "spot-ink": {
+        "role": "primary",
+        "displayName": "Spot Ink",
+        "canonical": "oklch(62.0% 0.127 138.3)",
+        "tonalRamp": [
+          "#001400",
+          "#003000",
+          "#124e00",
+          "#346e1d",
+          "#579243",
+          "#7bb767",
+          "#a0de8c",
+          "#c3ffaf"
+        ],
+        "note": "CSS oklch(from var(--filament) max(l, 0.62) c h), falling back to var(--filament) without relative colors. The hex is the default Green tile resolved. Printed with --grain-ink (15% alpha specks) through the ink-cloud mixin (ink-wash underneath)."
+      },
+      "mark": {
+        "role": "primary",
+        "displayName": "Mark",
+        "canonical": "oklch(61.7% 0.128 138.3)",
+        "tonalRamp": [
+          "#001400",
+          "#003000",
+          "#124e00",
+          "#346e1d",
+          "#579243",
+          "#7bb767",
+          "#a0de8c",
+          "#c3ffaf"
+        ],
+        "note": "markTones (src/core/accent.ts), floor 2.5:1 on the espresso bar."
+      },
+      "mark-cut": {
+        "role": "primary",
+        "displayName": "Mark Cut",
+        "canonical": "oklch(75.8% 0.102 138.1)",
+        "tonalRamp": [
+          "#001200",
+          "#012e00",
+          "#204c0d",
+          "#3f6b2f",
+          "#618f51",
+          "#85b475",
+          "#aadb99",
+          "#cdffbc"
+        ]
+      },
       "ok": {
         "role": "status",
         "displayName": "Fit Green",
-        "oklch": "oklch(47.3% 0.101 148.5)",
+        "canonical": "oklch(47.3% 0.101 148.5)",
         "tonalRamp": [
-          "#001002",
-          "#012d0e",
+          "#001400",
+          "#003001",
           "#064e1e",
           "#2e6d3c",
           "#52915e",
           "#77b681",
           "#9cdda6",
-          "#c9ffd0"
+          "#bfffc9"
         ]
       },
       "ok-ink": {
         "role": "status",
-        "displayName": "Fit Green Text",
-        "oklch": "oklch(42.6% 0.091 148.1)",
+        "displayName": "Fit Green Ink",
+        "canonical": "oklch(42.6% 0.091 148.1)",
         "tonalRamp": [
-          "#001003",
-          "#002d0d",
+          "#001300",
+          "#002f05",
           "#144c22",
           "#366b3f",
           "#598f61",
           "#7db585",
           "#a2dbaa",
-          "#c8ffcf"
+          "#c5ffcd"
         ]
       },
       "warn": {
         "role": "status",
         "displayName": "Caution Amber",
-        "oklch": "oklch(53.1% 0.129 47.1)",
+        "canonical": "oklch(53.1% 0.129 47.1)",
         "tonalRamp": [
-          "#190500",
-          "#3e1601",
-          "#692b02",
+          "#2e0000",
+          "#500000",
+          "#722000",
           "#954107",
           "#bd6535",
           "#e68a5a",
-          "#ffb895",
-          "#ffeae0"
+          "#ffb080",
+          "#ffd3a3"
         ]
       },
       "warn-ink": {
         "role": "status",
-        "displayName": "Caution Amber Text",
-        "oklch": "oklch(46.4% 0.112 47.9)",
+        "displayName": "Caution Amber Ink",
+        "canonical": "oklch(46.4% 0.112 47.9)",
         "tonalRamp": [
-          "#190500",
-          "#3e1700",
-          "#682b01",
+          "#2a0000",
+          "#4b0400",
+          "#6c2700",
           "#8f461b",
           "#b66a41",
           "#de8e65",
-          "#feb895",
-          "#feeae0"
+          "#ffb489",
+          "#ffd8ac"
         ]
       },
       "cut": {
         "role": "status",
         "displayName": "Cut Red",
-        "oklch": "oklch(48.4% 0.153 33.6)",
+        "canonical": "oklch(48.4% 0.153 33.6)",
         "tonalRamp": [
-          "#1e0100",
-          "#480900",
-          "#761701",
+          "#350000",
+          "#590000",
+          "#7d0200",
           "#a23119",
           "#cb573e",
           "#f57d62",
-          "#ffb6a5",
-          "#ffe9e4"
-        ]
+          "#ffa387",
+          "#ffc7aa"
+        ],
+        "note": "Working surfaces only; the home page scopes --cut and --cut-soft to the accent, so its cut pieces and cut marks print in the spot ink."
       },
       "cut-soft": {
         "role": "status",
-        "displayName": "Cut Red Wash",
-        "oklch": "oklch(94.9% 0.020 40.5)",
+        "displayName": "Cut Soft",
+        "canonical": "oklch(94.9% 0.020 40.5)",
         "tonalRamp": [
           "#120805",
           "#2d211d",
@@ -319,75 +403,52 @@
           "#d7c6c1",
           "#fbeae4"
         ]
-      },
-      "tile-default": {
-        "role": "primary",
-        "displayName": "Tile Color (default Green)",
-        "oklch": "oklch(61.7% 0.128 138.3)",
-        "tonalRamp": [
-          "#020f00",
-          "#0c2c01",
-          "#1b4d02",
-          "#346e1d",
-          "#579243",
-          "#7bb767",
-          "#a0de8c",
-          "#ceffbf"
-        ]
-      },
-      "mark": {
-        "role": "primary",
-        "displayName": "Mark",
-        "oklch": "oklch(61.7% 0.128 138.3)",
-        "tonalRamp": [
-          "#020f00",
-          "#0d2d01",
-          "#1c4f02",
-          "#387122",
-          "#599445",
-          "#7bb868",
-          "#9fdd8b",
-          "#cfffbf"
-        ],
-        "note": "The whole tile of the mark in the app bar and the tab icon. Runtime value follows the tile color via markTones (src/core/accent.ts) at its own 2.5:1 floor on the espresso bar, capped at OKLCH L 0.93; never the accent. The hex is the default Green tile."
-      },
-      "mark-cut": {
-        "role": "primary",
-        "displayName": "Mark Cut",
-        "oklch": "oklch(75.8% 0.102 138.1)",
-        "tonalRamp": [
-          "#020f00",
-          "#0d2d01",
-          "#234e10",
-          "#426f32",
-          "#639153",
-          "#85b475",
-          "#a8d998",
-          "#cfffc0"
-        ],
-        "note": "The three cut pieces of the mark: the Mark tone one step (0.14 L) lighter at 0.8 chroma, or one step darker at 0.9 chroma when the mark is paler than L 0.78."
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "The home page headline only; never animated."
+        "purpose": "The title page headline: one size (3rem on short laptops) on a 9.5em measure with text-wrap pretty, four ragged lines, \"Design\" on its own line. The LCP element; never animated."
+      },
+      "colophon": {
+        "displayName": "Colophon",
+        "purpose": "The home page's closing sentence, the largest type in the book."
+      },
+      "plate-number": {
+        "displayName": "Plate Number",
+        "purpose": "The plate number in a plate head's margin, in the accent."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Home page band headings and the close."
+        "purpose": "A plate's heading on the home page."
+      },
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Download, fit test and history page titles, over a head-wash cloud, with no rule."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Studio step headings, tiling plan heading, dialog titles."
+        "purpose": "Section heads on the working pages and home sub-heads."
+      },
+      "step-title": {
+        "displayName": "Step Title",
+        "purpose": "The studio's seven step headings."
+      },
+      "plate-caption": {
+        "displayName": "Plate Caption",
+        "purpose": "The name under the frontispiece and other captions of the book."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "\"Tessera\" in the espresso bar."
       },
       "body-lead": {
         "displayName": "Body Lead",
-        "purpose": "Supporting paragraphs on the home page, 34 to 54ch."
+        "purpose": "Supporting paragraphs and a plate's argument, 36 to 54ch."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Default text on every surface."
+        "purpose": "Default text everywhere."
       },
       "figure": {
         "displayName": "Figure",
@@ -395,27 +456,23 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Field names, list heads, the step index; sentence case."
+        "purpose": "Field names, list heads, the step index and the 3D view's dimension tags (\"60 cm\"); sentence case."
       },
       "note": {
         "displayName": "Note",
-        "purpose": "Smallest text: swatch hints and hex codes, Ink 3 or darker."
-      },
-      "wordmark": {
-        "displayName": "Wordmark",
-        "purpose": "\"Tessera\" in the app bar only, live Archivo in Bar Cream at width 108% (font-stretch), 8 px from the mark."
+        "purpose": "Hints and hex codes, Ink 3 or darker."
       }
     },
     "shadows": [
       {
         "name": "rest",
         "value": "0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28)",
-        "purpose": "Secondary buttons, the active tab."
+        "purpose": "Secondary buttons, the active tab, drawing mats."
       },
       {
         "name": "lift",
         "value": "0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5)",
-        "purpose": "Studio rail, cards, popovers, tooltips, toasts."
+        "purpose": "Studio rail, the 3D view frame, cards, popovers, tooltips, toasts."
       },
       {
         "name": "stage-tool",
@@ -435,7 +492,7 @@
       {
         "name": "standing-object",
         "value": "0 2px 4px rgb(46 36 27 / 0.08), 0 18px 30px -20px rgb(46 36 27 / 0.5), 0 60px 90px -50px rgb(46 36 27 / 0.62)",
-        "purpose": "The home hero wall, standing off the page under an upper-left key."
+        "purpose": "The hero wall (the frontispiece), a lit object standing off the printed page."
       }
     ],
     "motion": [
@@ -468,6 +525,21 @@
         "name": "hero-lay-in",
         "value": "1100ms wave spread, 700ms per tile, 1800ms wall swing, 2400ms ceiling",
         "purpose": "The home wall laid once from the setting-out corner; joints, shadow and face light follow once most tiles are down. Skipped under reduced motion."
+      },
+      {
+        "name": "ink-pass",
+        "value": "opacity 0.35 -> 1 over 900ms, translate 14px 10px -> none over 1300ms, var(--ease-out)",
+        "purpose": "A plate's spot-ink cloud prints into register when the plate is reached (data-lit). The title page's clouds run the ink-pass keyframes once on load after 250ms. Motion-safe only; reduced motion sees the clouds printed."
+      },
+      {
+        "name": "hero-tilt",
+        "value": "rotateY(-4deg) rotateX(1deg) at perspective 2400px, transform 520ms var(--ease-out)",
+        "purpose": "The frontispiece's resting turn, which pointer and scroll add to. No transition and no listeners under reduced motion."
+      },
+      {
+        "name": "ink-cloud",
+        "value": "radial-gradient(closest-side, peak, peak*0.9 50%, peak*0.45 76%, transparent) as the mask of --grain-ink over --spot-ink",
+        "purpose": "Every home page cloud: titleCloud 0.42, pool (frontispiece) 0.78, proofCloud 0.62, patternsCloud 0.26, kitCloud 0.55, closeCloud 0.8. Plate 04 and Questions carry none. Not motion: listed here because the sidecar has no gradient group."
       }
     ],
     "breakpoints": [
@@ -490,6 +562,14 @@
       {
         "name": "studio-two-column",
         "value": "1100px"
+      },
+      {
+        "name": "plate-head",
+        "value": "68rem"
+      },
+      {
+        "name": "short-laptop",
+        "value": "max-height 50rem (min-width 62.0625rem)"
       }
     ]
   },
@@ -508,7 +588,7 @@
       "refersTo": "button-secondary",
       "description": "A panel plate for every other action.",
       "html": "<button class=\"ds-btn-secondary\">Copy link</button>",
-      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1rem; border: 1px solid #e4d8c4; border-radius: 14px; background: #fffdf8; color: #241c14; font: 650 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; box-shadow: 0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28); cursor: pointer; transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1), border-color 140ms; } .ds-btn-secondary:hover { background: #fbf5ea; border-color: #d8c9af; } .ds-btn-secondary:active { background: #efe7d8; transform: translateY(1px); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 2px; }"
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 1rem; border: 1px solid #dcd7ce; border-radius: 14px; background: #fffdf8; color: #241c14; font: 650 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; box-shadow: 0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28); cursor: pointer; transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1), border-color 140ms; } .ds-btn-secondary:hover { background: #fbf5ea; border-color: #cdc7bc; } .ds-btn-secondary:active { background: #eeebe4; transform: translateY(1px); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
@@ -524,7 +604,7 @@
       "refersTo": "segmented-selected",
       "description": "Word choices in a recessed track; the chosen one is the espresso plate.",
       "html": "<div class=\"ds-seg\" role=\"radiogroup\"><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"true\">Whole wall</button><button class=\"ds-seg-item\" role=\"radio\" aria-checked=\"false\">One tile</button></div>",
-      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid #e4d8c4; border-radius: 11px; background: #efe7d8; } .ds-seg-item { min-height: 2rem; padding: 0 0.75rem; border: 0; border-radius: 8px; background: none; color: #5c5044; font: 550 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-seg-item:hover:not([aria-checked=\"true\"]) { background: rgb(36 28 20 / 0.05); color: #241c14; } .ds-seg-item[aria-checked=\"true\"] { background: #2e241b; color: #f7f1e6; font-weight: 600; } .ds-seg-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid #dcd7ce; border-radius: 11px; background: #eeebe4; } .ds-seg-item { min-height: 2rem; padding: 0 0.75rem; border: 0; border-radius: 8px; background: none; color: #5c5044; font: 550 0.875rem/1 \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-seg-item:hover:not([aria-checked=\"true\"]) { background: rgb(36 28 20 / 0.05); color: #241c14; } .ds-seg-item[aria-checked=\"true\"] { background: #2e241b; color: #f7f1e6; font-weight: 600; } .ds-seg-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
     },
     {
       "name": "Measurement Field",
@@ -532,15 +612,7 @@
       "refersTo": "measure-field",
       "description": "A labelled well with a tabular figure, its unit and steppers.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Width</span><span class=\"ds-field-control\"><input class=\"ds-field-input\" value=\"2400\"><span class=\"ds-field-unit\">mm</span></span></label>",
-      "css": ".ds-field { display: grid; gap: 4px; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-field-label { color: #6b5d4d; font-size: 0.75rem; font-weight: 600; } .ds-field-control { display: flex; align-items: center; height: 3rem; padding: 0 0.5rem 0 0.75rem; border: 1px solid #e4d8c4; border-radius: 11px; background: #fffdf8; transition: border-color 140ms, box-shadow 140ms; } .ds-field-control:hover { border-color: #d8c9af; } .ds-field-control:focus-within { border-color: var(--accent, #306918); box-shadow: 0 0 0 1px var(--accent, #306918); } .ds-field-input { flex: 1; min-width: 0; border: 0; background: transparent; color: #241c14; font: 650 1.1875rem/1 inherit; font-variant-numeric: tabular-nums; outline: none; } .ds-field-unit { color: #6b5d4d; font-size: 0.8125rem; }"
-    },
-    {
-      "name": "Step Heading",
-      "kind": "custom",
-      "refersTo": "step-number",
-      "description": "A numbered soft-accent disc, the title and the current value at the end of the line.",
-      "html": "<div class=\"ds-step\"><span class=\"ds-step-no\">2</span><h3 class=\"ds-step-title\">Tile size</h3><span class=\"ds-step-now\">150 x 150 mm</span></div>",
-      "css": ".ds-step { display: flex; align-items: center; gap: 0.75rem; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-step-no { display: inline-grid; place-items: center; width: 1.625rem; height: 1.625rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-step-title { margin: 0; color: #241c14; font-size: 1.25rem; font-weight: 650; letter-spacing: 0.005em; } .ds-step-now { margin-left: auto; color: #241c14; font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }"
+      "css": ".ds-field { display: grid; gap: 4px; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-field-label { color: #6b5d4d; font-size: 0.75rem; font-weight: 600; } .ds-field-control { display: flex; align-items: center; height: 3rem; padding: 0 0.5rem 0 0.75rem; border: 1px solid #dcd7ce; border-radius: 11px; background: #fffdf8; transition: border-color 140ms, box-shadow 140ms; } .ds-field-control:hover { border-color: #cdc7bc; } .ds-field-control:focus-within { border-color: var(--accent, #306918); box-shadow: 0 0 0 1px var(--accent, #306918); } .ds-field-input { flex: 1; min-width: 0; border: 0; background: transparent; color: #241c14; font: 650 1.1875rem/1 inherit; font-variant-numeric: tabular-nums; outline: none; } .ds-field-unit { color: #6b5d4d; font-size: 0.8125rem; }"
     },
     {
       "name": "Step Index",
@@ -548,7 +620,7 @@
       "refersTo": "step-index-current",
       "description": "The pinned row of step numbers; only the step being read spells out its name.",
       "html": "<nav class=\"ds-index\"><a class=\"ds-index-item\"><span class=\"ds-index-no\">1</span></a><a class=\"ds-index-item\" aria-current=\"step\"><span class=\"ds-index-no\">2</span>Tile size</a><a class=\"ds-index-item\"><span class=\"ds-index-no\">3</span></a><a class=\"ds-index-item\"><span class=\"ds-index-no\">4</span></a></nav>",
-      "css": ".ds-index { display: flex; align-items: center; gap: 2px; min-height: 3.25rem; padding: 0 1rem; border-bottom: 1px solid #f0e7d6; background: #fffdf8; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-index-item { display: inline-flex; align-items: center; gap: 5px; min-height: 2rem; padding: 0 5px; border-radius: 999px; color: #6b5d4d; font-size: 0.75rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-index-item:hover { background: #efe7d8; color: #241c14; } .ds-index-item[aria-current] { padding-right: 0.5rem; background: var(--accent-soft, #eaf4e7); color: #241c14; } .ds-index-no { display: inline-grid; place-items: center; width: 1.3125rem; height: 1.3125rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-index-item[aria-current] .ds-index-no { background: var(--accent, #306918); color: var(--accent-ink, #fffdf8); } .ds-index-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
+      "css": ".ds-index { display: flex; align-items: center; gap: 2px; min-height: 3.25rem; padding: 0 1rem; border-bottom: 1px solid #dcd7ce; background: #fffdf8; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-index-item { display: inline-flex; align-items: center; gap: 5px; min-height: 2rem; padding: 0 5px; border-radius: 999px; color: #6b5d4d; font-size: 0.75rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: background-color 140ms, color 140ms; } .ds-index-item:hover { background: #eeebe4; color: #241c14; } .ds-index-item[aria-current] { padding-right: 0.5rem; background: var(--accent-soft, #eaf4e7); color: #241c14; } .ds-index-no { display: inline-grid; place-items: center; width: 1.3125rem; height: 1.3125rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-index-item[aria-current] .ds-index-no { background: var(--accent, #306918); color: var(--accent-ink, #fffdf8); } .ds-index-item:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; }"
     },
     {
       "name": "Lid",
@@ -556,7 +628,7 @@
       "refersTo": "disclosure-lid",
       "description": "A folded panel that says on its face what has moved behind it.",
       "html": "<button class=\"ds-lid\" aria-expanded=\"false\"><svg class=\"ds-lid-chev\" viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"m9 18 6-6-6-6\"/></svg><span class=\"ds-lid-text\"><span class=\"ds-lid-label\">Advanced</span><span class=\"ds-lid-desc\">Gaps, layout, pattern detail and printer</span></span><span class=\"ds-lid-badge\">All standard</span></button>",
-      "css": ".ds-lid { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.25rem; padding: 0.75rem 1rem; border: 1px solid #e4d8c4; border-radius: 14px; background: #f7f1e6; color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; text-align: left; cursor: pointer; transition: background-color 140ms, border-color 140ms; } .ds-lid:hover { background: #efe7d8; border-color: #d8c9af; } .ds-lid:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; } .ds-lid-chev { flex: none; color: #5c5044; transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-lid[aria-expanded=\"true\"] .ds-lid-chev { transform: rotate(90deg); } .ds-lid-text { display: grid; gap: 1px; } .ds-lid-label { font-size: 0.875rem; font-weight: 650; } .ds-lid-desc { color: #6b5d4d; font-size: 0.8125rem; } .ds-lid-badge { margin-left: auto; padding: 3px 0.5rem; border: 1px solid #e4d8c4; border-radius: 999px; background: #fffdf8; color: #5c5044; font-size: 0.75rem; font-weight: 650; white-space: nowrap; }"
+      "css": ".ds-lid { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.25rem; padding: 0.75rem 1rem; border: 1px solid #dcd7ce; border-radius: 14px; background: #f7f1e6; color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; text-align: left; cursor: pointer; transition: background-color 140ms, border-color 140ms; } .ds-lid:hover { background: #eeebe4; border-color: #cdc7bc; } .ds-lid:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; } .ds-lid-chev { flex: none; color: #5c5044; transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-lid[aria-expanded=\"true\"] .ds-lid-chev { transform: rotate(90deg); } .ds-lid-text { display: grid; gap: 1px; } .ds-lid-label { font-size: 0.875rem; font-weight: 650; } .ds-lid-desc { color: #6b5d4d; font-size: 0.8125rem; } .ds-lid-badge { margin-left: auto; padding: 3px 0.5rem; border: 1px solid #dcd7ce; border-radius: 999px; background: #fffdf8; color: #5c5044; font-size: 0.75rem; font-weight: 650; white-space: nowrap; }"
     },
     {
       "name": "Color Swatch",
@@ -566,37 +638,83 @@
       "css": ".ds-swatches { display: flex; gap: 0.5rem; } .ds-swatch { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--c); box-shadow: inset 0 0 0 1px rgb(36 28 20 / 0.18), inset 0 7px 11px -7px rgb(255 255 255 / 0.7); cursor: pointer; transition: box-shadow 140ms; } .ds-swatch[aria-checked=\"true\"] { box-shadow: 0 0 0 2px #fffdf8, 0 0 0 4px #2e241b, inset 0 0 0 1px rgb(36 28 20 / 0.18); } .ds-swatch:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 4px; }"
     },
     {
+      "name": "Step Heading",
+      "kind": "custom",
+      "refersTo": "step-title",
+      "description": "A numbered soft-accent disc, the step title in Basteleur and the current value in Archivo at the end of the line.",
+      "html": "<div class=\"ds-step\"><span class=\"ds-step-no\">2</span><h3 class=\"ds-step-title\">Tile size</h3><span class=\"ds-step-now\">150 mm</span></div>",
+      "css": ".ds-step { display: flex; align-items: center; gap: 0.75rem; } .ds-step-no { display: inline-grid; place-items: center; width: 1.625rem; height: 1.625rem; border-radius: 50%; background: var(--accent-soft, #eaf4e7); color: var(--accent, #306918); font: 700 0.875rem/1 'Archivo Variable', 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-step-title { margin: 0; color: #241c14; font: 400 1.375rem/1.1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; letter-spacing: 0; } .ds-step-now { margin-left: auto; color: #241c14; font: 650 0.875rem/1 'Archivo Variable', 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Plate Head",
+      "kind": "custom",
+      "description": "No rule: the plate number in the accent in the margin, the Basteleur heading and the Archivo argument beside it, with a grainy cloud of spot ink spent before every edge of its box.",
+      "html": "<header class=\"ds-head\"><div class=\"ds-head-wash\" aria-hidden=\"true\"></div><span class=\"ds-head-no\">02</span><div class=\"ds-head-title\"><h2 class=\"ds-head-h\">Pick a pattern</h2><p class=\"ds-head-arg\">Every relief tiles across its joints, so the pattern runs on from tile to tile.</p></div></header>",
+      "css": ".ds-head { position: relative; isolation: isolate; display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: 1rem 1.5rem; align-items: start; padding: 4rem 1.5rem 2rem; background: var(--grain, none) 0 0 / 256px, #e9e5dd; color: #241c14; } .ds-head-wash { position: absolute; z-index: -1; top: 0; right: 0; width: 62%; height: 100%; background: var(--grain-ink, none) 0 0 / 256px, var(--spot-ink, #5d9849); -webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.234) 50%, rgba(0, 0, 0, 0.117) 76%, transparent); mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.234) 50%, rgba(0, 0, 0, 0.117) 76%, transparent); pointer-events: none; } .ds-head-no { color: var(--accent, #306918); font: 400 3.25rem/1.02 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; font-variant-numeric: tabular-nums; } .ds-head-title { display: grid; grid-template-columns: 1.08fr 1fr; gap: 1rem 3rem; } .ds-head-h { margin: 0; font: 400 2.75rem/1.02 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; } .ds-head-arg { margin: 0; padding-top: 0.35em; color: #5c5044; font: 400 1.1rem/1.55 'Archivo Variable', 'Archivo', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Plate Caption",
+      "kind": "custom",
+      "description": "A figure captioned as in a pattern book, set apart by its own space: the name in Basteleur, the counts in Archivo, then an index line of keys with 3px color chips.",
+      "html": "<figcaption class=\"ds-cap\"><div class=\"ds-cap-line\"><span class=\"ds-cap-dot\" style=\"background:#5c9748\"></span><span class=\"ds-cap-name\">Wavy in Green</span><span class=\"ds-cap-note\">150 mm tiles, 7 across and 5 down</span></div><div class=\"ds-keys\"><button class=\"ds-key\" aria-pressed=\"true\"><span class=\"ds-key-chip\" style=\"background:#5c9748\"></span>Wavy</button><button class=\"ds-key\" aria-pressed=\"false\"><span class=\"ds-key-chip\" style=\"background:#c65a3a\"></span>Zellige</button></div></figcaption>",
+      "css": ".ds-cap { display: grid; gap: 0.5rem; padding: 1rem; background: var(--grain, none) 0 0 / 256px, #e9e5dd; } .ds-cap-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; } .ds-cap-dot { align-self: center; width: 0.75rem; height: 0.75rem; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2); } .ds-cap-name { color: #241c14; font: 400 1.5rem/1.1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; } .ds-cap-note { margin-left: auto; color: #5c5044; font: 400 0.75rem/1.3 'Archivo Variable', 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-keys { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; } .ds-key { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 1.5rem; padding: 0 0.25rem; border: 0; background: none; color: #6b5d4d; font: 600 0.75rem/1 'Archivo Variable', 'Archivo', system-ui, sans-serif; cursor: pointer; transition: color 140ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-key:hover, .ds-key[aria-pressed=\"true\"] { color: #241c14; } .ds-key:focus-visible { outline: 3px solid var(--accent, #306918); outline-offset: 1px; } .ds-key-chip { width: 0.75rem; height: 0.75rem; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2); } .ds-key[aria-pressed=\"true\"] .ds-key-chip { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2), 0 0 0 2px #e9e5dd, 0 0 0 3px var(--accent, #306918); }"
+    },
+    {
+      "name": "Render View",
+      "kind": "card",
+      "refersTo": "render-view",
+      "description": "The 3D view frame: a 22px panel of the Stage Plate with the Lift shadow and no lamp; the canvas is clipped to its corners through --view-radius. Dimension tags read as typed.",
+      "html": "<div class=\"ds-view\"><div class=\"ds-view-canvas\"></div><span class=\"ds-dim\"><span class=\"ds-dim-v\">60</span><span class=\"ds-dim-u\">cm</span></span></div>",
+      "css": ".ds-view { position: relative; --view-radius: 21px; height: 12rem; overflow: hidden; border: 1px solid #dcd7ce; border-radius: 22px; background: #f3f2ee; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); } .ds-view-canvas { position: absolute; inset: 0; border-radius: var(--view-radius); clip-path: inset(0 round var(--view-radius)); background: #f3f2ee; } .ds-dim { position: absolute; left: 1rem; bottom: 1rem; display: inline-flex; align-items: baseline; gap: 0.3em; padding: 1px 5px; background: #fffdf8; color: #241c14; font: 600 0.75rem/1.25 'Archivo Variable', 'Archivo', system-ui, sans-serif; } .ds-dim-v { font-variant-numeric: tabular-nums; } .ds-dim-u { color: #5c5044; font-size: 0.6875rem; }"
+    },
+    {
       "name": "Panel Card",
       "kind": "card",
       "refersTo": "panel-card",
-      "description": "A panel lifted off the warm ground.",
-      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Tiling plan</h3><p class=\"ds-card-body\">32 tiles, no cuts. 4 files to print.</p></div>",
-      "css": ".ds-card { padding: 1.5rem; border: 1px solid #e4d8c4; border-radius: 22px; background: #fffdf8; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); color: #241c14; font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; } .ds-card-title { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 650; } .ds-card-body { margin: 0; color: #5c5044; font-size: 0.875rem; line-height: 1.45; font-variant-numeric: tabular-nums; }"
+      "description": "A rounded panel mounted on the stock, its title in Basteleur.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Test first</h3><p class=\"ds-card-body\">One 60 x 60 mm tile of the same relief and color.</p></div>",
+      "css": ".ds-card { padding: 1.5rem; border: 1px solid #dcd7ce; border-radius: 22px; background: #fffdf8; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); color: #241c14; } .ds-card-title { margin: 0 0 0.5rem; font: 400 1.5rem/1.1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; } .ds-card-body { margin: 0; color: #5c5044; font: 400 0.875rem/1.45 'Archivo Variable', 'Archivo', system-ui, sans-serif; font-variant-numeric: tabular-nums; }"
     },
     {
       "name": "App Bar Brand",
       "kind": "nav",
       "refersTo": "app-bar",
-      "description": "The mark (a wall's corner: one whole tile, three cut pieces) beside the live wordmark on the espresso bar, in the tile color's own mark tones.",
+      "description": "The mark (a wall's corner: one whole tile, three cut pieces) beside the Basteleur wordmark on the espresso bar, in the tile color's own mark tones.",
       "html": "<div class=\"ds-bar\"><a class=\"ds-brand\" href=\"#\"><svg class=\"ds-mark\" viewBox=\"4 4 24 24\" aria-hidden=\"true\"><path class=\"ds-mark-whole\" d=\"M8 4H14A4 4 0 0 1 18 8V14A4 4 0 0 1 14 18H8A4 4 0 0 1 4 14V8A4 4 0 0 1 8 4Z\"/><path class=\"ds-mark-cut\" d=\"M24 4H28V18H24A4 4 0 0 1 20 14V8A4 4 0 0 1 24 4Z\"/><path class=\"ds-mark-cut\" d=\"M8 20H14A4 4 0 0 1 18 24V28H4V24A4 4 0 0 1 8 20Z\"/><path class=\"ds-mark-cut\" d=\"M24 20H28V28H20V24A4 4 0 0 1 24 20Z\"/></svg><span class=\"ds-wordmark\">Tessera</span></a></div>",
-      "css": ".ds-bar { display: flex; align-items: center; height: 56px; padding: 0 16px; background: #2e241b; } .ds-brand { display: flex; align-items: center; gap: 8px; border-radius: 8px; color: #f7f1e6; text-decoration: none; } .ds-brand:focus-visible { outline: 3px solid #f7f1e6; outline-offset: 3px; } .ds-mark { display: block; width: 1.5rem; height: 1.5rem; } .ds-mark-whole { fill: var(--mark, #5c9748); } .ds-mark-cut { fill: var(--mark-cut, #90c080); } .ds-wordmark { font-family: \"Archivo Variable\", \"Archivo\", system-ui, sans-serif; font-size: 1.25rem; font-weight: 700; font-stretch: 108%; letter-spacing: -0.01em; }"
+      "css": ".ds-bar { display: flex; align-items: center; height: 56px; padding: 0 16px; background: #2e241b; } .ds-brand { display: flex; align-items: center; gap: 8px; border-radius: 8px; color: #f7f1e6; text-decoration: none; } .ds-brand:focus-visible { outline: 3px solid #f7f1e6; outline-offset: 3px; } .ds-mark { display: block; width: 1.5rem; height: 1.5rem; } .ds-mark-whole { fill: var(--mark, #5c9748); } .ds-mark-cut { fill: var(--mark-cut, #90c080); } .ds-wordmark { padding-bottom: 0.08em; font: 400 1.4375rem/1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; letter-spacing: 0; }"
     }
   ],
   "narrative": {
-    "northStar": "The Well-Lit Workbench",
-    "overview": "Tessera is a maker's bench under one warm lamp, not a drawing office. A dark espresso bar anchors the top of every page; beneath it a warm off-white ground carries soft, rounded panels lifted on brown (never grey) shadows. The render of the wall is the product and takes most of the screen; the interface around it is quiet, tactile and legible, so the brightest things in view are always the maker's own tile color and relief. Every screen is lit from the same corner, the upper left: the 3D lamp, the relief chips' hillshade and the home hero's lamp all agree.\n\nColor carries one job at a time. One accent, drawn from the tile color the maker chose, is the primary action, selection and focus; red means only \"cut, or wrong\"; a fixed green is the exact-fit tick and amber the caution. The chosen tile color also washes the bench at 8%, so picking Teal turns the page teal without ever pushing text under AA. Type is Archivo throughout, in sentence case, with tabular figures on every measurement. Density is moderate: a studio rail of numbered steps separated by single hairlines, controls grouped in recessed wells, and every rarely touched knob folded behind one labelled lid that states on its face whether anything behind it has moved.\n\nThe system rejects two things equally, both confirmed by the direction contract: the grey form-sidebar configurator, and the drafting-sheet instrument panel this app used to be (square corners, a 2 px ink frame, lettered sheet borders, expanded uppercase labels, red primary action, chalk-blue focus). The older \"Visual world\" section of `docs/architecture.md` describes that retired world and is superseded by this file and `src/styles/_tokens.scss`.",
+    "northStar": "The Pattern Book",
+    "overview": "Tessera is the pattern book a tile works would print: every page is a sheet of heavy, grained grey stock bound under a dark espresso bar, printed in black ink and one spot ink, the tile's own color. Nothing on the page glows; everything is printed. Titles are set in Basteleur, a display face with the swash and ink trap of a trade catalogue, and everything read or operated is set in Archivo. No rule is drawn across a page: a plate is told from the next by its number, its title and the air around it. The spot ink lies on the stock as grainy clouds, each spent to nothing before every edge of its own box, so picking Teal reprints every cloud in teal while the type stays black.\n\nThe home page is the book itself: a title page with the visitor's wall as its frontispiece, a run of numbered plates (how it cuts, the patterns, the zip, how it goes up, the questions) and a colophon that sends the reader to the studio. The working pages (studio, download, fit test, history) are printed on the same stock, with Basteleur titles, and the download, fit test and history pages open with their title over a faint cloud of spot ink; underneath, they keep the studio's rounded warm panels, its one-accent controls and its component inventory, because a page is printed but the controls on it are pressed. The 3D render and the hero wall stay lit objects: they are the product, photographed, standing on the printed page. The render stands on its own neutral plate inside a rounded frame, and only the tiles in it are lit.\n\nThe system rejects the category's clean SaaS hero, the lamp-lit workbench it replaced (a warm #F2EADC ground, Archivo alone, light pooling on the page), the older drafting-sheet instrument panel (a 2 px ink frame round the whole sheet, lettered sheet borders, sheet feet, expanded uppercase labels, a red primary action, chalk-blue focus), and decorative horizontal rules: the double ink rule the first Pattern Book pass drew over every head, caption, colophon and footer was taken out at the user's request. The \"Visual world\" section of `docs/architecture.md` still describes the drafting sheet and is superseded by this file and `src/styles/_tokens.scss`.",
     "keyCharacteristics": [
-      "Espresso bar over a warm ground; rounded warm panels; one recessed tone for wells, pills and strips; one hairline.",
-      "One accent, derived from the tile color with an enforced contrast floor, for action, selection and focus.",
-      "The relief and color samples are the brightest, least captioned things on screen.",
-      "Archivo only, sentence case, tabular figures, weights 600 to 700 doing the hierarchy.",
-      "One light source, upper left, on every rendered or painted surface.",
-      "Motion settles from an already-legible start, and collapses to nothing under reduced motion."
+      "Grained grey stock (#E9E5DD with its tooth) under every page, bound by the espresso bar; the grain is part of the ground, never a separate effect.",
+      "Black ink plus one spot ink, the tile color, laid as grainy clouds spent to nothing at every edge. Text stays achromatic; color lives in the clouds, the wall, the plate numbers and the one action.",
+      "Basteleur for titles only, at one weight; Archivo for every word read or operated.",
+      "A headline of one size that breaks into four ragged lines on a narrow measure; the colophon's closing sentence is the largest type in the book.",
+      "No decorative rules: plates are parted by number, title and air. A hairline is a panel's border or a row in a table, a list or the studio rail, and nothing else.",
+      "Printed things are square; things a hand presses are round.",
+      "The ink pass: a cloud prints in from a few pixels off register as its plate is reached."
     ],
     "rules": [
       {
+        "name": "The One Ink Rule",
+        "body": "The book is printed in black plus one spot ink, the tile color. A second hue never appears in a cloud, a title or a figure; clouds own whole fields at page scale and are never scattered as accents.",
+        "section": "colors"
+      },
+      {
+        "name": "The Spot Ink Floor Rule",
+        "body": "Clouds print in `--spot-ink`, never in `--filament` directly: its 0.62 lightness floor is what keeps display type and plate numbers legible on a black tile's cloud.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cloud Ceiling Rule",
+        "body": "Measured on a black tile's cloud, where the spot ink bottoms out: Ink 3 text stands on 12% of a cloud at most (4.55:1), Ink 2 on 26% (4.89:1), and Ink on any strength the book prints (5.89:1 at 80%). A working page's head cloud peaks at 12%. The home page's denser clouds (42% to 80% at their core) lie behind display type, the wall, the kit's pieces or empty stock, and every line of Archivo beside them stands on their fringe.",
+        "section": "colors"
+      },
+      {
         "name": "The One Accent Rule",
-        "body": "The accent means action, selection or focus, and one accent-filled primary button per screen. It is never decoration, never a status color and never a heading color on the operating surfaces.",
+        "body": "The accent means action, selection or focus, and one accent-filled primary button per screen. Its only other use is the home page's plate numbers, the plate's mark. It is never a status color.",
         "section": "colors"
       },
       {
@@ -611,28 +729,48 @@
       },
       {
         "name": "The Mark's Own Floor Rule",
-        "body": "The mark wears the tile color, never the accent, and keeps its own floor of 2.5:1 on the espresso bar: the tile color itself when it reaches that, otherwise the darkest color of its hue that does, capped at OKLCH lightness 0.93. The cut pieces sit one step (0.14) lighter at 80% of the chroma, or one step darker at 90% on a tile paler than 0.78, so the cuts always read against the whole tile.",
-        "section": "colors"
-      },
-      {
-        "name": "The 8% Wash Rule",
-        "body": "The tile color may tint the bench at 8% at most where text sits on it (a pure black tile still leaves Ink 3 at 5.25:1), and at 12% only where no text sits. Nothing lighter than Ink 3 goes on the wash.",
+        "body": "The mark wears the tile color, never the accent, and keeps its own floor of 2.5:1 on the espresso bar: the tile color itself when it reaches that, otherwise the darkest color of its hue that does, capped at OKLCH lightness 0.93. The cut pieces sit one step (0.14) lighter at 80% of the chroma, or one step darker at 90% on a tile paler than 0.78.",
         "section": "colors"
       },
       {
         "name": "The Red Means Cut Rule",
-        "body": "Red is reserved for cut pieces and for what is wrong. It is never a primary action, never a brand color.",
+        "body": "On the working surfaces red is reserved for cut pieces and what is wrong, never an action or a brand color. The home page scopes `--cut` and `--cut-soft` to the accent, so its plates print their cut pieces and cut marks in the one spot ink and the hatching alone says \"cut\".",
         "section": "colors"
       },
       {
+        "name": "The Titles Only Rule",
+        "body": "Basteleur sets h1 to h3, plate numbers, plate captions and the wordmark, and nothing else. A button, a label, a field, a value, a table or a paragraph is Archivo.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Weight Rule",
+        "body": "Basteleur has one weight, declared at 400, with `font-synthesis: none` and zero tracking (the `display` mixin). Never ask it for bold or italic; hierarchy in it comes from size alone.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ragged Headline Rule",
+        "body": "The headline is one size on a narrow measure and is left to break where it falls: never split it into a giant first word and a smaller tail, and never balance it square.",
+        "section": "typography"
+      },
+      {
         "name": "The Sentence Case Rule",
-        "body": "Labels, buttons, tabs and headings are sentence case. The expanded uppercase lettering of the drafting world is retired; the only uppercase in the system is a hex code, which reads as a code.",
+        "body": "Labels, buttons, tabs, headings and dimension tags (\"60 cm\") are sentence case. The only uppercase in the system is a hex code, which reads as a code.",
         "section": "typography"
       },
       {
         "name": "The Tabular Figures Rule",
-        "body": "Every measurement, count and value is set with tabular figures, so columns of numbers and live-updating values never shift.",
+        "body": "Every measurement, count and value is set with tabular figures.",
         "section": "typography"
+      },
+      {
+        "name": "The Printed Page Rule",
+        "body": "The page itself is never lit: no light pools, glows or vignettes on the stock, and no lamp on the 3D view's frame. Color on the page is ink, laid as a grained cloud; only rendered objects (the tiles in the 3D view, the relief chips, the hero wall) carry light.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Spent Edge Rule",
+        "body": "A cloud is an ellipse that fills its own box and is spent to nothing at every edge of it (the `ink-cloud` mixin: `closest-side`, flat to half its radius, 45% of its peak at three quarters, gone at the edge), so no box, window or neighbour can ever cut it square. Place and size the box; never mask a cloud with a straight edge or print a solid block of ink behind an object.",
+        "section": "elevation"
       },
       {
         "name": "The Warm Shadow Rule",
@@ -641,45 +779,44 @@
       },
       {
         "name": "The Well Needs a Panel Rule",
-        "body": "The recessed bench tone reads only on a panel: on the ground it is one step away (#EFE7D8 on #F2EADC) and a callout set in it vanishes. A well sits inside a panel (the fit test's \"You will need\" opens the step card); anything standing on the ground is a panel with a hairline (the download page's \"Test first\").",
-        "section": "elevation"
-      },
-      {
-        "name": "The Rule That Says Something Rule",
-        "body": "A hairline divides the rows of a list, a table or an accordion, the numbered steps of the rail and of a guide, and a pinned bar from what scrolls under it. It never runs on after a label, sits between a caption and what it names, rules off a card that already has an edge, or divides the lines inside one table row: space does those jobs.",
+        "body": "The recessed mat reads only on a panel: a well sits inside a panel, and anything standing on the stock is a panel with a hairline.",
         "section": "elevation"
       },
       {
         "name": "The One Lamp Rule",
-        "body": "Light comes from the upper left on every surface: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26), the hero wall's lamp gradient and the shadows that fall down and to the right. A new lit surface takes the same corner.",
+        "body": "Rendered objects are lit from the upper left: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26) and the hero wall's face light and shadow. A new rendered surface takes the same corner.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do read `--accent` and its four companions for every action, selection and focus, and let `accentPalette` hold the 6.5:1 floor for any tile color.",
-      "Do keep one accent-filled primary button per screen, at the 54 px size when it closes the screen.",
-      "Do lift surfaces with the warm Rest or Lift shadow plus a hairline, and sink wells into the recessed bench tone, only ever inside a panel.",
-      "Do round everything: 11, 14 or 22 px, 8 px for controls nested in a track, full pills for counts, badges and step numbers.",
-      "Do set every measurement and count in tabular figures, and every label in sentence case.",
-      "Do light every new rendered or painted surface from the upper left.",
-      "Do say on a lid's face what has moved behind it.",
-      "Do give every target 24 px, and 44 px under a coarse pointer.",
-      "Do start every entrance from an already-legible state, with a fallback that shows the content if the entrance never runs, and collapse motion to nothing under reduced motion (`--t-fast`, `--t-med`, `--t-slow` already go to 0 ms).",
-      "Do redraw every state carried by color (selected, cut, pressed) in system colors or in a shape under forced colors."
+      "**Do** paint every stock surface with its grain (the `stock` mixin), never flat `--ground`.",
+      "**Do** print every cloud in `--spot-ink` through the `ink-cloud` mixin (or `head-wash` at the head of a working page): size and place its box and let the cloud spend itself before every edge.",
+      "**Do** hold Ink 3 text to 12% of a cloud and Ink 2 to 26%, and keep Archivo on a denser cloud's fringe.",
+      "**Do** part plates and page heads by number, title and air, and keep the hairline for borders and for rows in a table, a list or the studio rail.",
+      "**Do** step a bordered control's hairline to Hairline Strong (`--rule-strong`) on hover.",
+      "**Do** keep Basteleur to titles at its one declared weight, and set every other word in Archivo.",
+      "**Do** make printed things square (drawing mats at 2 px, swatches at 3 px) and pressed or mounted things round (11, 14, 22 px, 8 px nested, pills).",
+      "**Do** set the 3D render on the Stage Plate and clip its canvas to its host's corners through `--view-radius`.",
+      "**Do** read `--accent` and its companions for action, selection and focus, and keep one accent-filled primary button per screen.",
+      "**Do** set every measurement and count in tabular figures, and every label in sentence case.",
+      "**Do** give every target 24 px, and 44 px under a coarse pointer.",
+      "**Do** start every entrance from a legible state (a cloud from 35% off register, never from nothing) and collapse motion under reduced motion.",
+      "**Do** redraw every color-carried state under forced colors, and drop the clouds there."
     ],
     "donts": [
-      "Don't bring back the drafting sheet: square corners, a 2 px ink frame, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
-      "Don't build a grey form-sidebar configurator; the render leads and the rail is warm.",
-      "Don't put the accent on the espresso bar, or use it as decoration or status.",
-      "Don't draw the mark in the accent or a fixed green, or give it relief, a bevel or a shadow: it is flat, in `--mark` and `--mark-cut`.",
-      "Don't use red for anything but cut pieces and what is wrong.",
-      "Don't tint the bench above 8% where text sits, or set anything lighter than Ink 3 on the wash.",
-      "Don't use grey or black shadows, or hard offset shadows.",
-      "Don't set a recessed well straight on the ground, or draw a hairline that only repeats what space or a card's edge already says.",
-      "Don't caption the swatches or relief samples, or draw anything brighter than them on the operating surfaces.",
-      "Don't select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
-      "Don't use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code; they exist only so older files resolve.",
-      "Don't introduce a second typeface or a system display face; Archivo is the whole voice."
+      "**Don't** print a second hue: no multi-color gradients, no clouds in anything but the spot ink, no colored body text.",
+      "**Don't** draw a decorative rule: no rule over a plate or a page head, a caption, the colophon or the footer, and no divider between questions.",
+      "**Don't** cut a cloud square: no straight-edged mask, no solid block of ink behind an object.",
+      "**Don't** light the page: no light pools, glows or vignettes on the stock and no lamp on the view frame; light belongs to rendered objects.",
+      "**Don't** set Basteleur in bold, italic or synthesized weights, or use it for a button, a label, a value or a paragraph.",
+      "**Don't** split the headline into sizes or balance it square.",
+      "**Don't** bring back the drafting sheet: a 2 px ink frame round the page, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
+      "**Don't** put the accent on the espresso bar, or use it as a status color.",
+      "**Don't** draw the mark in the accent or give it relief, a bevel or a shadow.",
+      "**Don't** use red on the working surfaces for anything but cut pieces and what is wrong.",
+      "**Don't** use grey or black shadows, or set a recessed well straight on the stock.",
+      "**Don't** select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
+      "**Don't** use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code."
     ]
   }
 }
