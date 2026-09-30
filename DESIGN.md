@@ -479,7 +479,7 @@ The home page's accordion: two columns of questions, each a bold Archivo line (1
 - **Drawing mat:** a drawn figure that is a plate of its own (the section drawings, the fixing figures) is mounted, so its mat is a 22 px panel with the Rest shadow, and its title is Basteleur. A drawn glyph inside a control (the example walls' outlines) stays square at 2 px.
 - **Paper slip:** popovers, menus and toasts at 14 px with the Lift shadow, entering with a short settle from a legible start, no animation under reduced motion.
 - **Tooltip:** a small espresso plate with Bar Cream text.
-- **Dialog:** a 22 px panel up to 46 rem wide over an espresso scrim, its title in Basteleur at 1.5 rem, its head ruled off by a hairline.
+- **Dialog:** a 22 px panel up to 46 rem wide over an espresso scrim, its title in Basteleur at 1.5 rem, its head ruled off by a hairline. A dialog that ends in an action (the sample plates) pins it in a foot ruled off the same way, which stays in view while the body scrolls under it, as the studio rail's foot does.
 
 ### Navigation (the app bar)
 - **Style:** the RUNNING HEAD printed at the top of the sheet. There is no dark slab: the 56 px bar is the same grained stock as everything under it, so the whole site is one continuous page and the tile's colour is the only colour on it. The identity is a printed LABEL instead: the mark on its own 30 px espresso plate (the same plate the tab icon wears, which is why the mark's contrast floor did not have to move) beside the wordmark in Basteleur and full ink. Then the design's name edited in place, the Studio and History tabs, and undo, redo and the shortcut key.

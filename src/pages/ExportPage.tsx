@@ -1,7 +1,7 @@
 // The handover: what you designed, one button that gives you all of it, and the detail behind it.
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, Link2, Paperclip, X } from 'lucide-react'
+import { ArrowLeft, Box, Download, FileDown, FileText, LayoutGrid, Link2, Paperclip, Printer, X } from 'lucide-react'
 import { track, trackDownloadFailure, trackZip } from '@/app/analytics'
 import { CopyLinkButton } from '@/app/CopyLinkButton'
 import { studioIntent } from '@/app/prefetchStudio'
@@ -25,6 +25,7 @@ import { ScheduleTable } from '@/features/export/ScheduleTable'
 import { estimateDownloadBytes, formatBytes, formatGrams } from '@/features/export/sizes'
 import { testSwatch } from '@/features/export/testSwatch'
 import { partsTitle, zipContents, type ZipLineKind } from '@/features/export/zipContents'
+import { SamplePlatesDialog } from '@/features/samples/SamplePlatesDialog'
 import { PENDING_DELAY_MS, useDelayedFlag } from '@/features/studio/useDelayedFlag'
 import { downloadBlob, geometryKey, useExport, useFilamentEstimate, useLayout } from '@/hooks'
 import { useDesign } from '@/state/designStore'
@@ -85,6 +86,7 @@ export function ExportPage() {
   const [job, setJob] = useState<Job | null>(null)
   const [highlightPieceId, setHighlightPieceId] = useState<string | null>(null)
   const [viewPending, setViewPending] = useState(true)
+  const [samplesOpen, setSamplesOpen] = useState(false)
 
   // A design can arrive in the address bar: it wins over whatever this browser last held.
   useDesignFromLink()
@@ -454,18 +456,29 @@ export function ExportPage() {
             <div className={styles.testTile}>
               <p className={styles.testTileLabel}>Test first</p>
               <p id={testTileNoteId} className={styles.secondaryNote}>
-                One 60 × 60 mm tile of the same relief and color: worth an hour before you print{' '}
-                {plural(tiles, 'tile', 'tiles')}.
+                One 60 × 60 mm tile of the same relief and color, or a plate of samples cut from your own tile, of
+                this relief alone or of every relief: worth an hour before you print {plural(tiles, 'tile', 'tiles')}.
               </p>
-              <Button
-                variant="secondary"
-                leadingIcon={<Download />}
-                disabled={busy}
-                aria-describedby={testTileNoteId}
-                onClick={downloadTestTile}
-              >
-                Download a test tile (.{format})
-              </Button>
+              <div className={styles.testTileActions}>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Download />}
+                  disabled={busy}
+                  aria-describedby={testTileNoteId}
+                  onClick={downloadTestTile}
+                >
+                  Download a test tile (.{format})
+                </Button>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Printer />}
+                  disabled={busy}
+                  aria-describedby={testTileNoteId}
+                  onClick={() => setSamplesOpen(true)}
+                >
+                  Sample plates for your printer
+                </Button>
+              </div>
             </div>
             <Button variant="ghost" leadingIcon={<FileDown />} onClick={downloadPlan}>
               Download the plan only (.svg)
@@ -511,6 +524,8 @@ export function ExportPage() {
       )}
 
       <MountingGuide guide={guide} />
+      {/* Here the relief is chosen and the wall is next, so the dialog opens on this relief alone. */}
+      <SamplePlatesDialog open={samplesOpen} onOpenChange={setSamplesOpen} config={config} defaultScope="yours" />
     </div>
   )
 }

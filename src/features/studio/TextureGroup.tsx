@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Printer } from 'lucide-react'
 import { DEFAULT_CONFIG } from '@/core/config'
 import { TEXTURES, textureById } from '@/core/textures/registry'
+import { SamplePlatesDialog } from '@/features/samples/SamplePlatesDialog'
 import { useTextureChips, type ChipItem } from '@/hooks'
-import { TextureChipGrid } from '@/ui'
+import { Button, TextureChipGrid } from '@/ui'
 import { FieldGroup } from './FieldGroup'
 import styles from './studio.module.scss'
 import type { CellProps } from './types'
@@ -13,7 +15,8 @@ const CHIP_PX = 160
 /**
  * Choice 4: the relief. The lit samples are the most beautiful thing on the screen and the reason
  * anyone is here, so they are shown as a wall of relief with no captions between them; the chosen
- * one is named in the heading. Every knob that shapes a pattern is in Advanced.
+ * one is named in the heading. Every knob that shapes a pattern is in Advanced. Under the wall, the
+ * one way to settle the choice a screen cannot: printing every relief to hold (the sample plates).
  */
 export function TextureGroup({ config, update }: CellProps) {
   const chosen = textureById(config.texture.id)
@@ -42,6 +45,7 @@ export function TextureGroup({ config, update }: CellProps) {
     [color, tileWidth, tileHeight],
   )
   const chips = useTextureChips(config, chipItems, CHIP_PX)
+  const [samplesOpen, setSamplesOpen] = useState(false)
 
   return (
     <FieldGroup step={4} title="Texture" now={chosen.name}>
@@ -71,6 +75,13 @@ export function TextureGroup({ config, update }: CellProps) {
           }))
         }}
       />
+      <div className={styles.samplePlates}>
+        <Button variant="secondary" size="sm" leadingIcon={<Printer />} onClick={() => setSamplesOpen(true)}>
+          Print sample plates
+        </Button>
+        <span className={styles.hint}>Every relief cut from your tile, laid out for your printer.</span>
+      </div>
+      <SamplePlatesDialog open={samplesOpen} onOpenChange={setSamplesOpen} config={config} />
     </FieldGroup>
   )
 }

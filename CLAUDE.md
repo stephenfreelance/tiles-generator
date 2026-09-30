@@ -3,8 +3,11 @@
 Frontend-only React + Vite app that turns a wall size, a tile size, a relief texture and a tile
 color into printable 3D tiles (STL / STEP / zip), with optional edge profiles, keys or moulded tabs that
 lock tiles edge to edge and printed wall clips each tile clicks onto (the download then adds their printed
-parts and a step-by-step guide, and `/fit-test` prints and zips the fit test on its own). The browser does all the work: no backend, no account, and no
-network calls at runtime but one, the anonymous GoatCounter count (see Analytics). Designs persist in localStorage.
+parts and a step-by-step guide, and `/fit-test` prints and zips the fit test on its own), plus sample
+plates: 45 mm squares of the maker's tile in every relief, laid out for their printer (`src/features/samples`,
+a dialog opened from studio step 4 and the download page's "Test first"). The browser does all the work: no
+backend, no account, and no network calls at runtime but one, the anonymous GoatCounter count (see
+Analytics). Designs persist in localStorage.
 
 The 3D preview (`src/three`, react-three-fiber) lives on `/studio` and `/download` only. The home page
 builds its wall (`src/features/landing/HeroWall.tsx` over `wallGrid.ts` and `useTextureChips`) out of
@@ -332,8 +335,8 @@ the data boundaries and the peek store), and pure helpers elsewhere have their o
 `src/app`, LOD, chip caching and the preview request in `src/hooks`, colour, shader, wave and tile-flip
 maths and the seated parts' set in `src/three`, field parsing and color-wheel maths in `src/ui`, sizing,
 plan fixes, step 6's helpers, the step-7 copy, the fit summary, the tile's back, the zip contents, the
-heavy-download rule, the drawings' and the tile-back figure's geometry and the landing samples in
-`src/features`, and the accent defaults in `src/styles`. Component behaviour is verified in a real browser instead of jsdom, which
+heavy-download rule, the drawings' and the tile-back figure's geometry, the landing samples and the
+sample plates (their set, grid, STL plate and README) in `src/features`, and the accent defaults in `src/styles`. Component behaviour is verified in a real browser instead of jsdom, which
 would need a new devDependency.
 
 Note the `.ts`-only glob: a `*.test.tsx` file is silently ignored rather than failing.

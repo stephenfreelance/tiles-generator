@@ -774,6 +774,19 @@
   --chip-min: 3.25rem;
 }
 
+// The way off the screen to the real thing: a quiet action and its reason on one line, under the wall.
+.samplePlates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  margin-top: var(--s-3);
+
+  > .hint {
+    margin-top: 0;
+  }
+}
+
 // Color: the chosen color named with its hex, the preset swatches, and the way to any other.
 .colorChosen {
   display: flex;

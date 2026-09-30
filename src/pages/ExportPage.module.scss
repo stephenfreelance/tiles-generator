@@ -349,6 +349,12 @@
   background: var(--panel);
 }
 
+.testTileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
 .testTileLabel {
   color: var(--ink);
   font-size: var(--text-sm);
