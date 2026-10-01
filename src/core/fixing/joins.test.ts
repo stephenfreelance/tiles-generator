@@ -4,10 +4,12 @@ import { pieceTopSampler } from '../geometry/heightfield'
 import { checkMesh, componentCount, downwardArea, pinchedVertices } from '../geometry/meshChecks'
 import { pointInRing, ringBounds, ringSelfIntersects, ringsTouch, signedArea } from '../geometry/polygon'
 import { resolveJointEdge } from '../geometry/profiles'
+import { meshDigest } from '../geometry/testDigest'
 import { computeLayout, layoutInputOf } from '../layout'
 import { hasSide } from '../sides'
 import { createHeightField } from '../textures/registry'
-import type { DesignConfig, LayoutPlan, PieceSpec, Side } from '../types'
+import type { DesignConfig, FitClass, LayoutPlan, MeshData, PieceSpec, Side } from '../types'
+import { digitRing, FIT_DIGIT } from './fitDigit'
 import {
   buildKeyMesh,
   joinPlan,
@@ -21,7 +23,7 @@ import {
   type KeyGeometry,
   wallKeySpec,
 } from './joins'
-import type { BackFeature } from './types'
+import type { AccessorySpec, BackFeature } from './types'
 
 // Keys only work when two neighbours' notches meet, so these pin the lattice, the notch rules and the
 // counts from the placements, plus the solids the mesher and the printer receive.
@@ -660,7 +662,7 @@ describe('keyAccessories', () => {
     expect(keyAccessories(config, layoutOf(config))).toEqual([])
   })
 
-  it('makes the fit-test keys with their own clearance and marks', () => {
+  it('makes the fit-test keys with their own clearance and digit', () => {
     const config = design()
     const specs = ([1, 2, 3] as const).map((m, i) => keySpecForFit(config, (['snug', 'standard', 'loose'] as const)[i], m))
     expect(specs.map((s) => s?.shape.clearance)).toEqual([0.05, 0.1, 0.15])
@@ -670,6 +672,79 @@ describe('keyAccessories', () => {
     expect(keySpecForFit(design({ thickness: 3 }), 'standard', 2)).toBeNull()
   })
 })
+
+const FITS: FitClass[] = ['snug', 'standard', 'loose']
+/** Grid cells each digit fills (fitDigit.test.ts pins them). */
+const CELLS = { 1: 8, 2: 11, 3: 10 } as const
+
+/** Least distance from (x, y) to the segment [ax, ay, bx, by]. */
+function toSegment(x: number, y: number, [ax, ay, bx, by]: number[]): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+  return Math.hypot(x - ax - t * dx, y - ay - t * dy)
+}
+
+/**
+ * What a key's mesh shows of a digit: the heights of its floors (flat faces looking up below the top face),
+ * their area and box, and the least gap between the digit and the edge of the flat top face around it.
+ */
+function digitOf(mesh: MeshData) {
+  const p = mesh.positions
+  let top = 0
+  for (let i = 2; i < p.length; i += 3) top = Math.max(top, p[i])
+  const floors = new Set<number>()
+  const floorPoints = new Set<string>()
+  const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+  let floorArea = 0
+  const edges = new Map<string, { uses: number; edge: number[] }>()
+  const at = (i: number) => `${p[i]},${p[i + 1]}`
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const v = [0, 1, 2].map((k) => 3 * mesh.indices[t + k])
+    const z = p[v[0] + 2]
+    if (p[v[1] + 2] !== z || p[v[2] + 2] !== z) continue
+    const area = ((p[v[1]] - p[v[0]]) * (p[v[2] + 1] - p[v[0] + 1]) - (p[v[1] + 1] - p[v[0] + 1]) * (p[v[2]] - p[v[0]])) / 2
+    if (!(area > 0)) continue
+    if (z < top) {
+      floors.add(z)
+      floorArea += area
+      for (const i of v) {
+        floorPoints.add(at(i))
+        box.minX = Math.min(box.minX, p[i])
+        box.maxX = Math.max(box.maxX, p[i])
+        box.minY = Math.min(box.minY, p[i + 1])
+        box.maxY = Math.max(box.maxY, p[i + 1])
+      }
+      continue
+    }
+    for (let k = 0; k < 3; k++) {
+      const a = v[k]
+      const b = v[(k + 1) % 3]
+      const key = [at(a), at(b)].sort().join(' ')
+      const seen = edges.get(key)
+      if (seen) seen.uses++
+      else edges.set(key, { uses: 1, edge: [p[a], p[a + 1], p[b], p[b + 1]] })
+    }
+  }
+  // The top face's boundary: the edges only one of its triangles uses, around the digit or around the key.
+  const hole: number[][] = []
+  const rim: number[][] = []
+  for (const { uses, edge } of edges.values()) {
+    if (uses !== 1) continue
+    if (floorPoints.has(`${edge[0]},${edge[1]}`) && floorPoints.has(`${edge[2]},${edge[3]}`)) hole.push(edge)
+    else rim.push(edge)
+  }
+  let gap = Infinity
+  for (const [from, to] of [
+    [hole, rim],
+    [rim, hole],
+  ]) {
+    for (const e of from) for (const s of to) gap = Math.min(gap, toSegment(e[0], e[1], s), toSegment(e[2], e[3], s))
+  }
+  // The floor's corners, to a ten-thousandth of a mm: what tells a digit from its mirror or a turned one.
+  const corners = new Set([...floorPoints].map((point) => point.split(',').map((v) => Number(v).toFixed(4)).join(',')))
+  return { floors: [...floors], floorArea, box, gap, corners }
+}
 
 describe('buildKeyMesh', () => {
   const expectPrintable = (config: DesignConfig, spec: ReturnType<typeof keyAccessories>[number]) => {
@@ -695,7 +770,7 @@ describe('buildKeyMesh', () => {
     // Between the outline's footprint at the top and at the bottom, times the thickness.
     expect(check.volume).toBeLessThan(spec.size.x * spec.size.y * spec.size.z)
     expect(check.volume).toBeGreaterThan(0.6 * spec.size.x * spec.size.y * spec.size.z)
-    return check.volume
+    return mesh
   }
 
   it('builds a closed, flat-printable key for every design variant', () => {
@@ -707,13 +782,94 @@ describe('buildKeyMesh', () => {
     }
   })
 
-  it('builds the marked fit-test keys, the marks taking a little off one end', () => {
+  it('engraves each fit-test key with its digit, sunk into the top of its +x head', () => {
+    for (const config of [design(), design({ thickness: 6 }), design({ tile: 20 })]) {
+      for (const fit of FITS) {
+        const digit = FIT_DIGIT[fit]
+        const spec = keySpecForFit(config, fit, digit) as AccessorySpec
+        const mesh = expectPrintable(config, spec)
+        const plain = buildKeyMesh(config, { ...spec, shape: { ...spec.shape, marks: 0 } })
+        const name = `${spec.id} ${fit}`
+        const cut = digitOf(mesh)
+        // One 12-vertex pocket: 4 triangles a vertex, a single flat floor two layers down.
+        expect(mesh.indices.length / 3, name).toBe(plain.indices.length / 3 + 48)
+        expect(cut.floors, name).toHaveLength(1)
+        expect(cut.floors[0], name).toBeCloseTo(spec.size.z - 0.4, 5)
+        expect(cut.floorArea, name).toBeCloseTo(CELLS[digit] * 0.8 * 0.8, 4)
+        expect(checkMesh(plain).volume - checkMesh(mesh).volume, name).toBeCloseTo(cut.floorArea * 0.4, 4)
+        // 2.4 x 4 mm, centred on the +x head (5.5 mm out from the middle of a key for a closed joint), upright across it.
+        expect(cut.box.maxX - cut.box.minX, name).toBeCloseTo(2.4, 4)
+        expect(cut.box.maxY - cut.box.minY, name).toBeCloseTo(4, 4)
+        expect((cut.box.minX + cut.box.maxX) / 2, name).toBeCloseTo(spec.size.x / 2 + 5.5, 4)
+        expect((cut.box.minY + cut.box.maxY) / 2, name).toBeCloseTo(spec.size.y / 2, 4)
+        // Read from above as printed: the digit's own corners, not its mirror or a turn of it.
+        const ring = digitRing(digit, 0.8, spec.size.x / 2 + 5.5, spec.size.y / 2)
+        const want = new Set(Array.from({ length: ring.length / 2 }, (_, k) => `${ring[2 * k].toFixed(4)},${ring[2 * k + 1].toFixed(4)}`))
+        expect(cut.corners, name).toEqual(want)
+      }
+    }
+    // At the default: the wall key's 356 triangles and the digit's 48.
     const config = design()
-    const plain = expectPrintable(config, keySpecForFit(config, 'standard', 2) as NonNullable<ReturnType<typeof keySpecForFit>>)
-    const volumes = ([1, 2, 3] as const).map((m) => expectPrintable(config, keySpecForFit(config, 'standard', m) as NonNullable<ReturnType<typeof keySpecForFit>>))
-    expect(volumes[0]).toBeGreaterThan(volumes[1])
-    expect(volumes[1]).toBe(plain)
-    expect(volumes[1]).toBeGreaterThan(volumes[2])
+    expect(buildKeyMesh(config, keySpecForFit(config, 'standard', 2) as AccessorySpec).indices.length / 3).toBe(356 + 48)
+  })
+
+  it('centres the digit on the head whatever the joint the key spans', () => {
+    const config = design({ joint: 4 })
+    const wall = wallKeySpec(config) as AccessorySpec
+    const spec = { ...wall, shape: { ...wall.shape, marks: 3 } }
+    const g = geometryOf(config)
+    const box = digitOf(expectPrintable(config, spec)).box
+    expect((box.minX + box.maxX) / 2).toBeCloseTo(spec.size.x / 2 + (g.neck + g.reach + 4) / 2, 4)
+  })
+
+  it('keeps the digit 0.8 mm inside the flat top of the head, and 0.6 mm of key under it, on every key there is', () => {
+    const thicknesses = new Set<number>()
+    const heads = new Set<number>()
+    for (const tile of [20, 30, 32, 34, 36]) {
+      for (let k = 0; k <= 10; k++) {
+        const config = design({ tile, thickness: 4 + k * 0.2, over: { jointEdge: 'chamfer', bevel: 1.2 } })
+        for (const fit of FITS) {
+          const spec = keySpecForFit(config, fit, FIT_DIGIT[fit])
+          if (!spec) continue
+          const name = `${spec.id} ${fit}`
+          const thickness = spec.size.z
+          thicknesses.add(thickness)
+          heads.add(geometryOf(config).headWidth)
+          const cut = digitOf(expectPrintable(config, spec))
+          expect(cut.gap, name).toBeGreaterThanOrEqual(0.8 - 1e-4)
+          expect(cut.gap, name).toBeLessThan(1)
+          // Two layers deep, one on a key under 1.2 mm: a 0.8 mm key keeps 0.6 mm under it.
+          const depth = thickness - cut.floors[0]
+          expect(depth, name).toBeCloseTo(thickness < 1.2 - 1e-9 ? 0.2 : 0.4, 5)
+          expect(cut.floors[0], name).toBeGreaterThanOrEqual(0.6 - 1e-5)
+        }
+      }
+    }
+    expect([...heads].sort((a, b) => a - b)).toEqual([8, 9, 10, 11, 12])
+    expect([...thicknesses].sort((a, b) => a - b)).toEqual([0.8, 1, 1.2, 1.4, 1.6, 1.8, 2, 2.2, 2.4, 2.6])
+    // The thinnest key takes one layer, the default 1.4 mm key two.
+    const thinConfig = design({ thickness: 4, over: { jointEdge: 'chamfer', bevel: 1.2 } })
+    const thin = keySpecForFit(thinConfig, 'loose', 3) as AccessorySpec
+    expect(thin.size.z).toBe(0.8)
+    expect(thin.size.z - digitOf(buildKeyMesh(thinConfig, thin)).floors[0]).toBeCloseTo(0.2, 5)
+    const standard = keySpecForFit(design(), 'standard', 2) as AccessorySpec
+    expect(standard.size.z).toBe(1.4)
+    expect(standard.size.z - digitOf(buildKeyMesh(design(), standard)).floors[0]).toBeCloseTo(0.4, 5)
+  })
+
+  it('leaves the wall key as it always was, with no digit', () => {
+    const config = design()
+    const mesh = buildKeyMesh(config, wallKeySpec(config) as AccessorySpec)
+    // The triangles and the volume it had before the fit test's keys carried a digit.
+    expect(mesh.indices.length / 3).toBe(356)
+    expect(checkMesh(mesh).volume).toBeCloseTo(205.10327832526573, 9)
+    expect(digitOf(mesh).floors).toEqual([])
+    // Byte for byte, at every fit: the digests of the wall keys built before the fit test's keys took a digit.
+    const before = { snug: '1635151a', standard: 'dc0f11be', loose: 'c89073bc' }
+    for (const fit of ['snug', 'standard', 'loose'] as const) {
+      const fitted = design({ over: { fit } })
+      expect(meshDigest(buildKeyMesh(fitted, wallKeySpec(fitted) as AccessorySpec)), fit).toBe(before[fit])
+    }
   })
 
   it('fits the key in the notches j apart with the clearance all round', () => {

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { MeshData } from '../types'
 import { checkMesh, componentCount, downwardArea, pinchedVertices } from './meshChecks'
 import { offsetRing, reverseRing, ringFromRect, signedArea } from './polygon'
-import { extrudeProfileX, loftSolid, type ProfileCut } from './prism'
+import { extrudeProfileX, loftSolid, type LoftRecess, type LoftSection, type ProfileCut } from './prism'
+import { meshDigest } from './testDigest'
 
 const flatten = (points: [number, number][]) => Float64Array.from(points.flat())
 
@@ -139,6 +140,120 @@ describe('loftSolid', () => {
       ]),
     ).toThrow(/nest/)
     expect(() => loftSolid([{ z: 1, ring: square }, { z: 0, ring: square }])).toThrow(/rise/)
+  })
+})
+
+/** Area of the flat faces lying at height z and looking up. */
+function upwardAreaAt(mesh: MeshData, z: number): number {
+  const p = mesh.positions
+  let area = 0
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const [a, b, c] = [mesh.indices[t], mesh.indices[t + 1], mesh.indices[t + 2]].map((i) => 3 * i)
+    if (p[a + 2] !== Math.fround(z) || p[b + 2] !== p[a + 2] || p[c + 2] !== p[a + 2]) continue
+    area += Math.max(0, ((p[b] - p[a]) * (p[c + 1] - p[a + 1]) - (p[b + 1] - p[a + 1]) * (p[c] - p[a])) / 2)
+  }
+  return area
+}
+
+describe('loftSolid recesses', () => {
+  // A 20 x 10 x 3 box, a concave L-shaped pocket (as a digit is) and a square one beside it.
+  const slab = (): LoftSection[] => [
+    { z: 0, ring: ringFromRect(0, 0, 20, 10) },
+    { z: 3, ring: ringFromRect(0, 0, 20, 10) },
+  ]
+  const ell = flatten([
+    [2, 2],
+    [8, 2],
+    [8, 4],
+    [4, 4],
+    [4, 8],
+    [2, 8],
+  ])
+  const square = ringFromRect(12, 3, 16, 7)
+
+  it('sinks pockets into the top face: a closed solid less their volume, 4n triangles each, nothing facing down', () => {
+    const plain = loftSolid(slab())
+    const one = loftSolid(slab(), [{ ring: ell, depth: 1 }])
+    expectSolid(one, 600 - 20)
+    expectNormalsAgree(one)
+    expect(one.indices.length - plain.indices.length).toBe(3 * 4 * 6)
+    expect(downwardArea(one, 0)).toBe(0)
+    // The floor lies flat and looks up; the top face keeps the rest.
+    expect(upwardAreaAt(one, 2)).toBeCloseTo(20, 9)
+    expect(upwardAreaAt(one, 3)).toBeCloseTo(200 - 20, 9)
+
+    // Either winding, any depth short of the bottom.
+    const two = loftSolid(slab(), [
+      { ring: ell, depth: 1 },
+      { ring: reverseRing(square), depth: 2.4 },
+    ])
+    expectSolid(two, 600 - 20 - 16 * 2.4)
+    expectNormalsAgree(two)
+    expect(two.indices.length - plain.indices.length).toBe(3 * 4 * (6 + 4))
+    expect(downwardArea(two, 0)).toBe(0)
+    expect(upwardAreaAt(two, 3)).toBeCloseTo(200 - 20 - 16, 9)
+  })
+
+  it('leaves a loft with no recess exactly as it was', () => {
+    const sections: LoftSection[] = [
+      { z: 0, ring: bone },
+      { z: 2.3, ring: bone },
+      { z: 2.6, ring: offsetRing(bone, -0.3) },
+    ]
+    const plain = loftSolid(sections)
+    // The digest of this loft as loftSolid built it before it took recesses: any moved vertex or turned quad fails.
+    expect(meshDigest(plain)).toBe('9991a2d1')
+    expect(meshDigest(loftSolid(sections, []))).toBe('9991a2d1')
+    expect(plain.indices.length / 3).toBe(2 * (12 - 2) + 2 * 2 * 12)
+  })
+
+  it('cuts through a chamfer and below it, into the solid the outlines bound', () => {
+    // The floor at 4.5 lies inside the box below the chamfer, so the pocket's walls run through both.
+    const mesh = loftSolid(
+      [
+        { z: 0, ring: ringFromRect(0, 0, 10, 10) },
+        { z: 5, ring: ringFromRect(0, 0, 10, 10) },
+        { z: 6, ring: ringFromRect(1, 1, 9, 9) },
+      ],
+      [{ ring: ringFromRect(3, 3, 7, 7), depth: 1.5 }],
+    )
+    expectSolid(mesh, 500 + (1 / 3) * (100 + 64 + 80) - 16 * 1.5)
+    expectNormalsAgree(mesh)
+    expect(downwardArea(mesh, 0)).toBe(0)
+  })
+
+  it('refuses a pocket it cannot cut', () => {
+    const cut = (...recesses: LoftRecess[]) => () => loftSolid(slab(), recesses)
+    expect(cut({ ring: Float64Array.of(2, 2, 4, 4), depth: 1 })).toThrow(/recess has no area/)
+    expect(cut({ ring: Float64Array.of(2, 2, 4, 2, 6, 2), depth: 1 })).toThrow(/recess has no area/)
+    expect(cut({ ring: flatten([[2, 2], [6, 6], [6, 2], [2, 7]]), depth: 1 })).toThrow(/crosses itself/)
+    for (const depth of [0, -1, Number.NaN]) expect(cut({ ring: square, depth })).toThrow(/needs a depth/)
+    for (const depth of [3, 4, Infinity]) expect(cut({ ring: square, depth })).toThrow(/above the bottom face/)
+    // Out through a side, or flush with one.
+    expect(cut({ ring: ringFromRect(18, 2, 22, 6), depth: 1 })).toThrow(/strictly inside/)
+    expect(cut({ ring: ringFromRect(0, 2, 4, 6), depth: 1 })).toThrow(/strictly inside/)
+    // Two pockets sharing a wall, or one inside the other.
+    expect(cut({ ring: ringFromRect(2, 2, 6, 6), depth: 1 }, { ring: ringFromRect(6, 2, 10, 6), depth: 2 })).toThrow(/touch or overlap/)
+    expect(cut({ ring: ringFromRect(2, 2, 8, 8), depth: 1 }, { ring: ringFromRect(3, 3, 5, 5), depth: 2 })).toThrow(/touch or overlap/)
+    // Inside the top face but not inside a narrower outline it passes on the way down: under an overhang, or
+    // on the overhang's own plane, where its floor would have nothing under it.
+    const overhang: LoftSection[] = [
+      { z: 0, ring: ringFromRect(5, 2, 15, 8) },
+      { z: 1, ring: ringFromRect(5, 2, 15, 8) },
+      { z: 1, ring: ringFromRect(0, 0, 20, 10) },
+      { z: 3, ring: ringFromRect(0, 0, 20, 10) },
+    ]
+    const corner = ringFromRect(1, 1, 4, 4)
+    expect(() => loftSolid(overhang, [{ ring: corner, depth: 2.5 }])).toThrow(/strictly inside/)
+    expect(() => loftSolid(overhang, [{ ring: corner, depth: 2 }])).toThrow(/strictly inside/)
+    expectSolid(loftSolid(overhang, [{ ring: corner, depth: 1.5 }]), 60 + 400 - 9 * 1.5)
+    // Inside a flare rather than on a section: the floor at z 1 lies between the narrow base and the wide top,
+    // where the outline is narrower than the top face, so the pocket would break out through the flare.
+    const flare: LoftSection[] = [
+      { z: 0, ring: ringFromRect(5, 2, 15, 8) },
+      { z: 2, ring: ringFromRect(0, 0, 20, 10) },
+    ]
+    expect(() => loftSolid(flare, [{ ring: corner, depth: 1 }])).toThrow(/strictly inside/)
   })
 })
 

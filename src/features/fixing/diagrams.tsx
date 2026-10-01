@@ -3,12 +3,14 @@
 // two of them can show a different key or a different clip.
 //
 // Every drawing is a static inline SVG and aria-hidden: the words beside it carry the meaning, so none
-// holds a figure or a word. Lines and fills are currentColor, so a drawing inks itself in its
-// container's text color (white on a selected card included), and the printed part each one is about
-// (the adhesive, the key, the clip) takes --diagram-part, which falls back to the accent. None has a
-// width or a height of its own: the viewBox gives the proportions and the container gives the size
-// (see diagrams.module.scss).
+// holds a word. The one figure any of them holds is the digit a fit test part is cut with (1 snug to 3
+// loose), because the part itself carries it: a printed mark, drawn from the same outline, not a word.
+// Lines and fills are currentColor, so a drawing inks itself in its container's text color (white on a
+// selected card included), and the printed part each one is about (the adhesive, the key, the clip)
+// takes --diagram-part, which falls back to the accent. None has a width or a height of its own: the
+// viewBox gives the proportions and the container gives the size (see diagrams.module.scss).
 import { useId } from 'react'
+import { isFitDigit, type FitDigit } from '@/core/fixing/fitDigit'
 import type { AccessoryKind } from '@/core/fixing/types'
 import type { JointEdgeProfile, PerimeterProfile } from '@/core/types'
 import { cx } from '@/ui/cx'
@@ -28,8 +30,11 @@ import {
   clipSectionPath,
   clipStopsSectionPath,
   clipWallTiles,
+  digitIn,
+  digitPath,
   JOINT_GAP,
   JOINT_Y,
+  keyHead,
   keyPath,
   keySpots,
   SCREW_SECTION,
@@ -112,6 +117,14 @@ function ClipPlanShape({ plan, className = styles.part }: { plan: ClipPlan; clas
 function Box({ box, rx = 0, className }: { box: readonly [number, number, number, number]; rx?: number; className: string }) {
   const [x0, y0, x1, y1] = box
   return <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} rx={rx} className={className} />
+}
+
+/**
+ * The digit that tells a fit test part's fit, 1 snug to 3 loose, centred on (x, y) and `height` tall. `onPart`
+ * when it is drawn on the part's own fill, which it is cut out of, so it takes a colour that reads on it.
+ */
+function Digit({ digit, x, y, height, onPart = false }: { digit: FitDigit; x: number; y: number; height: number; onPart?: boolean }) {
+  return <path d={digitPath(digit, x, y, height)} className={cx(styles.digit, onPart && styles.onPart)} />
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -318,7 +331,7 @@ const TAB_LIFT = { x: 14, y: -24 }
 export interface TabsDiagramProps extends DiagramProps {
   /**
    * The fit test's coupon pair rather than a row of the wall: coupon A with its tab, and a socket coupon
-   * over it carrying its fit marks. Default false.
+   * coming down over it, face up, so the digit in its back is out of sight. Default false.
    */
   coupons?: boolean
 }
@@ -380,30 +393,9 @@ export function TabsDiagram({ className, coupons = false }: TabsDiagramProps) {
             className={styles.pocket}
           />
         ))}
-        {coupons && <FitMarks x={lifted.x + w - 5} y={lifted.y + h / 2} marks={2} />}
       </g>
       <Arrow x1={to.x + TAB_LIFT.x * 1.25} y1={to.y + TAB_LIFT.y * 1.25} x2={to.x} y2={to.y} />
     </svg>
-  )
-}
-
-/** The one to three notches that tell a fit-test part apart, as ticks, so they can be counted at any size. */
-/** The notches that tell one fit from another. The defaults suit the 144-wide plans; the 48-wide icons
-    pass their own, or three notches would run off a coupon. */
-function FitMarks({ x, y, marks, len = 5, pitch = 3.2 }: { x: number; y: number; marks: number; len?: number; pitch?: number }) {
-  return (
-    <g>
-      {Array.from({ length: marks }, (_, notch) => (
-        <line
-          key={notch}
-          x1={x - len}
-          y1={y - (pitch * (marks - 1)) / 2 + notch * pitch}
-          x2={x}
-          y2={y - (pitch * (marks - 1)) / 2 + notch * pitch}
-          className={styles.tick}
-        />
-      ))}
-    </g>
   )
 }
 
@@ -753,7 +745,7 @@ function fitTestLayout(keys: boolean, clips: boolean) {
       keyX: 104,
       clipX,
       clipScale: 0.52,
-      tickX: 86,
+      digitX: 89,
       // From above the middle clip, over the key beside it and under the top row's key.
       clipArrowFrom: [clipX - 6, fits[1] - 7] as const,
       clipArrowTo: 0,
@@ -772,7 +764,7 @@ function fitTestLayout(keys: boolean, clips: boolean) {
       keyX: 118,
       clipX: 0,
       clipScale: 0,
-      tickX: 88,
+      digitX: 91,
       clipArrowFrom: [0, 0] as const,
       clipArrowTo: 0,
     }
@@ -789,21 +781,24 @@ function fitTestLayout(keys: boolean, clips: boolean) {
     keyX: 0,
     clipX,
     clipScale,
-    tickX: 84,
-    // From just above the middle clip, over the fit marks, into the pocket.
-    clipArrowFrom: [clipX - CLIP_PLAN.half * clipScale + 12, fits[1] - 8] as const,
-    clipArrowTo: -4,
+    digitX: 87,
+    // From just above the middle clip, over the digit beside it, into the upper half of the pocket.
+    clipArrowFrom: [clipX - CLIP_PLAN.half * clipScale + 12, fits[1] - 10] as const,
+    clipArrowTo: -6,
   }
 }
+
+/** The height of each row's digit in the fit test drawing: clear of every arrow in every layout. */
+const FIT_ROW_DIGIT = 9
 
 /**
  * The fit test, drawn from the parts it prints. With keys, test coupons A and B butted with the joint
  * closed and their key slots together, so a key is tried across a real joint; with clips, coupon A's
- * clip pocket. Beside them, the parts in three fits told apart by one, two or three notches: the middle
- * one drawn as the part, the others as the fits to try against it.
+ * clip pocket. Beside them, the parts in three fits told apart by the digit each carries, 1 to 3: the
+ * middle one drawn as the part, the others as the fits to try against it.
  */
 export function FitTestDiagram({ className, keys = true, clips = true }: FitTestDiagramProps) {
-  const { fits, a, b, slot, pocket, keyX, clipX, clipScale, tickX, clipArrowFrom, clipArrowTo } = fitTestLayout(keys, clips)
+  const { fits, a, b, slot, pocket, keyX, clipX, clipScale, digitX, clipArrowFrom, clipArrowTo } = fitTestLayout(keys, clips)
   const pocketPlan = pocket ? clipPocketPlan(pocket.x, pocket.y, pocket.scale) : null
   return (
     <svg viewBox="0 0 144 100" className={cx(styles.diagram, className)} {...svgProps}>
@@ -821,15 +816,13 @@ export function FitTestDiagram({ className, keys = true, clips = true }: FitTest
         const drawn = index === 1 ? styles.part : styles.pocket
         return (
           <g key={cy}>
-            {Array.from({ length: index + 1 }, (_, notch) => (
-              <line key={notch} x1={tickX + notch * 3.2} y1={cy - 4} x2={tickX + notch * 3.2} y2={cy + 4} className={styles.tick} />
-            ))}
+            <Digit digit={(index + 1) as FitDigit} x={digitX} y={cy} height={FIT_ROW_DIGIT} />
             {keys && <path d={keyPath(keyX, cy, true, 0, 1.15)} className={drawn} />}
             {clips && <ClipPlanShape plan={clipPlanAt(clipX, cy, clipScale)} className={drawn} />}
           </g>
         )
       })}
-      {keys && slot && slot.horizontal && <Arrow x1={keyX - 9} y1={fits[1] - 6} x2={slot.x + 4} y2={slot.y + 1} />}
+      {keys && slot && slot.horizontal && <Arrow x1={keyX - 9} y1={fits[1] - 8} x2={slot.x + 4} y2={slot.y + 1} />}
       {keys && slot && !slot.horizontal && <Arrow x1={keyX - 11} y1={fits[1] + 9} x2={slot.x + 7.5} y2={slot.y + 3} />}
       {clips && pocket && pocketPlan && (
         <Arrow x1={clipArrowFrom[0]} y1={clipArrowFrom[1]} x2={pocketPlan.mouth[2] + 3} y2={pocket.y + clipArrowTo} />
@@ -838,41 +831,68 @@ export function FitTestDiagram({ className, keys = true, clips = true }: FitTest
   )
 }
 
-/** The clip's width across its body in the parts-list icon: wide enough for three fit marks in its spine's end to count. */
-const ICON_CLIP_WIDTH = 18
+/**
+ * The clip's width across its body in the parts-list icon, stretched past its true proportion (11 for 42
+ * long): a fit test clip's digit stands across its spine, and at the true width the spine has room for one
+ * under 5 tall (under 4 px in the parts table), where 22 takes one 8.5 tall (about 7 px) clear of the slots.
+ */
+const ICON_CLIP_WIDTH = 22
+/** The key's scale in the parts-list icon. */
+const ICON_KEY_SCALE = 2.3
+/** The socket and the tab on a coupon icon: their scale, and the clearance the socket is drawn with. */
+const ICON_TAB = { scale: 1.1, grow: 1.2 } as const
+/**
+ * How far the digit on a key icon keeps from the edges of the head it is cut into, and on a clip icon from
+ * the slots either side of its spine (half a stroke plus an outline's weight at the table's size, so the two
+ * never touch); and the height of a socket coupon's digit, about the share of the coupon the printed one takes.
+ */
+const ICON_DIGIT = { key: 2.4, clip: 1.7, coupon: 13 } as const
 
 export interface AccessoryDiagramProps extends DiagramProps {
   kind: AccessoryKind
   /**
    * The part's own numbers (AccessorySpec.shape): a fit-test coupon is drawn with a key slot only when
    * `key` is 1, a clip pocket only when `clip` is 1, and its slot on the left when `mate` is 1 (coupon B).
-   * Without it, the coupon is drawn with both, its slot on the right. A key or a clip with `marks` 1 to 3
-   * is one of the fit test's, drawn with that many notches in its right-hand end.
+   * Without it, the coupon is drawn with both, its slot on the right. A key, a clip or a socket coupon with
+   * `marks` 1 to 3 is one of the fit test's, drawn with that digit where the part carries it.
    */
   shape?: Readonly<Record<string, number | number[]>>
 }
 
 /**
  * One printed part on its own, as a small icon for the rows of a parts list: a key and a clip from
- * above, as they print (the clip with its stops, a fit test's key or clip with its notches, so the three
- * fits are told apart), and a fit-test coupon with the slot and the pocket it really has.
+ * above, as they print (the clip with its stops, a fit test's key or clip with its digit, so the three
+ * fits are told apart), and a fit-test coupon with the slot, the pocket or the socket it really has. A
+ * socket coupon is drawn as its digit is read, turned over left to right: socket on the right, digit upright.
  */
 export function AccessoryDiagram({ kind, shape, className }: AccessoryDiagramProps) {
   const slot = shape ? shape.key === 1 : true
   const pocket = shape ? shape.clip === 1 : true
   const socket = shape?.socket === 1
   const tab = shape?.tab === 1
-  const marks = typeof shape?.marks === 'number' ? shape.marks : 0
+  const digit = isFitDigit(shape?.marks) ? shape.marks : null
   // Coupon B's slot faces A's, so it opens on its left side.
   const slotX = shape?.mate === 1 ? 7 : 41
-  const clip = kind === 'clip' ? clipPlan(24, 24, 42, ICON_CLIP_WIDTH, 'h', marks) : null
+  const clip = kind === 'clip' ? clipPlan(24, 24, 42, ICON_CLIP_WIDTH, 'h') : null
+  // Each digit is centred on the face the part carries it on: the key's +x head, the clip's +x spine arm.
+  const keyDigit = digitIn(keyHead(24, 24, true, ICON_KEY_SCALE), ICON_DIGIT.key)
+  const clipDigit = clip ? digitIn(clip.arm, ICON_DIGIT.clip) : null
+  // A socket coupon's digit sits midway between its socket and its free side, as fitTest.ts cuts it, and
+  // reads upright only once the coupon is turned over, socket on the right, which is how the icon draws it.
+  const socketEnd = 41 - TAB.reach * ICON_TAB.scale - ICON_TAB.grow
   return (
     <svg viewBox="0 0 48 48" className={cx(styles.diagram, className)} {...svgProps}>
-      {kind === 'key' && <path d={keyPath(24, 24, true, 0, 2.3, marks)} className={styles.part} />}
+      {kind === 'key' && (
+        <g>
+          <path d={keyPath(24, 24, true, 0, ICON_KEY_SCALE)} className={styles.part} />
+          {digit && <Digit digit={digit} x={keyDigit.cx} y={keyDigit.cy} height={keyDigit.height} onPart />}
+        </g>
+      )}
       {clip && (
         <g>
           <ClipPlanShape plan={clip} />
           <ClipStops plan={clip} />
+          {digit && clipDigit && <Digit digit={digit} x={clipDigit.cx} y={clipDigit.cy} height={clipDigit.height} onPart />}
         </g>
       )}
       {kind === 'fit-test' && (
@@ -881,12 +901,11 @@ export function AccessoryDiagram({ kind, shape, className }: AccessoryDiagramPro
           {slot && <path d={keyPath(slotX, pocket ? 17 : 24, true, 0.6, 1)} className={styles.pocket} />}
           {pocket && <rect x={slot ? 13 : 12} y={slot ? 28 : 21} width={slot ? 20 : 24} height="6" rx="0.8" className={styles.pocket} />}
           {slot && <path d={keyPath(slotX, pocket ? 17 : 24, true, 0, 0.62)} className={styles.part} />}
-          {/* The socket opens on the coupon's left edge, facing A's tab; A's own tab is rooted on its
-              right side line, the way TabsDiagram draws the pair. Without these the three socket
-              coupons drew as three identical empty squares, one per fit. */}
-          {socket && <path d={tabPath(7, 24, 1.2, 1.1)} className={styles.pocket} />}
-          {tab && <path d={tabPath(41, 24, 0, 1.1)} className={styles.part} />}
-          {marks > 0 && <FitMarks x={38} y={24} marks={marks} len={4} pitch={3} />}
+          {/* A's tab is rooted on its right side line, the way TabsDiagram draws the pair; the socket that
+              takes it opens on B's left edge, so B turned over to read its digit shows it on the right. */}
+          {socket && <path d={tabPath(7, 24, ICON_TAB.grow, ICON_TAB.scale)} transform="matrix(-1 0 0 1 48 0)" className={styles.pocket} />}
+          {tab && <path d={tabPath(41, 24, 0, ICON_TAB.scale)} className={styles.part} />}
+          {socket && digit && <Digit digit={digit} x={(7 + socketEnd) / 2} y={24} height={ICON_DIGIT.coupon} />}
         </g>
       )}
     </svg>

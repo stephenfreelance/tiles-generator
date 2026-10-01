@@ -75,6 +75,20 @@ export interface LoftSection {
   ring: ArrayLike<number>
 }
 
+/** A pocket sunk straight down into a loft's top face, as an engraved figure is. */
+export interface LoftRecess {
+  /** The pocket's outline, an xy ring (either orientation). */
+  ring: ArrayLike<number>
+  /** How far below the top face its floor lies, mm. */
+  depth: number
+}
+
+/** Is `inner` strictly inside `outer`, touching it nowhere? */
+function nests(outer: ArrayLike<number>, inner: ArrayLike<number>): boolean {
+  for (let k = 0; k < inner.length; k += 2) if (pointInRing(outer, inner[k], inner[k + 1]) !== 1) return false
+  return !ringsTouch(outer, inner)
+}
+
 /**
  * A closed solid stacked from outlines at rising heights, bottom face at the first section, top face at the
  * last. Between two sections at different heights the outlines are lofted vertex to vertex (so they need
@@ -82,15 +96,18 @@ export interface LoftSection {
  * at the same height are a flat step between two nested outlines (any vertex counts): a ledge facing up
  * where the outline shrinks, an overhang facing down where it grows. Coordinates are snapped to the
  * float32 lattice of the part's size first, so every face is exactly planar where it should be and the
- * triangulation is exact. Flat normals, outward, `topIndexCount` 0, no uvs.
+ * triangulation is exact. Each of `recesses` is a hole in the top face over upright walls and a floor facing
+ * up, so a face-up print bridges nothing; it must lie strictly inside every outline it passes down to its
+ * floor, and clear of the others. Flat normals, outward, `topIndexCount` 0, no uvs.
  */
-export function loftSolid(sections: readonly LoftSection[]): MeshData {
+export function loftSolid(sections: readonly LoftSection[], recesses: readonly LoftRecess[] = []): MeshData {
   if (sections.length < 2) throw new Error('loftSolid: need two sections')
   let extent = 0
   for (const s of sections) {
     extent = Math.max(extent, Math.abs(s.z))
     for (let k = 0; k < s.ring.length; k++) extent = Math.max(extent, Math.abs(s.ring[k]))
   }
+  for (const r of recesses) for (let k = 0; k < r.ring.length; k++) extent = Math.max(extent, Math.abs(r.ring[k]))
   if (!Number.isFinite(extent)) throw new Error('loftSolid: non-finite coordinate')
   const quantum = float32Quantum(extent)
   const zs = sections.map((s) => Math.round(s.z / quantum) * quantum + 0)
@@ -104,7 +121,33 @@ export function loftSolid(sections: readonly LoftSection[]): MeshData {
     if (ringSelfIntersects(r)) throw new Error('loftSolid: an outline crosses itself')
   }
   for (let i = 1; i < zs.length; i++) if (zs[i] < zs[i - 1]) throw new Error('loftSolid: sections must rise')
-  if (!(zs[zs.length - 1] > zs[0])) throw new Error('loftSolid: the solid has no height')
+  const top = zs.length - 1
+  if (!(zs[top] > zs[0])) throw new Error('loftSolid: the solid has no height')
+  const pockets = recesses.map((recess) => {
+    let ring = snapRing(recess.ring, quantum)
+    const area = signedArea(ring)
+    if (ring.length < 6 || area === 0) throw new Error('loftSolid: a recess has no area')
+    if (area < 0) ring = reverseRing(ring)
+    if (ringSelfIntersects(ring)) throw new Error('loftSolid: a recess crosses itself')
+    const floor = Math.round((zs[top] - recess.depth) / quantum) * quantum + 0
+    if (!(recess.depth > 0) || !(floor < zs[top])) throw new Error('loftSolid: a recess needs a depth')
+    if (!(floor > zs[0])) throw new Error('loftSolid: a recess must stop above the bottom face')
+    // Every outline its walls pass, and the one below its floor when the floor falls inside a loft.
+    for (let i = 0; i <= top; i++) {
+      if (zs[i] < floor && !(i < top && zs[i + 1] > floor)) continue
+      if (!nests(rings[i], ring)) throw new Error('loftSolid: a recess must lie strictly inside the solid down to its floor')
+    }
+    return { ring, floor }
+  })
+  for (let a = 0; a < pockets.length; a++) {
+    for (let b = a + 1; b < pockets.length; b++) {
+      const p = pockets[a].ring
+      const q = pockets[b].ring
+      if (ringsTouch(p, q) || pointInRing(p, q[0], q[1]) >= 0 || pointInRing(q, p[0], p[1]) >= 0) {
+        throw new Error('loftSolid: two recesses touch or overlap')
+      }
+    }
+  }
 
   const out = new FaceBuilder()
   const cap = (ring: Float64Array, z: number, up: boolean, holes: Float64Array[] = []) => {
@@ -113,6 +156,20 @@ export function loftSolid(sections: readonly LoftSection[]): MeshData {
     const points: number[] = []
     for (const r of [ring, ...holes]) for (let k = 0; k < r.length; k += 2) points.push(r[k], r[k + 1], z)
     out.face(points, tris, [0, 0, up ? 1 : -1])
+  }
+
+  /** The walls between two outlines of one vertex count: facing out of a counter-clockwise pair, into a clockwise one. */
+  const walls = (lower: Float64Array, upper: Float64Array, z0: number, z1: number) => {
+    const n = lower.length >> 1
+    for (let k = 0; k < n; k++) {
+      const j = (k + 1) % n
+      out.quad(
+        [lower[2 * k], lower[2 * k + 1], z0],
+        [lower[2 * j], lower[2 * j + 1], z0],
+        [upper[2 * j], upper[2 * j + 1], z1],
+        [upper[2 * k], upper[2 * k + 1], z1],
+      )
+    }
   }
 
   cap(rings[0], zs[0], false)
@@ -124,28 +181,20 @@ export function loftSolid(sections: readonly LoftSection[]): MeshData {
       const shrinks = signedArea(lower) > signedArea(upper)
       const outer = shrinks ? lower : upper
       const inner = shrinks ? upper : lower
-      for (let k = 0; k < inner.length; k += 2) {
-        if (pointInRing(outer, inner[k], inner[k + 1]) !== 1) throw new Error('loftSolid: a step must nest one outline strictly inside the other')
-      }
-      if (ringsTouch(outer, inner)) throw new Error('loftSolid: a step must nest one outline strictly inside the other')
+      if (!nests(outer, inner)) throw new Error('loftSolid: a step must nest one outline strictly inside the other')
       cap(outer, zs[i], shrinks, [reverseRing(inner)])
       continue
     }
     if (lower.length !== upper.length) throw new Error('loftSolid: lofted outlines need the same vertex count')
-    const n = lower.length >> 1
-    const z0 = zs[i]
-    const z1 = zs[i + 1]
-    for (let k = 0; k < n; k++) {
-      const j = (k + 1) % n
-      out.quad(
-        [lower[2 * k], lower[2 * k + 1], z0],
-        [lower[2 * j], lower[2 * j + 1], z0],
-        [upper[2 * j], upper[2 * j + 1], z1],
-        [upper[2 * k], upper[2 * k + 1], z1],
-      )
-    }
+    walls(lower, upper, zs[i], zs[i + 1])
   }
-  cap(rings[rings.length - 1], zs[zs.length - 1], true)
+  const holes = pockets.map((p) => reverseRing(p.ring))
+  cap(rings[top], zs[top], true, holes)
+  pockets.forEach(({ ring, floor }, k) => {
+    // Walked clockwise, as the top face's hole runs, the outline's walls face into the pocket.
+    walls(holes[k], holes[k], floor, zs[top])
+    cap(ring, floor, true)
+  })
   const mesh = out.done()
   assertSolid(mesh, 'loftSolid', 'an outline collapses on the float32 grid or the loft turns inside out')
   return mesh

@@ -11,7 +11,7 @@ import { track, trackChoice, trackDownloadFailure } from '@/app/analytics'
 import { studioIntent } from '@/app/prefetchStudio'
 import { useDesignFromLink } from '@/app/useDesignFromLink'
 import { fitTestFor, wallParts } from '@/core/fixing/accessories'
-import { FIT_MARKS, fitChosenText, fitTestGuide, usesTabs } from '@/core/fixing/guide'
+import { FIT_LEGEND, FIT_MARKS, fitChosenText, fitTestGuide, usesTabs } from '@/core/fixing/guide'
 import type { AccessorySpec } from '@/core/fixing/types'
 import type { FitClass } from '@/core/types'
 import { AccessoryTable } from '@/features/export/AccessoryTable'
@@ -38,9 +38,6 @@ const FIT_STEP_KEY = 'fit-set'
 const TABLE_CAPTION = 'Every part of the fit test, with the file of each and how it goes on the plate.'
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
-
-/** "one notch" as a label under Snug. */
-const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
 const wasCancelled = (error: unknown) => error instanceof Error && error.name === 'AbortError'
 
@@ -201,10 +198,16 @@ export function FitTestPage() {
   // With the tabs the clearance is cut into the tile, so the test is not optional in the way it is for a
   // printed fastener: a fit settled afterwards costs the wall of tiles. Said once, here and in the guide.
   const tabbed = usesTabs(system)
+  // What comes in three fits: the socket, cut into three coupons, and any fastener; each part carries its number.
+  const threeFits = !tabbed
+    ? 'each fastener comes in three fits'
+    : triesClips
+      ? 'the socket is cut into three of them and the clip comes in three fits too'
+      : 'the socket is cut into three of them, one for each fit'
   const fitOptions = FIT_ORDER.map((fit) => ({
     value: fit,
     label: FIT_MARKS[fit].name,
-    description: capital(FIT_MARKS[fit].notches),
+    description: `Marked ${FIT_MARKS[fit].digit}`,
   }))
 
   function setFit(fit: FitClass) {
@@ -279,10 +282,7 @@ export function FitTestPage() {
           </h2>
           <p className={styles.partsNote}>
             {plural(parts.length, 'small file')}, printed once each. The coupons are pieces of your own relief and
-            plate;{' '}
-            {tabbed && !triesKeys && !triesClips
-              ? 'the socket is cut into three of them, one for each fit, told apart by one, two or three small notches.'
-              : 'each fastener comes in three fits, told apart by one, two or three small notches.'}
+            plate; {threeFits}, told apart by the number cut into each part: {FIT_LEGEND}.
           </p>
         </div>
 

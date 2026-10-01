@@ -62,6 +62,7 @@
 
 import { ringFromRect } from '../geometry/polygon'
 import type { FitClass } from '../types'
+import { digitRing, type FitDigit } from './fitDigit'
 import type { BackFeatureLevel } from './types'
 
 const DEG = Math.PI / 180
@@ -198,10 +199,13 @@ export const HOLE_SEGMENTS = 24
 export const STOP_WIDTH = 1.2
 export const STOP_INSET = 0.2
 export const STOP_HALF_LENGTH = 4.5
-/** Fit-test marks: V notches this wide and deep in the spine's end, this far apart, mm. */
-export const MARK_WIDTH = 0.8
-export const MARK_DEPTH = 0.5
-export const MARK_PITCH = 1.6
+/**
+ * The fit test's digit (fitDigit.ts), engraved into the clip's top, which prints last, so its floor looks up
+ * and nothing bridges. 1 mm cells make a 3 x 5 mm figure whose strokes a 0.4 mm nozzle draws in solid lines,
+ * and 0.6 mm (three layers) puts its floor on a whole layer with 1.8 mm of spine under it. Cell and depth, mm.
+ */
+export const DIGIT_CELL = 1
+export const DIGIT_DEPTH = 0.6
 
 // ---------------------------------------------------------------------------------------------------
 // Margins the checks hold
@@ -231,6 +235,8 @@ export const SPINE_HALF = TINE_OUTER - TINE_WIDTH - SLOT
 export const CLIP_HALF_LENGTH = BLOCK_HALF_LENGTH + TINE_LENGTH + BARB_LENGTH
 /** Where each barb starts along the clip, from its centre. */
 export const BARB_START = BLOCK_HALF_LENGTH + TINE_LENGTH
+/** The digit's middle along the clip: half way along the spine's +x arm, as far from the block as from the clip's end. */
+export const DIGIT_X = (BLOCK_HALF_LENGTH + CLIP_HALF_LENGTH) / 2
 /** How far the flare has widened at the ceiling, each side. */
 export const FLARE_OUT = (POCKET_DEPTH - POCKET_RIDGE) * TAN_FLARE
 /** Half-length of the pocket's land along the clip. */
@@ -423,9 +429,8 @@ const ROOT_TAPER = 0.5
  * the origin, x along the clip. Every height has the same vertex count: only the four barbs' outer
  * vertices move with z (barbOuter), and below the return face they lie on the tine's face, where the
  * barb's inner end then has no length (two vertices at one point; the clip's mesher skips that edge).
- * `marks` (0 to 3) cuts that many V notches in the spine's +x end, how the fit test's clips are told apart.
  */
-export function clipOutlineAt(z: number, clearance: number, marks = 0): number[] {
+export function clipOutlineAt(z: number, clearance: number): number[] {
   const y = barbOuter(z, clearance)
   const r = SLOT / 2
   const root = BLOCK_HALF_LENGTH + r
@@ -444,21 +449,23 @@ export function clipOutlineAt(z: number, clearance: number, marks = 0): number[]
   // The -x half of the top is the mirror of the +x half, walked the other way.
   const upper = [...half]
   for (let k = half.length - 2; k >= 0; k -= 2) upper.push(-half[k], half[k + 1])
-  // The +x end of the spine, bottom to top, with the fit marks; then the top; then the bottom, its mirror.
-  const out: number[] = []
-  const count = Math.max(0, Math.min(3, Math.round(marks)))
-  for (let m = 0; m < count; m++) {
-    const v = (m - (count - 1) / 2) * MARK_PITCH
-    out.push(CLIP_HALF_LENGTH, v - MARK_WIDTH / 2, CLIP_HALF_LENGTH - MARK_DEPTH, v, CLIP_HALF_LENGTH, v + MARK_WIDTH / 2)
-  }
-  out.push(...upper)
+  // The top, then the bottom, its mirror: the closing edge is the spine's +x end.
+  const out = [...upper]
   for (let k = upper.length - 2; k >= 0; k -= 2) out.push(upper[k], -upper[k + 1])
   return out
 }
 
 /** The clip's outline in plan at its widest (the barbs' tips), for the drawings. */
-export function clipPlan(clearance: number, marks = 0): number[] {
-  return clipOutlineAt(BARB_TIP_LOW, clearance, marks)
+export function clipPlan(clearance: number): number[] {
+  return clipOutlineAt(BARB_TIP_LOW, clearance)
+}
+
+/**
+ * A fit test clip's digit in plan, counter-clockwise in the clip's centred frame: on the top of the spine's
+ * +x arm at DIGIT_X, upright with its height across the clip, so it reads with the clip lying along x.
+ */
+export function clipDigitRing(digit: FitDigit): number[] {
+  return digitRing(digit, DIGIT_CELL, DIGIT_X, 0)
 }
 
 /** The two stops in plan, [x0, y0, x1, y1] each, -y first: on the centre block's long edges, centred along it. */

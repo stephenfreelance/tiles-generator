@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '../config'
 import { checkMesh, componentCount, downwardArea } from '../geometry/meshChecks'
-import { pointInRing } from '../geometry/polygon'
+import { pointInRing, ringBounds, signedArea } from '../geometry/polygon'
 import type { DesignConfig, MeshData } from '../types'
 import { buildAccessoryMesh } from './accessories'
-import { buildCouponMesh, FIT_ORDER, fitTestParts } from './fitTest'
+import { digitRing, isFitDigit } from './fitDigit'
+import { buildCouponMesh, COUPON_DIGIT_CELL, COUPON_DIGIT_DEPTH, FIT_ORDER, fitTestParts } from './fitTest'
 import { keyGeometry, keyNotchAt } from './joins'
 import { CLIP_CLEARANCE, POCKET_DEPTH } from './mechanism'
 import { clipSpec } from './mount'
@@ -34,6 +35,47 @@ function rimAt(mesh: MeshData, x: number): Map<number, number> {
   return top
 }
 
+type Box = ReturnType<typeof ringBounds>
+
+/** Points as distinct "x,y" keys to the µm, sorted: two outlines compare whatever vertex they start on, a mesh's shared corners once. */
+const cornerKeys = (points: ArrayLike<number>) => [
+  ...new Set(Array.from({ length: points.length / 2 }, (_, k) => `${Math.round(points[2 * k] * 1000) + 0},${Math.round(points[2 * k + 1] * 1000) + 0}`)),
+].sort()
+
+/** The corners of what a mesh has at height `z` over `box` (grown by half a millimetre), as [x0, y0, x1, y1, ...]. */
+function cornersAt(mesh: MeshData, z: number, box: Box): number[] {
+  const out: number[] = []
+  for (let i = 0; i < mesh.positions.length; i += 3) {
+    const [x, y, pz] = [mesh.positions[i], mesh.positions[i + 1], mesh.positions[i + 2]]
+    if (Math.abs(pz - z) > 1e-4) continue
+    if (x < box.minX - 0.5 || x > box.maxX + 0.5 || y < box.minY - 0.5 || y > box.maxY + 0.5) continue
+    out.push(x, y)
+  }
+  return out
+}
+
+/** Area of the faces lying flat at height `z` over `box`, mm², seen from above: negative where they look down. */
+function flatArea(mesh: MeshData, z: number, box: Box): number {
+  const p = mesh.positions
+  let area = 0
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const [a, b, c] = [3 * mesh.indices[t], 3 * mesh.indices[t + 1], 3 * mesh.indices[t + 2]]
+    if ([a, b, c].some((v) => Math.abs(p[v + 2] - z) > 1e-4 || p[v] < box.minX - 0.5 || p[v] > box.maxX + 0.5)) continue
+    area += ((p[b] - p[a]) * (p[c + 1] - p[a + 1]) - (p[c] - p[a]) * (p[b + 1] - p[a + 1])) / 2
+  }
+  return area
+}
+
+/** How far a coupon's socket reaches in from its left side on the bed: its deepest vertex at z = 0 short of `x`. */
+function mouthReach(mesh: MeshData, height: number, x: number): number {
+  let reach = 0
+  for (let i = 0; i < mesh.positions.length; i += 3) {
+    const [px, py, pz] = [mesh.positions[i], mesh.positions[i + 1], mesh.positions[i + 2]]
+    if (Math.abs(pz) < 1e-4 && py > 1e-4 && py < height - 1e-4 && px < x) reach = Math.max(reach, px)
+  }
+  return reach
+}
+
 describe('fit test', () => {
   it('is only printed when keys or clips are on, and the plate can hold their pockets', () => {
     expect(fitTestParts(DEFAULT_CONFIG)).toEqual([])
@@ -42,7 +84,7 @@ describe('fit test', () => {
     expect(fitTestParts(design({ lock: 'keys' })).length).toBeGreaterThan(0)
   })
 
-  it('prints a coupon and a clip per fit class for clips, marked by one to three notches', () => {
+  it('prints a coupon and a clip per fit class for clips, numbered 1 to 3', () => {
     const parts = fitTestParts(design({ mount: 'clips' }))
     expect(parts.map((p) => [p.mark, p.kind])).toEqual([
       ['F1', 'fit-test'],
@@ -193,7 +235,7 @@ describe('fit test', () => {
 // choice made BEFORE the tiles are printed: coupon A carries the tab, and one coupon B per fit carries the
 // socket it goes into. Nothing else is printed for them, which is why the tab flag cannot be read off a part.
 describe('the fit test of the tabs', () => {
-  it('prints coupon A with the tab and the socket at all three fits, marked one to three notches', () => {
+  it('prints coupon A with the tab and the socket at all three fits, numbered 1 to 3', () => {
     const parts = fitTestParts(tabbed())
     expect(parts.map((p) => [p.mark, p.kind])).toEqual([
       ['F1', 'fit-test'],
@@ -308,11 +350,68 @@ describe('the fit test of the tabs', () => {
     }
   })
 
+  // The digit is all that tells B1 from B3 off the bed, and it is cut into the back, so it is read with the
+  // coupon turned over: on every design that prints tabs it has to come out whole, the right way round, and
+  // clear of the socket the test is about.
+  const digitDesigns: [string, DesignConfig][] = [
+    ['the default tabs', tabbed()],
+    ['tabs on clips', tabbed({ mount: 'clips' })],
+    ['a small tile', tabbed({ tile: { width: 25, height: 25, thickness: 4 } })],
+    ['a wide pillow edge', tabbed({ jointEdge: 'pillow', bevel: 3, tile: { width: 150, height: 150, thickness: 8 } })],
+  ]
+
+  it('sizes the designs the digit is checked on as meant: B taller on clips, a narrow head, a wider B', () => {
+    const sockets = digitDesigns.map(([, config]) => fitTestParts(config).filter((p) => p.shape.socket === 1))
+    const heads = digitDesigns.map(([, config]) => tabGeometry(config)?.headWidth ?? 0)
+    for (const [k, [where]] of digitDesigns.entries()) expect(sockets[k], where).toHaveLength(3)
+    const [plain, clipped, , pillow] = sockets
+    expect(plain[0].size).toMatchObject({ x: 20, y: 20 })
+    expect(clipped[0].size).toMatchObject({ x: 20, y: 23 })
+    expect(heads[2]).toBeLessThan(heads[0])
+    expect(pillow[0].size.x).toBeGreaterThan(20)
+  })
+
+  it("cuts each socket coupon's digit into its back, mirrored so it reads right with the coupon turned over", () => {
+    for (const [name, config] of digitDesigns) {
+      const g = tabGeometry(config)
+      if (!g) throw new Error(`${name}: expected a tab section`)
+      for (const b of fitTestParts(config).filter((p) => p.shape.socket === 1)) {
+        const where = `${b.mark} on ${name}`
+        const digit = b.shape.marks
+        if (!isFitDigit(digit)) throw new Error(`${where}: no digit`)
+        expect(b.label, where).toContain(`B${digit} `)
+        const mesh = buildCouponMesh(config, b)
+        const check = checkMesh(mesh)
+        expect(check.closed && check.manifold && check.oriented, where).toBe(true)
+        const cx = (g.socketReachMax + b.size.x) / 2
+        const cy = b.size.y / 2
+        const mirrored = digitRing(digit, COUPON_DIGIT_CELL, cx, cy, true)
+        const box = ringBounds(mirrored)
+        // On the bed it opens as exactly the mirrored digit, and four layers up it ends in a ceiling of the same outline.
+        expect(cornerKeys(cornersAt(mesh, 0, box)), where).toEqual(cornerKeys(mirrored))
+        expect(COUPON_DIGIT_DEPTH).toBe(0.8)
+        expect(cornerKeys(cornersAt(mesh, COUPON_DIGIT_DEPTH, box)), where).toEqual(cornerKeys(mirrored))
+        expect(flatArea(mesh, COUPON_DIGIT_DEPTH, box), where).toBeCloseTo(-signedArea(mirrored), 3)
+        // Turned over left to right, the back shows the digit upright.
+        const turned = cornersAt(mesh, 0, box).map((v, k) => (k % 2 === 0 ? 2 * cx - v : v))
+        expect(cornerKeys(turned), where).toEqual(cornerKeys(digitRing(digit, COUPON_DIGIT_CELL, cx, cy)))
+        // Clear of what the test reads: a millimetre and more from the widest fit's mouth, a coupon wall (3 mm) from every other side.
+        const mouth = mouthReach(mesh, b.size.y, box.minX - 0.5)
+        expect(mouth, where).toBeGreaterThan(0)
+        expect(mouth, where).toBeLessThanOrEqual(g.socketReachMax + 1e-3)
+        expect(box.minX - g.socketReachMax, where).toBeGreaterThanOrEqual(1)
+        expect(Math.min(b.size.x - box.maxX, box.minY, b.size.y - box.maxY), where).toBeGreaterThanOrEqual(3)
+      }
+    }
+  })
+
   it('refuses a socket coupon whose spec lost the fit it was cut at', () => {
     const config = tabbed()
     const [, b] = fitTestParts(config)
     const { marks: _marks, ...shape } = b.shape
     expect(() => buildCouponMesh(config, { ...b, shape })).toThrow()
     expect(() => buildCouponMesh(config, { ...b, shape: { ...b.shape, marks: 4 } })).toThrow()
+    // 0 is a wall part's: a socket coupon always carries a digit.
+    expect(() => buildCouponMesh(config, { ...b, shape: { ...b.shape, marks: 0 } })).toThrow()
   })
 })

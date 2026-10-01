@@ -19,7 +19,10 @@ import { printerById } from '../printers'
 import type { DesignConfig, LayoutPlan } from '../types'
 import { formatNumber } from '../units'
 import { accessoryParts, fitClearance, fitTestFor, wallParts } from './accessories'
+import { FIT_ORDER } from './fitTest'
+import { FIT_DIGIT } from './fitDigit'
 import {
+  FIT_LEGEND,
   FIT_MARKS,
   fitChosenText,
   fitTestGuide,
@@ -211,7 +214,7 @@ describe('mountingGuide: keys on a glued panel (as before)', () => {
           key: 'fit',
           title: 'Set the fit before you print the parts',
           body: [
-            `Your keys are made at Standard, the fit with two notches (clearance per side: keys ${fine(fitClearance('standard', 'key'))}). A new fit remakes only those parts, never the tiles.`,
+            `Your keys are made at Standard, the fit marked 2 (clearance per side: keys ${fine(fitClearance('standard', 'key'))}). A new fit remakes only those parts, never the tiles.`,
             'If you have not tried that fit on this design yet, print the fit test first: it prints the keys in all three fits on small coupons, so a fit you do not like costs a reprint of keys and never of a tile. The fit test has a page of its own, linked from the studio under Putting it up.',
           ],
           drawing: 'fit-test',
@@ -248,7 +251,7 @@ describe('mountingGuide: keys on a glued panel (as before)', () => {
   it('points at the fit test instead of running it, whatever parts the zip holds', () => {
     const config = design({ lock: 'keys', fit: 'loose' })
     const text = allText(mountingGuide(input(config, { join: KEYED(4), accessories: KEY_PARTS })))
-    expect(text).toContain(`Your keys are made at Loose, the fit with three notches (clearance per side: keys ${fine(fitClearance('loose', 'key'))}).`)
+    expect(text).toContain(`Your keys are made at Loose, the fit marked 3 (clearance per side: keys ${fine(fitClearance('loose', 'key'))}).`)
     expect(text).toContain('print the fit test first: it prints the keys in all three fits on small coupons')
     // The procedure lives on the fit-test page now: no marks, no reading of a test key here.
     expect(text).not.toMatch(/F\d|test coupon|clip/)
@@ -288,9 +291,9 @@ describe('mountingGuide: wall clips', () => {
       'If you have not tried that fit on this design yet, print the fit test first: it prints the clips in all three fits on small coupons, so a fit you do not like costs a reprint of clips and never of a tile. The fit test has a page of its own, linked from the studio under Putting it up.',
     )
     // The procedure is fitTestGuide's, on its own page: nothing of it is worded twice.
-    expect(fit).not.toMatch(/smooth board|test coupon|notches: snug/)
-    // Loose is the fit with three notches, whatever the clearance.
-    expect(stepText(mountingGuide(clipsInput({ config: { ...CLIPS_ONLY, fit: 'loose' } })), 'fit')).toContain('Loose, the fit with three notches')
+    expect(fit).not.toMatch(/smooth board|test coupon|1 is snug/)
+    // Loose is the fit marked 3, whatever the clearance.
+    expect(stepText(mountingGuide(clipsInput({ config: { ...CLIPS_ONLY, fit: 'loose' } })), 'fit')).toContain('Loose, the fit marked 3')
   })
 
   it('counts the clips, the tiles that carry them and the spares, and names the clip file', () => {
@@ -475,7 +478,7 @@ describe('mountingGuide: tabs on a glued wall', () => {
 
   it('opens with the fit, and says the reprint a new one costs is the tiles', () => {
     const fit = stepText(mountingGuide(tabsInput()), 'fit')
-    expect(fit).toContain(`Your tiles are made at Standard, the fit with two notches (clearance per side: sockets ${fine(0.3)}).`)
+    expect(fit).toContain(`Your tiles are made at Standard, the fit marked 2 (clearance per side: sockets ${fine(0.3)}).`)
     expect(fit).toContain('The socket is cut into the tile itself, so a new fit remakes every tile.')
     expect(fit).toContain('it prints the sockets in all three fits on small coupons')
     expect(fit).toContain('because the socket is cut into the tile and a fit changed after that means printing the tiles again')
@@ -682,16 +685,25 @@ describe('the shared fixtures (export/testFixings.ts)', () => {
   })
 })
 
+describe('the fit marks', () => {
+  it('cuts each class with its own digit, and reads the legend off them in fit order', () => {
+    for (const fit of FIT_ORDER) expect(FIT_MARKS[fit].digit).toBe(FIT_DIGIT[fit])
+    expect(FIT_ORDER.map((fit) => FIT_MARKS[fit].digit)).toEqual([1, 2, 3])
+    expect(FIT_LEGEND).toBe('1 is snug, 2 standard, 3 loose')
+    expect(FIT_LEGEND).toBe(FIT_ORDER.map((fit, i) => `${FIT_DIGIT[fit]}${i === 0 ? ' is' : ''} ${fit}`).join(', '))
+  })
+})
+
 describe('fitChosenText', () => {
-  it('names the fit, its notches, the clearance per side and what a new fit remakes', () => {
+  it('names the fit, its number, the clearance per side and what a new fit remakes', () => {
     for (const fit of ['snug', 'standard', 'loose'] as const) {
       const config = design({ fit })
-      const { name, notches } = FIT_MARKS[fit]
+      const { name, digit } = FIT_MARKS[fit]
       expect(fitChosenText(config, 'both')).toBe(
-        `Your keys and clips are made at ${name}, the fit with ${notches} (clearance per side: keys ${fine(fitClearance(fit, 'key'))} and ` +
+        `Your keys and clips are made at ${name}, the fit marked ${digit} (clearance per side: keys ${fine(fitClearance(fit, 'key'))} and ` +
           `clips ${fine(fitClearance(fit, 'clip'))}). A new fit remakes only those parts, never the tiles.`,
       )
-      expect(fitChosenText(config, 'keys')).toContain(`the fit with ${notches} (clearance per side: keys ${fine(fitClearance(fit, 'key'))})`)
+      expect(fitChosenText(config, 'keys')).toContain(`the fit marked ${digit} (clearance per side: keys ${fine(fitClearance(fit, 'key'))})`)
       expect(fitChosenText(config, 'keys')).toMatch(/^Your keys are made at .* remakes only those parts, never the tiles\.$/)
       expect(fitChosenText(config, 'clips')).toContain(`(clearance per side: clips ${fine(fitClearance(fit, 'clip'))})`)
       expect(fitChosenText(config, 'clips')).toMatch(/^Your clips are made at .* remakes only those parts, never the tiles\.$/)
@@ -701,13 +713,13 @@ describe('fitChosenText', () => {
   it('puts the tiles on the list for the tabs, because their socket is cut into one', () => {
     for (const fit of ['snug', 'standard', 'loose'] as const) {
       const config = design({ lock: 'tabs', fit })
-      const { name, notches } = FIT_MARKS[fit]
+      const { name, digit } = FIT_MARKS[fit]
       expect(fitChosenText(config, 'tabs')).toBe(
-        `Your tiles are made at ${name}, the fit with ${notches} (clearance per side: sockets ${fine(SOCKET_CLEARANCE[fit])}). ` +
+        `Your tiles are made at ${name}, the fit marked ${digit} (clearance per side: sockets ${fine(SOCKET_CLEARANCE[fit])}). ` +
           'The socket is cut into the tile itself, so a new fit remakes every tile.',
       )
       expect(fitChosenText(config, 'clips-tabs')).toBe(
-        `Your clips and tiles are made at ${name}, the fit with ${notches} (clearance per side: clips ` +
+        `Your clips and tiles are made at ${name}, the fit marked ${digit} (clearance per side: clips ` +
           `${fine(fitClearance(fit, 'clip'))} and sockets ${fine(SOCKET_CLEARANCE[fit])}). A new fit remakes the clips and, ` +
           'because the socket is cut into the tile itself, every tile.',
       )
@@ -719,7 +731,7 @@ describe('fitChosenText', () => {
 
   it('claims no fit on a glued wall, which carries none', () => {
     expect(fitChosenText(design(), 'glue')).toBe(
-      'Fit is set to Standard, the fit with two notches. This wall prints no keys or clips, so nothing carries it.',
+      'Fit is set to Standard, the fit marked 2. This wall prints no keys or clips, so nothing carries it.',
     )
   })
 
@@ -787,7 +799,7 @@ describe('fitTestGuide', () => {
     )
     expect(body(guide!, 'fit-print')).toContain('the coupons face up like a tile, first layer included, the keys and clips flat and solid')
     expect(body(guide!, 'fit-set')).toBe(
-      'Set Fit to the one you kept: one notch is snug, two standard, three loose. Then download your keys and clips at that fit.',
+      'Set Fit to the one you kept, by the number cut into it: 1 is snug, 2 standard, 3 loose. Then download your keys and clips at that fit.',
     )
   })
 
@@ -832,12 +844,15 @@ describe('fitTestGuide', () => {
     expect(body(guide!, 'fit-tabs')).toBe(
       'Lay test coupon A (F1) back down on a flat board, then bring each socket coupon (F2 to F4) down over its tab with ' +
         'the joint closed, one at a time: keep the snuggest one that goes together with both backs flat on the board and ' +
-        'leaves no play across the joint. One notch is snug, two standard, three loose. If none will go together with the ' +
-        'joint closed, the first layer is bulging: turn on elephant-foot compensation. ' +
+        'leaves no play across the joint. Turn a socket coupon over to read its fit, the number cut into its back: 1 is ' +
+        'snug, 2 standard, 3 loose. If none will go together with the joint closed, the first layer is bulging: turn on ' +
+        'elephant-foot compensation. ' +
         'What you keep here is what the tiles are cut at, so settle it before you print any of them.',
     )
     expect(body(guide!, 'fit-print')).toContain('every coupon face up like a tile, first layer included.')
-    expect(body(guide!, 'fit-set')).toBe('Set Fit to the one you kept: one notch is snug, two standard, three loose. Then download your tiles at that fit.')
+    expect(body(guide!, 'fit-set')).toBe(
+      'Set Fit to the one you kept, by the number cut into it: 1 is snug, 2 standard, 3 loose. Then download your tiles at that fit.',
+    )
     // No fastener is printed, so no key or clip step and no key or clip in the words.
     expect([guide?.lede, ...(guide?.steps ?? []).flatMap((step) => [step.title, ...step.body])].join(' ')).not.toMatch(/\bkeys?\b|\bclips?\b/i)
   })

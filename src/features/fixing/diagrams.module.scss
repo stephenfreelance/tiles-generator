@@ -88,10 +88,18 @@
   }
 }
 
-// The small notches that tell the fit test's parts apart.
-.tick {
-  stroke: currentcolor;
-  stroke-width: 1.4;
+// The digit that tells the fit test's parts apart (1 snug, 2 standard, 3 loose): solid, a shade firmer than
+// a screw, with no outline to thicken its strokes at a small size.
+.digit {
+  fill: currentcolor;
+  fill-opacity: 0.62;
+  stroke: none;
+}
+
+// Cut into the part's own fill, so it takes the colour lettering on the accent is held to (6.5:1).
+.digit.onPart {
+  fill: var(--accent-ink);
+  fill-opacity: 1;
 }
 
 // A line the step is about (the start line): drawn in the part's colour, firmer than the rest.
@@ -116,6 +124,16 @@
 
   .mark {
     stroke: CanvasText;
+  }
+
+  .digit {
+    fill: CanvasText;
+    fill-opacity: 1;
+  }
+
+  // On the part, which turns CanvasText above, it is cut out in the page's own colour.
+  .digit.onPart {
+    fill: Canvas;
   }
 
   .pocket,

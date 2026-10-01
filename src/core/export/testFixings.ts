@@ -173,8 +173,8 @@ export const TABBED_TAB: TabPlan = {
 }
 
 /**
- * The fit test of that wall (fitTestFor): coupon A with the tab, then the socket at all three fits, marked by
- * one, two and three notches. Nothing else, because the tabs print nothing: TABBED_WALL_PARTS is empty.
+ * The fit test of that wall (fitTestFor): coupon A with the tab, then the socket at all three fits, marked 1, 2
+ * and 3 in their backs. Nothing else, because the tabs print nothing: TABBED_WALL_PARTS is empty.
  */
 export const TABBED_FIT_PARTS: AccessorySpec[] = [
   part({

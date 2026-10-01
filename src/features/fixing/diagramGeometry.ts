@@ -4,6 +4,7 @@
 //
 // Units are the drawings' own, not mm. The side sections draw depth about twice as deep as it is, or
 // a 4 mm plate beside a 150 mm tile would be a hairline, and the keys and clips at several times their size.
+import { DIGIT_COLUMNS, DIGIT_ROWS, digitOutline, type FitDigit } from '@/core/fixing/fitDigit'
 import {
   BLOCK_HALF_WIDTH,
   CLIP_THICKNESS,
@@ -43,32 +44,10 @@ export function cardTiles(): { x: number; y: number; w: number; h: number }[] {
   return [0, 1].map((i) => ({ x: left + i * (CARD.tileW + CARD.gap), y: CARD.top, w: CARD.tileW, h: CARD.tileH }))
 }
 
-/**
- * A bow-tie key: half its length, where its shoulders are, and the half-widths of its head and neck. A fit
- * test's key carries 1 to 3 V notches in its +x end (core/fixing/joins.ts): their pitch, width and depth,
- * drawn about three times their size so they can be counted at icon size.
- */
-export const KEY = { half: 8, shoulder: 3, head: 5, neck: 2.5, markPitch: 2.2, markWidth: 1.3, markDepth: 1.5 } as const
+/** A bow-tie key: half its length, where its shoulders are, and the half-widths of its head and neck. */
+export const KEY = { half: 8, shoulder: 3, head: 5, neck: 2.5 } as const
 
 const round = (value: number): number => Math.round(value * 100) / 100
-
-/** How many fit marks a part carries: 0 to 3, whole. */
-const markCount = (marks: number): number => Math.max(0, Math.min(3, Math.round(marks)))
-
-/**
- * The V notches of `marks` fit marks across an end at `along`, centred on the end's middle and cut back
- * towards the part's centre (`inward` is -1 at a +along end): [along, across] corners, walked with across
- * increasing.
- */
-function markNotches(along: number, inward: number, marks: number, pitch: number, width: number, depth: number): [number, number][] {
-  const count = markCount(marks)
-  const corners: [number, number][] = []
-  for (let m = 0; m < count; m++) {
-    const at = (m - (count - 1) / 2) * pitch
-    corners.push([along, at - width / 2], [along + inward * depth, at], [along, at + width / 2])
-  }
-  return corners
-}
 
 const pathOf = (points: readonly (readonly [number, number])[]): string =>
   `M${points.map(([x, y]) => `${round(x)} ${round(y)}`).join(' L')} Z`
@@ -80,6 +59,28 @@ const polylineOf = (points: readonly (readonly [number, number])[]): string =>
 /** A full circle as a path of two arcs, so it can be a hole in a compound path (fill-rule evenodd). */
 export function circlePath(cx: number, cy: number, r: number): string {
   return `M${round(cx - r)} ${round(cy)} A${round(r)} ${round(r)} 0 1 0 ${round(cx + r)} ${round(cy)} A${round(r)} ${round(r)} 0 1 0 ${round(cx - r)} ${round(cy)} Z`
+}
+
+/**
+ * The digit a fit test part is cut with (core/fixing/fitDigit.ts), from the same outline the part carries:
+ * upright on the page, centred on (cx, cy), `height` tall and three fifths of that wide.
+ */
+export function digitPath(digit: FitDigit, cx: number, cy: number, height: number): string {
+  const cell = height / DIGIT_ROWS
+  const grid = digitOutline(digit)
+  const corners: [number, number][] = []
+  // The outline runs y up and the page y down, so the rows are counted down from the middle.
+  for (let i = 0; i < grid.length; i += 2) {
+    corners.push([cx + (grid[i] - DIGIT_COLUMNS / 2) * cell, cy - (grid[i + 1] - DIGIT_ROWS / 2) * cell])
+  }
+  return pathOf(corners)
+}
+
+/** The tallest upright digit centred in a [x0, y0, x1, y1] box with `margin` clear all round: its centre and height. */
+export function digitIn(box: readonly [number, number, number, number], margin: number): { cx: number; cy: number; height: number } {
+  const [x0, y0, x1, y1] = box
+  const height = Math.min(y1 - y0 - 2 * margin, ((x1 - x0 - 2 * margin) * DIGIT_ROWS) / DIGIT_COLUMNS)
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, height: Math.max(0, height) }
 }
 
 /**
@@ -102,10 +103,9 @@ export function tileSectionPath(back: number, y0: number, y1: number): string {
 /**
  * The outline of a key straddling a seam at (cx, cy): a square-shouldered double T, its length across
  * the seam. `horizontal` lays it across a vertical seam. `grow` offsets the outline outwards, which is
- * how the pocket around a key is drawn, and `scale` sizes the whole shape. `marks` (0 to 3) cuts a fit
- * test key's notches in its +along end (right when horizontal, down when not).
+ * how the pocket around a key is drawn, and `scale` sizes the whole shape.
  */
-export function keyPath(cx: number, cy: number, horizontal: boolean, grow = 0, scale = 1, marks = 0): string {
+export function keyPath(cx: number, cy: number, horizontal: boolean, grow = 0, scale = 1): string {
   const half = KEY.half * scale + grow
   const shoulder = KEY.shoulder * scale - grow
   const head = KEY.head * scale + grow
@@ -118,7 +118,6 @@ export function keyPath(cx: number, cy: number, horizontal: boolean, grow = 0, s
     [shoulder, -neck],
     [shoulder, -head],
     [half, -head],
-    ...markNotches(half, -1, marks, KEY.markPitch * scale, KEY.markWidth * scale, KEY.markDepth * scale),
     [half, head],
     [shoulder, head],
     [shoulder, neck],
@@ -127,6 +126,17 @@ export function keyPath(cx: number, cy: number, horizontal: boolean, grow = 0, s
     [-half, head],
   ]
   return pathOf(outline.map(([along, across]) => (horizontal ? [cx + along, cy + across] : [cx + across, cy + along])))
+}
+
+/**
+ * A key's +along head, from its shoulder to its end, as a [x0, y0, x1, y1] box: where a fit test key carries
+ * its digit, centred on the head as core/fixing/joins.ts cuts it.
+ */
+export function keyHead(cx: number, cy: number, horizontal: boolean, scale = 1): [number, number, number, number] {
+  const near = KEY.shoulder * scale
+  const far = KEY.half * scale
+  const head = KEY.head * scale
+  return horizontal ? [cx + near, cy - head, cx + far, cy + head] : [cx - head, cy + near, cx + head, cy + far]
 }
 
 /** One place a key goes: the seam point it straddles, and whether it lies across a vertical seam. */
@@ -401,8 +411,6 @@ export function screwSectionPath(back: number, y: number, k = 1, reach = 16): st
  * slot, with a barb at its tip. Slots and tines are drawn a little wider than they print, and the barbs
  * stand out a little further, so the comb reads at icon size. The two stops stand on the block's top face,
  * beside the countersink, at their real size (mechanism.ts): seen only from above the clip as it prints.
- * A fit test's clip carries 1 to 3 V notches in its spine's +x end, drawn larger than they print so they
- * can be counted at icon size.
  */
 export const CLIP_PLAN = {
   /** Half the length, tip to tip, and half the width of the body (the tines' outer faces). */
@@ -423,10 +431,6 @@ export const CLIP_PLAN = {
   stopHalf: STOP_HALF_LENGTH,
   stopWidth: STOP_WIDTH,
   stopOffset: STOP_OFFSET,
-  /** The fit marks in the spine's end: their pitch and width across it, and how deep they cut along it. */
-  markPitch: 2.4,
-  markWidth: 1.6,
-  markDepth: 2.8,
 } as const
 
 export interface ClipPlan {
@@ -438,14 +442,18 @@ export interface ClipPlan {
   block: [number, number, number, number]
   /** The two stops on the block's top face, [x0, y0, x1, y1] each. */
   stops: [number, number, number, number][]
+  /**
+   * The spine's +x arm, from the centre block to the tip, between the slots: [x0, y0, x1, y1]. A fit test
+   * clip's digit is centred on it (core/fixing/mechanism.ts cuts it into the top face there).
+   */
+  arm: [number, number, number, number]
 }
 
 /**
  * A clip in plan centred on (cx, cy): `length` tip to tip and `width` across its body (barbs excluded),
- * lying along x ('h') or along y ('v'). Every other size follows CLIP_PLAN's proportions. `marks` (0 to 3)
- * cuts a fit test clip's notches in the spine's +x end (+y for a 'v' clip).
+ * lying along x ('h') or along y ('v'). Every other size follows CLIP_PLAN's proportions.
  */
-export function clipPlan(cx: number, cy: number, length: number, width: number, axis: 'h' | 'v' = 'h', marks = 0): ClipPlan {
+export function clipPlan(cx: number, cy: number, length: number, width: number, axis: 'h' | 'v' = 'h'): ClipPlan {
   const p = CLIP_PLAN
   const kx = length / (2 * p.half)
   const ky = width / (2 * p.body)
@@ -479,10 +487,9 @@ export function clipPlan(cx: number, cy: number, length: number, width: number, 
     [h - barbLength, barb],
     [back, body],
   ]
-  // The left end is the right one turned a half turn (the shape is symmetric about both axes), less the
-  // marks, which only the right end's spine carries.
-  const left = [...lower, ...upper].map(([x, y]) => [-x, -y] as [number, number])
-  const right = [...lower, ...markNotches(h, -1, marks, p.markPitch * ky, p.markWidth * ky, p.markDepth * kx), ...upper]
+  // The left end is the right one turned a half turn: the shape is symmetric about both axes.
+  const right = [...lower, ...upper]
+  const left = right.map(([x, y]) => [-x, -y] as [number, number])
   const place = ([x, y]: [number, number]): [number, number] => (axis === 'h' ? [cx + x, cy + y] : [cx + y, cy + x])
   const r = Math.min(kx, ky)
   const box = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] =>
@@ -494,12 +501,13 @@ export function clipPlan(cx: number, cy: number, length: number, width: number, 
     sink: { cx, cy, r: p.sink * r },
     block: box(-block, -body, block, body),
     stops: [stop(-1), stop(1)],
+    arm: box(block, -spine, h, spine),
   }
 }
 
 /** A clip in plan at a uniform scale of CLIP_PLAN (1 = its mm-like units). */
-export function clipPlanAt(cx: number, cy: number, scale: number, axis: 'h' | 'v' = 'h', marks = 0): ClipPlan {
-  return clipPlan(cx, cy, 2 * CLIP_PLAN.half * scale, 2 * CLIP_PLAN.body * scale, axis, marks)
+export function clipPlanAt(cx: number, cy: number, scale: number, axis: 'h' | 'v' = 'h'): ClipPlan {
+  return clipPlan(cx, cy, 2 * CLIP_PLAN.half * scale, 2 * CLIP_PLAN.body * scale, axis)
 }
 
 /** The clip's pocket seen from the back at the same scale: the mouth around the clip, and the wider ceiling hidden behind the lips. */

@@ -15,6 +15,7 @@ import { buildPlanModel, tileAtPoint } from '../plan/planModel'
 import type { DesignConfig, FitClass, LayoutPlan } from '../types'
 import { formatLength, formatNumber } from '../units'
 import { fitClearance } from './accessories'
+import { FIT_DIGIT, type FitDigit } from './fitDigit'
 import { SOCKET_CLEARANCE, type TabPlan } from './tabs'
 import type { AccessoryKind, AccessorySpec, JoinPlan, MountPlan } from './types'
 
@@ -88,12 +89,18 @@ export interface GuideInput {
   accessories: readonly AccessorySpec[]
 }
 
-/** How the fit test marks each class, and the word for it: the fit picker reads the same names. */
-export const FIT_MARKS: Record<FitClass, { name: string; notches: string }> = {
-  snug: { name: 'Snug', notches: 'one notch' },
-  standard: { name: 'Standard', notches: 'two notches' },
-  loose: { name: 'Loose', notches: 'three notches' },
+/** The number cut into each part of the fit test, and the word for its class: the fit picker reads the same names. */
+export const FIT_MARKS: Record<FitClass, { name: string; digit: FitDigit }> = {
+  snug: { name: 'Snug', digit: FIT_DIGIT.snug },
+  standard: { name: 'Standard', digit: FIT_DIGIT.standard },
+  loose: { name: 'Loose', digit: FIT_DIGIT.loose },
 }
+
+/** "1 is snug, 2 standard, 3 loose", built from FIT_MARKS: every sentence that says how to read the numbers uses it. */
+export const FIT_LEGEND: string = Object.values(FIT_MARKS)
+  .sort((a, b) => a.digit - b.digit)
+  .map(({ name, digit }, i) => `${digit}${i === 0 ? ' is' : ''} ${name.toLowerCase()}`)
+  .join(', ')
 
 const count = (value: number): string => formatNumber(value, 0)
 
@@ -170,14 +177,14 @@ function clearanceText(fit: FitClass, system: FixingSystem): string {
 }
 
 /**
- * What the chosen fit means for these files, in one sentence: the class, its notches, the clearance per side
+ * What the chosen fit means for these files, in one sentence: the class, its number, the clearance per side
  * and what a new fit remakes. The one place that is said: the fit-test page prints it under its picker, the
  * wall's step 1 opens with it and the studio's Fit row shows it as its note.
  */
 export function fitChosenText(config: DesignConfig, system: FixingSystem): string {
   const fit = FIT_MARKS[config.fit]
   // Nothing printed is made to fit into something else, so no clearance is carried anywhere.
-  if (system === 'glue') return `Fit is set to ${fit.name}, the fit with ${fit.notches}. This wall prints no keys or clips, so nothing carries it.`
+  if (system === 'glue') return `Fit is set to ${fit.name}, the fit marked ${fit.digit}. This wall prints no keys or clips, so nothing carries it.`
   // With the tabs the clearance is cut into the tile, so the reprint a wrong fit costs is the whole wall of
   // tiles. It is the one exception to the promise the keys and clips keep, and it is said here and nowhere else.
   const remakes = !usesTabs(system)
@@ -188,7 +195,7 @@ export function fitChosenText(config: DesignConfig, system: FixingSystem): strin
   // The subject is the fitted parts, not "your files": this sentence also ends the fit test's own README,
   // where the files in hand are coupons printed at all three fits on purpose.
   return (
-    `Your ${fittedWord(system)} are made at ${fit.name}, the fit with ${fit.notches} ` +
+    `Your ${fittedWord(system)} are made at ${fit.name}, the fit marked ${fit.digit} ` +
     `(clearance per side: ${clearanceText(config.fit, system)}). ${remakes}`
   )
 }
@@ -668,16 +675,17 @@ export function fitTestGuide(input: FitTestGuideInput): FitTestGuide | null {
   ]
   if (tabs) {
     // Backs down on a board is the wall's own motion turned flat: the socket comes down over the tab, and both
-    // backs finishing flat on the board is what "home" looks like on the wall.
+    // backs finishing flat on the board is what "home" looks like on the wall. Back down, a coupon hides its
+    // number, cut into its back mirrored so it reads right once the coupon is turned over.
     steps.push({
       key: 'fit-tabs',
       title: 'Press each socket coupon down over the tab',
       body: [
         `Lay test coupon A${marksAfter([coupons[0]])} back down on a flat board, then bring each socket coupon` +
           `${marksAfter(sockets)} down over its tab with the joint closed, one at a time: keep the snuggest one that ` +
-          'goes together with both backs flat on the board and leaves no play across the joint. One notch is snug, two ' +
-          'standard, three loose. If none will go together with the joint closed, the first layer is bulging: turn on ' +
-          'elephant-foot compensation.',
+          'goes together with both backs flat on the board and leaves no play across the joint. Turn a socket coupon ' +
+          `over to read its fit, the number cut into its back: ${FIT_LEGEND}. If none will go together with the joint ` +
+          'closed, the first layer is bulging: turn on elephant-foot compensation.',
         'What you keep here is what the tiles are cut at, so settle it before you print any of them.',
       ],
       drawing: 'fit-tabs',
@@ -715,7 +723,7 @@ export function fitTestGuide(input: FitTestGuideInput): FitTestGuide | null {
     key: 'fit-set',
     title: 'Set the fit you kept',
     body: [
-      `Set Fit to the one you kept: one notch is snug, two standard, three loose. Then download your ${fittedWord(system)} at that fit.`,
+      `Set Fit to the one you kept, by the number cut into it: ${FIT_LEGEND}. Then download your ${fittedWord(system)} at that fit.`,
     ],
     drawing: null,
   })

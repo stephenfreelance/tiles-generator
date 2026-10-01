@@ -12,6 +12,7 @@ import { SIDE_NAMES, SIDES } from '../sides'
 import type { DesignConfig, FitClass, LayoutPlan, MeshData, PieceSpec } from '../types'
 import { formatNumber } from '../units'
 import { CLIP_SIDE_WALL, clipBandOffset, clipsPossible, KEY_CLEAR } from './capability'
+import { type FitDigit, isFitDigit } from './fitDigit'
 import { keyPockets } from './joins'
 import { pieceSockets } from './tabs'
 import {
@@ -21,9 +22,11 @@ import {
   CLIP_CLEARANCE,
   CLIP_HALF_LENGTH,
   CLIP_THICKNESS,
+  clipDigitRing,
   clipOutlineAt,
   clipPocketLevels,
   COUNTERSINK_START,
+  DIGIT_DEPTH,
   HOLE_SEGMENTS,
   holeRadius,
   POCKET_DEPTH,
@@ -293,11 +296,11 @@ export function mountPlan(config: DesignConfig, plan: LayoutPlan): MountPlan {
 // The printed clip
 
 /**
- * A clip's spec at a fit class: the wall's clips (no marks), or one of the fit test's, marked 1 to 3 by
- * notches in its spine's end. Its size is its box as printed: the barbs' clearance narrows it, and the
+ * A clip's spec at a fit class: the wall's clips (marks 0), or one of the fit test's (marks 1 to 3, the
+ * digit engraved into its top). Its size is its box as printed: the barbs' clearance narrows it, and the
  * stops make it as tall as the pocket is deep.
  */
-export function clipSpec(fit: FitClass, marks: 0 | 1 | 2 | 3 = 0): Omit<AccessorySpec, 'mark' | 'count' | 'group' | 'label'> {
+export function clipSpec(fit: FitClass, marks: 0 | FitDigit = 0): Omit<AccessorySpec, 'mark' | 'count' | 'group' | 'label'> {
   const clearance = CLIP_CLEARANCE[fit]
   return {
     id: `clip-c${idNum(clearance)}${marks ? `-m${marks}` : ''}`,
@@ -308,8 +311,8 @@ export function clipSpec(fit: FitClass, marks: 0 | 1 | 2 | 3 = 0): Omit<Accessor
   }
 }
 
-/** One clip of the fit test at a fit class, marked by 1 to 3 notches (snug, standard, loose); the fit test renumbers its mark. */
-export function clipSpecForFit(fit: FitClass, marks: 1 | 2 | 3): AccessorySpec {
+/** One clip of the fit test at a fit class, its digit 1 to 3 (snug, standard, loose) on its top; the fit test renumbers its mark. */
+export function clipSpecForFit(fit: FitClass, marks: FitDigit): AccessorySpec {
   return { ...clipSpec(fit, marks), label: `Test clip ${marks}, ${fit}`, mark: `FC${marks}`, count: 1, group: 'fit-test' }
 }
 
@@ -441,9 +444,10 @@ function shapeNumber(spec: Pick<AccessorySpec, 'id' | 'shape'>, key: string): nu
  * The clip as printed: flat on its back (the wall side on the bed, z = 0), its bounding box from the origin
  * with the clip along x, so its centre is the middle of that box. The body is a stack of lofted slabs
  * between the heights where the barbs' profile or the screw hole changes (the barbs' outer vertices move
- * across the catch, the hole widens into its countersink), and the two stops stand on its top. Every
- * face is flat, the only faces that look down are the bed and the barbs' 40 degree return faces, and the
- * solid is checked closed, manifold and in one piece before it is returned.
+ * across the catch, the hole widens into its countersink), and the two stops stand on its top. A fit test
+ * clip (marks 1 to 3) has its digit sunk DIGIT_DEPTH into its top on the spine's +x arm, a pocket with a
+ * flat floor that looks up. Every face is flat, the only faces that look down are the bed and the barbs'
+ * 40 degree return faces, and the solid is checked closed, manifold and in one piece before it is returned.
  */
 export function buildClipMesh(spec: Pick<AccessorySpec, 'id' | 'shape'>): MeshData {
   const clearance = shapeNumber(spec, 'clearance')
@@ -461,7 +465,7 @@ export function buildClipMesh(spec: Pick<AccessorySpec, 'id' | 'shape'>): MeshDa
     }
     return place(ring)
   }
-  const outline = (z: number) => place(clipOutlineAt(z, clearance, marks))
+  const outline = (z: number) => place(clipOutlineAt(z, clearance))
 
   const breaks = [0, returnFaceLow(clearance), BARB_TIP_LOW, BARB_TIP_HIGH, COUNTERSINK_START, CLIP_THICKNESS]
     .filter((z) => z >= 0 && z <= CLIP_THICKNESS)
@@ -475,6 +479,9 @@ export function buildClipMesh(spec: Pick<AccessorySpec, 'id' | 'shape'>): MeshDa
   const top = snapZ(CLIP_THICKNESS)
   const stopTop = snapZ(POCKET_DEPTH)
   const stops = stopRects().map(([x0, y0, x1, y1]) => place(Array.from(ringFromRect(x0, y0, x1, y1))))
+  // A wall clip (marks 0) has no digit, so its solid is the one it has always been.
+  const digits = isFitDigit(marks) ? [place(clipDigitRing(marks))] : []
+  const floor = snapZ(CLIP_THICKNESS - DIGIT_DEPTH)
 
   const first = slabs[0]
   const last = slabs[slabs.length - 1]
@@ -485,10 +492,14 @@ export function buildClipMesh(spec: Pick<AccessorySpec, 'id' | 'shape'>): MeshDa
     loftWalls(out, s.outer[0], s.outer[1], s.z0, s.z1, false)
     loftWalls(out, s.hole[0], s.hole[1], s.z0, s.z1, true)
   }
-  out.cap(last.outer[1], [last.hole[1], ...stops], top, true)
+  out.cap(last.outer[1], [last.hole[1], ...stops, ...digits], top, true)
   for (const stop of stops) {
     loftWalls(out, stop, stop, top, stopTop, false)
     out.cap(stop, [], stopTop, true)
+  }
+  for (const digit of digits) {
+    loftWalls(out, digit, digit, floor, top, true)
+    out.cap(digit, [], floor, true)
   }
   const mesh = out.done()
   const check = checkMesh(mesh)

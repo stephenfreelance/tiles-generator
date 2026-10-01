@@ -275,13 +275,13 @@
   }
 }
 
-// Too narrow for three names side by side: the fits stack, each still a name over its notches.
+// Too narrow for three names side by side: the fits stack, each still a name over its number.
 @media (max-width: 22rem) {
   .fitControl [role='radiogroup'] {
     flex-direction: column;
   }
 
-  // A zero basis down a column squeezed each fit shorter than its two lines.
+  // A zero basis down a column squeezed each fit shorter than its two lines (its name and its number).
   .fitControl [role='radio'] {
     flex: none;
   }

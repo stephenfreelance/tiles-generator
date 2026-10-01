@@ -9,7 +9,7 @@
 
 import { LIMITS } from '../config'
 import { perimeterDrop, shapingEdges } from '../geometry/profiles'
-import { loftSolid } from '../geometry/prism'
+import { loftSolid, type LoftRecess } from '../geometry/prism'
 import { rowShiftCycle } from '../layout'
 import { partPrintNote } from '../printSettings'
 import { hasSide, SIDE_NAMES, SIDES } from '../sides'
@@ -20,6 +20,7 @@ import { fitClearance } from './accessories'
 // own depth stack from them at module scope, and this module sits inside an import cycle (through accessories
 // and the tile mesher) where a constant of its own would still be in its dead zone when tabs.ts read it.
 import { keyNotchDepth, keysPossible, KEY_MOUTH, KEY_RECESS } from './capability'
+import { digitRing, type FitDigit, isFitDigit } from './fitDigit'
 import type { AccessorySpec, BackFeature, JoinPlan, KeySite, Ring } from './types'
 
 /** How far a notch reaches into each tile, mm: a neck slot, then the head. */
@@ -43,10 +44,14 @@ const SPARES = 0.05
 /** A side at least this long takes twice the keys, mm. */
 const DOUBLE_AT = 240
 const DOUBLE_AT_THIRD = 360
-/** Fit-test marks: V notches this wide and deep on one end of the key, this far apart, mm. */
-const MARK_WIDTH = 0.8
-const MARK_DEPTH = 0.5
-const MARK_PITCH = 1.6
+/**
+ * A fit-test key's digit (fitDigit.ts), cells this size, mm: a 2.4 x 4 mm figure on the flat top of the +x head,
+ * 0.8 mm clear of its edges at every fit. That face only faces the notch's ceiling, and locates nothing.
+ */
+const KEY_DIGIT_CELL = 0.8
+/** The digit is two 0.2 mm layers deep, one on a key thinner than KEY_DIGIT_THIN: 0.6 mm of key always stays under it. */
+const KEY_DIGIT_DEPTH = 0.4
+const KEY_DIGIT_THIN = 1.2
 /** Two lengths closer than this are the same length (mm), as in layout.ts. */
 const EPS = 0.01
 /** Two sites of neighbouring placements closer than this are one (placements are rounded to 0.01 mm). */
@@ -729,18 +734,21 @@ export function keyAccessories(config: DesignConfig, plan: LayoutPlan): Accessor
 }
 
 /**
- * One key of the fit test at a fit class, told apart by 1 to 3 small V notches on one end of the key (off
- * the faces that locate it). Mark "FK1" to "FK3" and group 'fit-test'; the fit test may rename it. Null when
+ * One key of the fit test at a fit class, told apart by its digit (`shape.marks`, 1 snug to 3 loose) engraved
+ * into the top of one head. Mark "FK1" to "FK3" and group 'fit-test'; the fit test may rename it. Null when
  * the plate cannot hold a notch. Cut for a closed joint: test coupons A and B butt, and the clearance under
  * test is per side, the same at any joint, so the wall's own keys keep the joint and these do not.
  */
-export function keySpecForFit(config: DesignConfig, fit: FitClass, marks: 1 | 2 | 3): AccessorySpec | null {
-  const spec = keySpec(config, fitClearance(fit, 'key'), marks, 0)
+export function keySpecForFit(config: DesignConfig, fit: FitClass, digit: FitDigit): AccessorySpec | null {
+  const spec = keySpec(config, fitClearance(fit, 'key'), digit, 0)
   if (!spec) return null
-  return { ...spec, label: `Test key ${marks}, ${fit}`, mark: `FK${marks}`, count: 1, group: 'fit-test' }
+  return { ...spec, label: `Test key ${digit}, ${fit}`, mark: `FK${digit}`, count: 1, group: 'fit-test' }
 }
 
-/** The numbers a key spec carries, checked: a spec from elsewhere must not build a broken solid. */
+/**
+ * The numbers a key spec carries, checked: a spec from elsewhere must not build a broken solid. `marks` is the
+ * fit test's digit, 1 to 3, or 0 for a wall key, which carries none.
+ */
 function keyShape(spec: Pick<AccessorySpec, 'id' | 'shape'>) {
   const num = (key: string): number => {
     const v = spec.shape[key]
@@ -764,8 +772,7 @@ function keyShape(spec: Pick<AccessorySpec, 'id' | 'shape'>) {
 
 /**
  * The key's outline, `inset` in from the key's nominal outline on every face. The nominal outline is both
- * notches j apart, shrunk by the clearance c; the end at +x carries the fit-test marks. Counter-clockwise,
- * centred on the origin, x across the joint.
+ * notches j apart, shrunk by the clearance c. Counter-clockwise, centred on the origin, x across the joint.
  */
 function keyOutline(shape: ReturnType<typeof keyShape>, inset: number): number[] {
   const c = shape.clearance + inset
@@ -775,23 +782,15 @@ function keyOutline(shape: ReturnType<typeof keyShape>, inset: number): number[]
   const N = shape.neckWidth / 2 - c
   const rh = shape.headFillet - c
   const rs = shape.shoulderFillet + c
-  const corners: number[] = [L, -B]
-  const radii: number[] = [rh]
-  // The marks cut the +x end, centred on it: an end is never pressed on unless the joint is open.
-  for (let m = 0; m < shape.marks; m++) {
-    const y = (m - (shape.marks - 1) / 2) * MARK_PITCH
-    corners.push(L, y - MARK_WIDTH / 2, L - MARK_DEPTH, y, L, y + MARK_WIDTH / 2)
-    radii.push(0, 0, 0)
-  }
-  corners.push(L, B, G, B, G, N, -G, N, -G, B, -L, B, -L, -B, -G, -B, -G, -N, G, -N, G, -B)
-  radii.push(rh, rh, rs, rs, rh, rh, rh, rh, rs, rs, rh)
-  return filletRing(corners, radii)
+  const corners = [L, -B, L, B, G, B, G, N, -G, N, -G, B, -L, B, -L, -B, -G, -B, -G, -N, G, -N, G, -B]
+  return filletRing(corners, [rh, rh, rh, rs, rs, rh, rh, rh, rh, rs, rs, rh])
 }
 
 /**
  * The closed mesh of a key spec made by keyAccessories or keySpecForFit: the outline as a prism printed
  * flat, its bottom on the bed at z = 0 and its bounding box from the origin, with the 45° lead-in on the
- * top face. Reads only the spec's shape, so a fit-test key with its own clearance builds the same way.
+ * top face, and a fit-test key's digit engraved into that face over the middle of its +x head, upright
+ * across the key. Reads only the spec's shape, so a fit-test key with its own clearance builds the same way.
  */
 export function buildKeyMesh(_config: DesignConfig, spec: Pick<AccessorySpec, 'id' | 'kind' | 'shape'>): MeshData {
   if (spec.kind !== 'key') throw new Error(`Not a key: ${spec.id}`)
@@ -800,18 +799,28 @@ export function buildKeyMesh(_config: DesignConfig, spec: Pick<AccessorySpec, 'i
   if (!(k > shape.leadIn)) throw new Error(`Key ${spec.id}: ${k} mm is too thin for its lead-in`)
   const L = shape.reach + shape.joint / 2 - shape.clearance
   const B = shape.headWidth / 2 - shape.clearance
-  const ring = (inset: number) => {
-    const points = keyOutline(shape, inset)
+  // From the key's centred frame to the mesh's, whose bounding box starts at the origin.
+  const place = (points: number[]) => {
     for (let i = 0; i < points.length; i += 2) {
       points[i] += L
       points[i + 1] += B
     }
     return points
   }
-  const body = ring(0)
-  return loftSolid([
-    { z: 0, ring: body },
-    { z: k - shape.leadIn, ring: body },
-    { z: k, ring: ring(shape.leadIn) },
-  ])
+  const body = place(keyOutline(shape, 0))
+  const recesses: LoftRecess[] = []
+  if (isFitDigit(shape.marks)) {
+    // The +x head's middle, (G + L) / 2 in keyOutline's terms: the clearance cancels, the joint does not.
+    const head = (shape.neck + shape.reach + shape.joint) / 2
+    const depth = k < KEY_DIGIT_THIN - EPS ? KEY_DIGIT_DEPTH / 2 : KEY_DIGIT_DEPTH
+    recesses.push({ ring: place(digitRing(shape.marks, KEY_DIGIT_CELL, head, 0)), depth })
+  }
+  return loftSolid(
+    [
+      { z: 0, ring: body },
+      { z: k - shape.leadIn, ring: body },
+      { z: k, ring: place(keyOutline(shape, shape.leadIn)) },
+    ],
+    recesses,
+  )
 }

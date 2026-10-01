@@ -19,10 +19,10 @@ const FLAT_DEPTH_MM = 0.05
 const EXTRAS_BYTES = 40_000
 /**
  * Printed parts are prisms and lofts, measured on their builders (buildClipMesh, buildKeyMesh): a clip is 880
- * triangles and a key 356, and a fit-test part's notches add a few dozen more (a clip with three is 988). The
- * fit-test coupon is a small tile instead.
+ * triangles and a key 356, and a fit-test part's engraved digit adds 48 more (928 and 404). The fit-test
+ * coupon is a small tile instead.
  */
-const PART_TRIANGLES: Record<Exclude<AccessoryKind, 'fit-test'>, number> = { clip: 900, key: 370 }
+const PART_TRIANGLES: Record<Exclude<AccessoryKind, 'fit-test'>, number> = { clip: 900, key: 380 }
 /** Our STEP writer on flat-faced parts, measured at 70 to 290 bytes per triangle (round corners cost most). */
 const STEP_BYTES_PER_PART_TRIANGLE = 250
 /**

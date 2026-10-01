@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CLIP_THICKNESS, MIN_BASE, POCKET_DEPTH, STOP_HEIGHT, stopRects } from '@/core/fixing/mechanism'
+import type { FitDigit } from '@/core/fixing/fitDigit'
+import { CLIP_THICKNESS, clipDigitRing, MIN_BASE, POCKET_DEPTH, STOP_HEIGHT, stopRects } from '@/core/fixing/mechanism'
 import {
   arrowHeadPath,
   battenScrews,
@@ -17,7 +18,10 @@ import {
   clipSectionPath,
   clipStopsSectionPath,
   clipWallTiles,
+  digitIn,
+  digitPath,
   KEY,
+  keyHead,
   keyPath,
   keySpots,
   PLATE,
@@ -48,6 +52,75 @@ const outline = (path: string) => path.split(' M')[0]
 
 const BLOCK: TileBlock = { columns: 2, rows: 2, w: 60, h: 40, gap: 2, x0: 10, y0: 20 }
 
+const DIGITS: readonly FitDigit[] = [1, 2, 3]
+
+/** Whether every corner of a path lies inside a [x0, y0, x1, y1] box, `margin` clear of its edges. */
+const inside = (path: string, [x0, y0, x1, y1]: readonly number[], margin = 0) =>
+  points(path).every(([x, y]) => x >= x0 + margin - 0.01 && x <= x1 - margin + 0.01 && y >= y0 + margin - 0.01 && y <= y1 - margin + 0.01)
+
+describe('digitPath', () => {
+  it('draws each digit as one ring of 12 corners', () => {
+    for (const digit of DIGITS) {
+      expect(digitPath(digit, 0, 0, 10).match(/[ML]/g)).toHaveLength(12)
+      expect(digitPath(digit, 0, 0, 10).match(/Z/g)).toHaveLength(1)
+    }
+  })
+
+  it('fills a box `height` tall and three fifths as wide, centred on its point', () => {
+    for (const digit of DIGITS) {
+      const corners = points(digitPath(digit, 30, 20, 10))
+      const across = corners.map(([x]) => x)
+      const up = corners.map(([, y]) => y)
+      expect([Math.min(...across), Math.max(...across)]).toEqual([27, 33])
+      expect([Math.min(...up), Math.max(...up)]).toEqual([15, 25])
+    }
+  })
+
+  it('stands upright on the page, not mirrored: the 1 has its flag on the left, above its middle', () => {
+    const corners = points(digitPath(1, 0, 0, 10))
+    // The page runs y down, so above the middle is a smaller y.
+    const left = corners.filter(([x]) => x === -3)
+    const right = corners.filter(([x]) => x === 3)
+    expect(left.filter(([, y]) => y < 0)).toHaveLength(2)
+    expect(right.filter(([, y]) => y < 0)).toHaveLength(0)
+    // The stem's top is its highest point, and the foot is the full width at the bottom.
+    expect(corners.filter(([, y]) => y === -5).map(([x]) => x)).toEqual([1, -1])
+    expect(corners.filter(([, y]) => y === 5).map(([x]) => x)).toEqual([-3, 3])
+  })
+
+  it("draws the clip's own digit: mechanism.ts's ring, seen from above with the page's y running down", () => {
+    for (const digit of DIGITS) {
+      const ring = clipDigitRing(digit)
+      const ringX = ring.filter((_, i) => i % 2 === 0)
+      const drawn = points(digitPath(digit, (Math.min(...ringX) + Math.max(...ringX)) / 2, 0, 5))
+      expect(drawn).toHaveLength(ring.length / 2)
+      drawn.forEach(([x, y], i) => {
+        expect(x).toBeCloseTo(ring[2 * i], 2)
+        expect(y).toBeCloseTo(-ring[2 * i + 1], 2)
+      })
+    }
+  })
+})
+
+describe('digitIn', () => {
+  it('centres the tallest digit that keeps the margin clear all round', () => {
+    // A tall box: the width decides.
+    const tall = digitIn([0, 0, 10, 40], 2)
+    expect(tall).toEqual({ cx: 5, cy: 20, height: 10 })
+    // A wide box: the height does.
+    const wide = digitIn([0, 0, 40, 10], 1)
+    expect(wide).toEqual({ cx: 20, cy: 5, height: 8 })
+    for (const [box, margin] of [[[0, 0, 10, 40], 2], [[0, 0, 40, 10], 1]] as const) {
+      const { cx, cy, height } = digitIn(box, margin)
+      for (const digit of DIGITS) expect(inside(digitPath(digit, cx, cy, height), box, margin)).toBe(true)
+    }
+  })
+
+  it('draws nothing in a box too small for its margin', () => {
+    expect(digitIn([0, 0, 2, 2], 2).height).toBe(0)
+  })
+})
+
 describe('keyPath', () => {
   it('straddles its seam: as long on one side of it as on the other', () => {
     const across = xs(keyPath(50, 30, true))
@@ -72,21 +145,28 @@ describe('keyPath', () => {
     expect(Math.max(...ys(keyPath(0, 0, true, 1)))).toBe(KEY.head + 1)
   })
 
-  it("cuts a fit test key's marks into its +x end only, one notch per mark, inside the head", () => {
+  it('cuts no notch into either end: the +x end is the -x end mirrored, at any scale', () => {
+    // A fit test key is told apart by the digit drawn on its head, not by its outline.
+    const corners = points(keyPath(0, 0, true, 0, 2.3))
+    expect(corners).toHaveLength(12)
+    const key = ([x, y]: [number, number]) => `${x.toFixed(2)} ${y.toFixed(2)}`
+    const set = new Set(corners.map(key))
+    for (const [x, y] of corners) expect(set.has(key([-x, y]))).toBe(true)
+    expect(corners.filter(([x]) => x === 2.3 * KEY.half)).toHaveLength(2)
+  })
+
+  it("frames its +x head for a fit test key's digit: from the shoulder to the end, centred where joins.ts cuts it", () => {
     const scale = 2.3
-    for (const marks of [1, 2, 3]) {
-      const corners = points(keyPath(0, 0, true, 0, scale, marks))
-      expect(corners).toHaveLength(12 + 3 * marks)
-      // Each notch's tip is the only kind of corner off both ends and the shoulders.
-      const tips = corners.filter(([x]) => Math.abs(x - (KEY.half - KEY.markDepth) * scale) < 1e-9)
-      expect(tips).toHaveLength(marks)
-      for (const [, y] of tips) expect(Math.abs(y) + (KEY.markWidth / 2) * scale).toBeLessThan(KEY.head * scale)
-      // The -x end stays whole: its two corners and nothing between.
-      expect(corners.filter(([x]) => x === -KEY.half * scale)).toHaveLength(2)
-    }
-    // A down-pointing key carries them at its lower end.
-    const upright = points(keyPath(0, 0, false, 0, 1, 2))
-    expect(upright.filter(([, y]) => Math.abs(y - (KEY.half - KEY.markDepth)) < 1e-9)).toHaveLength(2)
+    const head = keyHead(24, 24, true, scale)
+    expect(head).toEqual([24 + KEY.shoulder * scale, 24 - KEY.head * scale, 24 + KEY.half * scale, 24 + KEY.head * scale])
+    // (G + L) / 2 in joins.ts: midway between the shoulder and the end.
+    expect((head[0] + head[2]) / 2).toBeCloseTo(24 + ((KEY.shoulder + KEY.half) / 2) * scale, 9)
+    // Every corner of the head box is on the key's outline, so a digit inside it is on the key.
+    const corners = new Set(points(keyPath(24, 24, true, 0, scale)).map(([x, y]) => `${x} ${y}`))
+    expect(corners.has(`${head[2]} ${head[1]}`)).toBe(true)
+    expect(corners.has(`${head[2]} ${head[3]}`)).toBe(true)
+    // Laid down a vertical seam, the head is the lower one.
+    expect(keyHead(0, 0, false)).toEqual([-KEY.head, KEY.shoulder, KEY.head, KEY.half])
   })
 })
 
@@ -302,21 +382,36 @@ describe('the clip in plan', () => {
     }
   })
 
-  it("cuts a fit test clip's marks into its spine's +x end only, one notch per mark, between the slots", () => {
+  it('cuts no notch into its spine: stretched for an icon, the +x end is still the -x end turned a half turn', () => {
+    // The parts list's clip, 42 long and 18 wide: a fit test clip is told apart by its digit alone.
+    const icon = points(outline(clipPlan(0, 0, 42, 18).path))
+    expect(icon).toHaveLength(corners.length)
+    // Within the path's 0.01 rounding, which can round a corner and its twin half a step apart.
+    for (const [x, y] of icon) expect(icon.some(([u, v]) => Math.abs(u + x) <= 0.011 && Math.abs(v + y) <= 0.011)).toBe(true)
+  })
+
+  it("frames the spine's +x arm, between the slots, where mechanism.ts cuts a fit test clip's digit", () => {
     const spine = CLIP_PLAN.body - CLIP_PLAN.tine - CLIP_PLAN.slot
-    for (const marks of [1, 2, 3]) {
-      const marked = points(outline(clipPlanAt(0, 0, 1, 'h', marks).path))
-      expect(marked).toHaveLength(corners.length + 3 * marks)
-      const tips = marked.filter(([x]) => Math.abs(x - (CLIP_PLAN.half - CLIP_PLAN.markDepth)) < 1e-9)
-      expect(tips).toHaveLength(marks)
-      for (const [, y] of tips) expect(Math.abs(y) + CLIP_PLAN.markWidth / 2).toBeLessThan(spine)
-      // The -x end is the unmarked clip's.
-      const left = (pts: [number, number][]) => pts.filter(([x]) => x < 0).map(([x, y]) => `${x} ${y}`)
-      expect(left(marked)).toEqual(left(corners))
+    expect(plan.arm).toEqual([CLIP_PLAN.block, -spine, CLIP_PLAN.half, spine])
+    // The real digit, at its real size (the plan at scale 1 is in mm), lies on the arm, centred along it.
+    for (const digit of DIGITS) {
+      const ring = clipDigitRing(digit)
+      const ringX = ring.filter((_, i) => i % 2 === 0)
+      const ringY = ring.filter((_, i) => i % 2 === 1)
+      expect((Math.min(...ringX) + Math.max(...ringX)) / 2).toBeCloseTo((plan.arm[0] + plan.arm[2]) / 2, 9)
+      expect(Math.min(...ringX)).toBeGreaterThan(plan.arm[0])
+      expect(Math.max(...ringX)).toBeLessThan(plan.arm[2])
+      expect(Math.max(...ringY.map(Math.abs))).toBeLessThan(spine)
     }
-    // A 'v' clip carries them at its +y end.
-    const upright = points(outline(clipPlanAt(0, 0, 1, 'v', 2).path))
-    expect(upright.filter(([, y]) => Math.abs(y - (CLIP_PLAN.half - CLIP_PLAN.markDepth)) < 1e-9)).toHaveLength(2)
+    // The icon's digit (diagrams.tsx's ICON_CLIP_WIDTH and ICON_DIGIT.clip) stays on the stretched arm,
+    // half a stroke and an outline's weight off the slots.
+    const icon = clipPlan(24, 24, 42, 22)
+    const { cx, cy, height } = digitIn(icon.arm, 1.7)
+    expect(height).toBeGreaterThan(8)
+    for (const digit of DIGITS) expect(inside(digitPath(digit, cx, cy, height), icon.arm, 1.7)).toBe(true)
+    // A 'v' clip's arm runs down the page.
+    const [x0, y0, x1, y1] = clipPlanAt(10, 20, 1, 'v').arm
+    expect([x0, y0, x1, y1]).toEqual([10 - spine, 20 + CLIP_PLAN.block, 10 + spine, 20 + CLIP_PLAN.half])
   })
 
   it('turns a quarter turn for a vertical clip', () => {

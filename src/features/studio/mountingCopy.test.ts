@@ -132,7 +132,7 @@ describe('the fit and the plate', () => {
       note: fitChosenText(BOTH, 'both'),
     })
     expect(explain(BOTH).explained.fit?.note).toBe(
-      'Your keys and clips are made at Standard, the fit with two notches (clearance per side: keys 0.1 mm and clips 0.2 mm). ' +
+      'Your keys and clips are made at Standard, the fit marked 2 (clearance per side: keys 0.1 mm and clips 0.2 mm). ' +
         'A new fit remakes only those parts, never the tiles.',
     )
     expect(explain(KEYS).explained.fit?.note).toBe(fitChosenText(KEYS, 'keys'))
@@ -143,7 +143,7 @@ describe('the fit and the plate', () => {
     const fit = explain(TABS).explained.fit
     expect(fit).toEqual({ parts: { keys: false, clips: false, tabs: true }, label: 'Fit of the tabs and their sockets', note: fitChosenText(TABS, 'tabs') })
     expect(fit?.note).toBe(
-      'Your tiles are made at Standard, the fit with two notches (clearance per side: sockets 0.3 mm). ' +
+      'Your tiles are made at Standard, the fit marked 2 (clearance per side: sockets 0.3 mm). ' +
         'The socket is cut into the tile itself, so a new fit remakes every tile.',
     )
     const both = explain(CLIP_TABS).explained.fit

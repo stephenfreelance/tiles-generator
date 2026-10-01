@@ -2,14 +2,16 @@
 // wall of clips or keys, or a wall of tiles with a socket in each. Tile coupons cut by the real tile mesher
 // (coupon A with a clip pocket; for keys, A and B butt together with a key slot each on the facing sides,
 // like two tiles of the wall; for tabs, A carries the tab and one B per fit carries the socket it goes into),
-// then the clips and the keys at the three fit classes, each marked 1, 2 or 3 by small notches (snug,
-// standard, loose). A test clip is the wall's clip, stops and all, so it seats in the coupon as it will in a
-// tile; the keys span the butted coupons' closed joint (keySpecForFit).
+// then the clips and the keys at the three fit classes, each engraved with its digit (fitDigit.ts: 1 snug,
+// 2 standard, 3 loose), a clip's in its top half way along one spine arm, a key's in the chamfered face of
+// one head. A test clip is the wall's clip, stops and all, so it seats in the coupon as it will in a tile;
+// the keys span the butted coupons' closed joint (keySpecForFit).
 //
 // The tabs are the one fixing whose clearance ends up in a tile: their socket is cut into the plate, so it is
-// the SOCKET that comes in all three fits and the coupons that carry the marks, and the test is printed
-// before the tiles rather than after them. A fit changed later means printing the tiles again, which the
-// guide says in its own words (fitChosenText).
+// the SOCKET that comes in all three fits and the coupons B1 to B3 that carry the digit, cut into the back
+// and mirrored so it reads right with the coupon turned over. The test is printed before the tiles rather
+// than after them, and a fit changed later means printing the tiles again, which the guide says in its own
+// words (fitChosenText).
 // Pure maths: no DOM, no three.
 
 import { resolveJointEdge } from '../geometry/profiles'
@@ -18,28 +20,30 @@ import { partPrintNote } from '../printSettings'
 import { createHeightField } from '../textures/registry'
 import type { DesignConfig, FitClass, MeshData, PieceSpec } from '../types'
 import { clipsPossible, KEY_CLEAR, keysPossible, tabsPossible } from './capability'
-import { keyGeometry, keyNotchAt, keySpecForFit, placeOnSide } from './joins'
+import { DIGIT_COLUMNS, digitRing, FIT_DIGIT, type FitDigit, isFitDigit } from './fitDigit'
+import { keyGeometry, keyNotchAt, keySpecForFit } from './joins'
 import { POCKET_HALF_LONG, POCKET_HALF_SHORT } from './mechanism'
 import { clipPocketAt, clipSpecForFit } from './mount'
 import { SOCKET_CLEARANCE_RANGE, SOCKET_SIDE, socketAt, TAB_SIDE, tabAt, tabGeometry } from './tabs'
 import type { AccessorySpec, BackFeature } from './types'
 
-/** The fit classes in the order of their marks: one notch for snug, two for standard, three for loose. */
+/** The fit classes in the order of their digits (FIT_DIGIT): 1 snug, 2 standard, 3 loose. */
 export const FIT_ORDER: readonly FitClass[] = ['snug', 'standard', 'loose']
 
 /** Top grid of the coupon, mm: the standard export quality, fine enough for a test piece. */
 const COUPON_CELL = 0.4
-/** Least wall round the coupon's pocket and notch, mm. */
+/** Least wall round the coupon's pocket, notch and digit, mm. */
 const COUPON_WALL = 3
 /** The coupon is never smaller than this across, mm: room for a key notch's head and its margins. */
 const COUPON_MIN = 20
 
-/** A mark notch in a coupon's free side, mm: wide and deep enough to read and to count at a glance. */
-const MARK_WIDTH = 1.2
-const MARK_DEPTH = 1.2
-const MARK_PITCH = 2.4
-/** How high a mark notch stands off the coupon's back, mm: four layers, well under the plate a socket leaves. */
-const MARK_HEIGHT = 0.8
+/**
+ * The digit in a socket coupon's back, mm a grid step: a 4.8 x 8 mm figure. It is cut on the bed side, where
+ * the first layer's squash closes up a stroke of one or two lines, so every stroke is four lines wide.
+ */
+export const COUPON_DIGIT_CELL = 1.6
+/** How deep the digit goes into the back, mm: four layers, half the shallowest socket and far inside the plate. */
+export const COUPON_DIGIT_DEPTH = 0.8
 
 /**
  * Which fasteners a wall really uses, so the fit test tests nothing it will not print. One flag per
@@ -94,7 +98,9 @@ function mateLayout(config: DesignConfig, height: number, tabs: boolean) {
   const g = keyGeometry(config)
   // The widest fit's socket, so the three socket coupons are one size and only the ring inside them moves.
   const deep = tabs ? (tabGeometry(config)?.socketReachMax ?? 0) : g ? g.reach + g.mouth : 0
-  return { width: Math.ceil(Math.max(COUPON_MIN, deep + couponMargin(config))), height }
+  // A socket coupon also holds its digit between the socket and its free side, a coupon wall clear of each.
+  const digit = tabs ? deep + DIGIT_COLUMNS * COUPON_DIGIT_CELL + 2 * COUPON_WALL : 0
+  return { width: Math.ceil(Math.max(COUPON_MIN, deep + couponMargin(config), digit)), height }
 }
 
 /** Prints like a tile: the coupons test the pockets and the joint the tiles' own layers make. */
@@ -103,18 +109,14 @@ const COUPON_NOTE = 'Print face up like a tile, with the settings of the tiles'
 const PAIRED_COUPON_NOTE = 'Print face up like a tile, with the settings of the tiles, first layer included'
 
 /**
- * One to three notches in the free side of a socket coupon, the way a test key and a test clip carry theirs:
- * what tells B1 from B3 once the three are printed. On the right side, away from the socket on the left, so
- * nothing the test reads is touched.
+ * The digit cut into a socket coupon's back, the way a test key and a test clip carry theirs: what tells B1
+ * from B3 once the three are printed. Midway between the widest fit's socket and the free side, so nothing the
+ * test reads is touched, and mirrored, because the back is read with the coupon turned over left to right.
  */
-function markNotches(marks: 1 | 2 | 3, size: { width: number; height: number }): BackFeature[] {
-  const middle = size.height / 2
-  return Array.from({ length: marks }, (_, m) => {
-    const along = middle + (m - (marks - 1) / 2) * MARK_PITCH
-    const half = MARK_WIDTH / 2
-    const ring = placeOnSide([-half, 0, half, 0, half, MARK_DEPTH, -half, MARK_DEPTH], 1, along, size.width, size.height)
-    return { role: 'fit-mark' as const, side: 1 as const, levels: [{ ring, z0: 0, z1: MARK_HEIGHT }] }
-  })
+function couponDigit(config: DesignConfig, digit: FitDigit, size: { width: number; height: number }): BackFeature {
+  const reach = tabGeometry(config)?.socketReachMax ?? 0
+  const ring = Float64Array.from(digitRing(digit, COUPON_DIGIT_CELL, (reach + size.width) / 2, size.height / 2, true))
+  return { role: 'fit-mark', side: null, levels: [{ ring, z0: 0, z1: COUPON_DIGIT_DEPTH }] }
 }
 
 /** What coupon A holds, in the words of its label. */
@@ -164,8 +166,8 @@ export function fitTestParts(config: DesignConfig, uses: FitTestUses = { clips: 
   if (tabs) {
     // The socket carries the fit, so it is the socket that comes in all three: the maker keeps one.
     const mate = mateLayout(config, coupon.height, true)
-    FIT_ORDER.forEach((fit, i) => {
-      const marks = (i + 1) as 1 | 2 | 3
+    for (const fit of FIT_ORDER) {
+      const marks = FIT_DIGIT[fit]
       parts.push({
         id: `fit-coupon-t-socket-m${marks}`,
         kind: 'fit-test',
@@ -176,18 +178,16 @@ export function fitTestParts(config: DesignConfig, uses: FitTestUses = { clips: 
         group: 'fit-test',
         shape: { width: mate.width, height: mate.height, clip: 0, key: 0, tab: 0, socket: 1, marks, x0: coupon.width },
       })
-    })
+    }
   }
   if (clips) {
-    FIT_ORDER.forEach((fit, i) => {
-      parts.push(clipSpecForFit(fit, (i + 1) as 1 | 2 | 3))
-    })
+    for (const fit of FIT_ORDER) parts.push(clipSpecForFit(fit, FIT_DIGIT[fit]))
   }
   if (keys) {
-    FIT_ORDER.forEach((fit, i) => {
-      const key = keySpecForFit(config, fit, (i + 1) as 1 | 2 | 3)
+    for (const fit of FIT_ORDER) {
+      const key = keySpecForFit(config, fit, FIT_DIGIT[fit])
       if (key) parts.push({ ...key, count: 1, group: 'fit-test' })
-    })
+    }
   }
   return parts.map((part, i) => ({ ...part, mark: `F${i + 1}` }))
 }
@@ -217,9 +217,9 @@ function couponNumber(spec: AccessorySpec, key: string): number {
 
 /**
  * A coupon's solid: a synthetic piece of the design's own relief and plate, cut by the real tile mesher
- * with the design's clip pocket, key notch, tab or socket. Every coupon B continues A's relief from where A
- * ends, so the pair butts like two neighbouring tiles. The height field is built here, in the mesher's call
- * path.
+ * with the design's clip pocket, key notch, tab or socket, and a socket coupon's digit. Every coupon B
+ * continues A's relief from where A ends, so the pair butts like two neighbouring tiles. The height field is
+ * built here, in the mesher's call path.
  */
 export function buildCouponMesh(config: DesignConfig, spec: AccessorySpec): MeshData {
   const features: BackFeature[] = []
@@ -228,12 +228,12 @@ export function buildCouponMesh(config: DesignConfig, spec: AccessorySpec): Mesh
     const height = couponNumber(spec, 'height')
     const x0 = couponNumber(spec, 'x0')
     const marks = couponNumber(spec, 'marks')
-    if (marks !== 1 && marks !== 2 && marks !== 3) throw new Error(`${spec.id}: shape.marks is not 1, 2 or 3`)
+    if (!isFitDigit(marks)) throw new Error(`${spec.id}: shape.marks is not 1, 2 or 3`)
     const b = mateLayout(config, height, true)
     piece = couponPiece(spec, x0, b.width, b.height)
     const socket = socketAt(config, SOCKET_SIDE, b.height / 2, b, FIT_ORDER[marks - 1])
     if (socket) features.push(socket)
-    features.push(...markNotches(marks, b))
+    features.push(couponDigit(config, marks, b))
   } else if (spec.shape.mate === 1) {
     const b = mateLayout(config, couponNumber(spec, 'height'), false)
     piece = couponPiece(spec, couponNumber(spec, 'x0'), b.width, b.height)

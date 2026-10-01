@@ -33,7 +33,7 @@ export interface BackFeatureLevel {
  * Features never touch each other.
  */
 export interface BackFeature {
-  /** 'fit-mark': the one to three notches that tell one fit-test coupon from another; never on a tile. */
+  /** 'fit-mark': the digit cut into a fit-test socket coupon's back, 1 snug, 2 standard, 3 loose; never on a tile. */
   role: 'key-pocket' | 'clip-pocket' | 'join-tab' | 'join-socket' | 'fit-mark'
   side: Side | null
   /**

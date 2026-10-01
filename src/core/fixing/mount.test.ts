@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG, PERIMETER_PROFILES } from '../config'
 import { pieceTopSampler } from '../geometry/heightfield'
 import { checkMesh, componentCount, downwardArea, pinchedVertices } from '../geometry/meshChecks'
-import { signedArea } from '../geometry/polygon'
+import { pointInRing, signedArea } from '../geometry/polygon'
 import { resolveJointEdge, resolvePerimeter, shapingEdges } from '../geometry/profiles'
+import { meshDigest } from '../geometry/testDigest'
 import { sineField } from '../geometry/testFields'
 import { MIN_SKIN_MM } from '../geometry/solid'
 import { buildPieceMesh } from '../geometry/tileMesh'
@@ -15,7 +16,18 @@ import type { DesignConfig, LayoutPlan, PieceSpec } from '../types'
 import { CLIP_SIDE_WALL, clipBandOffset, KEY_CLEAR } from './capability'
 import { keyPockets } from './joins'
 import { pieceSockets } from './tabs'
-import { CLIP_CLEARANCE, POCKET_DEPTH, POCKET_HALF_LONG, POCKET_HALF_SHORT } from './mechanism'
+import {
+  CATCH,
+  CLIP_CLEARANCE,
+  CLIP_HALF_LENGTH,
+  CLIP_THICKNESS,
+  clipDigitRing,
+  DIGIT_DEPTH,
+  POCKET_DEPTH,
+  POCKET_HALF_LONG,
+  POCKET_HALF_SHORT,
+  POCKET_OPENING,
+} from './mechanism'
 import {
   buildClipMesh,
   clipPocketAt,
@@ -320,6 +332,48 @@ describe('mount plan', () => {
       }
     }
     expect(() => buildClipMesh({ id: 'broken', shape: {} })).toThrow(/clearance/)
+    // A stray marks value is clamped, as it always was: past 3 cuts the 3, below 1 cuts nothing.
+    const triangles = (marks: number) => buildClipMesh({ id: 'stray', shape: { clearance: CLIP_CLEARANCE.standard, marks } }).indices.length
+    expect(triangles(7)).toBe(triangles(3))
+    expect(triangles(-1)).toBe(triangles(0))
+  })
+
+  it("sinks a test clip's digit into its top, and leaves the wall clip as it was", () => {
+    for (const fit of ['snug', 'standard', 'loose'] as const) {
+      const wall = buildClipMesh(clipSpec(fit))
+      // The wall clip's 880 triangles, the count the download's size estimate is measured on.
+      expect(wall.indices.length / 3).toBe(880)
+      expect(buildClipMesh(clipSpec(fit, 0))).toEqual(wall)
+      // Byte for byte: the digests of the wall clips built before the fit test's clips took a digit.
+      expect(meshDigest(wall), fit).toBe({ snug: 'e7fa05b4', standard: '6b44c00c', loose: '23715a68' }[fit])
+      // The clip lies from the origin: its centred frame moved by half its length and half its width.
+      const [dx, dy] = [CLIP_HALF_LENGTH, POCKET_OPENING + CATCH - CLIP_CLEARANCE[fit]]
+      const floor = CLIP_THICKNESS - DIGIT_DEPTH
+      /** The (x, y) of a mesh's vertices at the digit's floor, in the clip's centred frame. */
+      const atFloor = (mesh: ReturnType<typeof buildClipMesh>) => {
+        const out: [number, number][] = []
+        for (let i = 0; i < mesh.positions.length; i += 3) {
+          if (Math.abs(mesh.positions[i + 2] - floor) < 1e-5) out.push([mesh.positions[i] - dx, mesh.positions[i + 1] - dy])
+        }
+        return out
+      }
+      for (const digit of [1, 2, 3] as const) {
+        const ring = clipDigitRing(digit)
+        const marked = buildClipMesh(clipSpec(fit, digit))
+        // A pocket of 12 vertices: 14 more triangles in the top, 24 in its walls, 10 in its floor.
+        expect(marked.indices.length / 3, `${fit} ${digit}`).toBe(wall.indices.length / 3 + 48)
+        // Its floor is three layers down, under the digit and nowhere else, at the digit's own corners.
+        const corners = atFloor(marked)
+        const near = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by) < 1e-4
+        for (const [x, y] of corners) {
+          expect(ring.some((_, k) => k % 2 === 0 && near(x, y, ring[k], ring[k + 1])), `${fit} ${digit} at ${x}, ${y}`).toBe(true)
+        }
+        for (let k = 0; k < ring.length; k += 2) expect(corners.some(([x, y]) => near(x, y, ring[k], ring[k + 1]))).toBe(true)
+        expect(atFloor(wall).filter(([x, y]) => pointInRing(ring, x, y) >= 0)).toEqual([])
+        // What it takes away is the digit's area, DIGIT_DEPTH deep.
+        expect(checkMesh(marked).volume).toBeCloseTo(checkMesh(wall).volume - signedArea(ring) * DIGIT_DEPTH, 3)
+      }
+    }
   })
 })
 

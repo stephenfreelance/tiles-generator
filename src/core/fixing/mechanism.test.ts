@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { MIN_FIXING_THICKNESS } from '../config'
 import { checkMesh, componentCount, downwardArea, pinchedVertices } from '../geometry/meshChecks'
-import { ringSelfIntersects, signedArea } from '../geometry/polygon'
+import { pointInRing, ringSelfIntersects, ringsTouch, signedArea } from '../geometry/polygon'
+import { LAYER_MM } from '../textures/printability'
+import { DIGIT_COLUMNS, DIGIT_ROWS, digitRing } from './fitDigit'
 import {
   BARB_TIP_HIGH,
   BARB_TIP_LOW,
   barbOuter,
   barbProfile,
+  BLOCK_HALF_LENGTH,
   BLOCK_HALF_WIDTH,
   CATCH,
   CEILING_ROOM,
@@ -15,10 +18,14 @@ import {
   CLIP_HALF_LENGTH,
   CLIP_THICKNESS,
   clipChecks,
+  clipDigitRing,
   clipOutlineAt,
   clipPlan,
   clipPocketLevels,
   COUNTERSINK,
+  DIGIT_CELL,
+  DIGIT_DEPTH,
+  DIGIT_X,
   DRILL_HOLE,
   FLARE_ANGLE,
   FLARE_OUT,
@@ -43,6 +50,7 @@ import {
   rampFactor,
   returnFaceLow,
   SAG_RANGE,
+  SPINE_HALF,
   STOP_HALF_LENGTH,
   STOP_HEIGHT,
   STOP_OFFSET,
@@ -276,17 +284,53 @@ describe('clip: the section in its pocket', () => {
 })
 
 describe('clip: outline and mesh', () => {
-  it.each([0, 1, 2, 3])('draws a simple, counter-clockwise plan with %i fit marks, symmetric across the catch', (marks) => {
+  it('draws a simple, counter-clockwise plan, symmetric across the catch and along the clip', () => {
     for (const c of CLEARANCE_RANGE) {
-      const ring = clipPlan(c, marks)
+      const ring = clipPlan(c)
       expect(signedArea(ring)).toBeGreaterThan(0)
       expect(ringSelfIntersects(ring)).toBe(false)
       const pts: [number, number][] = []
       for (let k = 0; k < ring.length; k += 2) pts.push([ring[k], ring[k + 1]])
-      for (const [x, y] of pts) expect(pts.some(([x2, y2]) => Math.abs(x2 - x) < 1e-9 && Math.abs(y2 + y) < 1e-9)).toBe(true)
+      const has = (x: number, y: number) => pts.some(([x2, y2]) => Math.abs(x2 - x) < 1e-9 && Math.abs(y2 - y) < 1e-9)
+      for (const [x, y] of pts) expect(has(x, -y) && has(-x, y)).toBe(true)
       // Every height has the same vertex count, so the clip lofts vertex to vertex.
-      for (const z of [0, returnFaceLow(c), BARB_TIP_LOW, CLIP_THICKNESS]) expect(clipOutlineAt(z, c, marks)).toHaveLength(ring.length)
+      for (const z of [0, returnFaceLow(c), BARB_TIP_LOW, CLIP_THICKNESS]) expect(clipOutlineAt(z, c)).toHaveLength(ring.length)
     }
+  })
+
+  it.each([1, 2, 3] as const)("puts the fit test's digit %i on the top of the spine's +x arm, clear of its faces, the block and the end", (digit) => {
+    const ring = clipDigitRing(digit)
+    expect(ring).toEqual(digitRing(digit, DIGIT_CELL, DIGIT_X, 0))
+    expect(signedArea(ring)).toBeGreaterThan(0)
+    expect(ringSelfIntersects(ring)).toBe(false)
+    const xs = ring.filter((_, k) => k % 2 === 0)
+    const ys = ring.filter((_, k) => k % 2 === 1)
+    // Upright with its height across the clip, so it reads with the clip lying along x.
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(DIGIT_COLUMNS * DIGIT_CELL, 12)
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(DIGIT_ROWS * DIGIT_CELL, 12)
+    // At least 1 mm of spine to each long face (the slots run beside them), past the block and short of the end.
+    expect(SPINE_HALF - Math.max(...ys.map(Math.abs))).toBeGreaterThanOrEqual(1)
+    expect(Math.min(...xs)).toBeGreaterThan(BLOCK_HALF_LENGTH + 1)
+    expect(Math.max(...xs)).toBeLessThan(CLIP_HALF_LENGTH - 1)
+    // Inside the clip's top at every fit, touching none of its edges, and clear of the stops on the block.
+    for (const c of CLEARANCE_RANGE) {
+      const top = clipOutlineAt(CLIP_THICKNESS, c)
+      for (let k = 0; k < ring.length; k += 2) expect(pointInRing(top, ring[k], ring[k + 1])).toBe(1)
+      expect(ringsTouch(top, ring)).toBe(false)
+    }
+    for (const [, , x1] of stopRects()) expect(Math.min(...xs)).toBeGreaterThan(x1)
+  })
+
+  it('sinks the digit whole layers into the top, its floor on a whole layer', () => {
+    const layers = (mm: number) => mm / LAYER_MM
+    expect(layers(DIGIT_DEPTH)).toBeCloseTo(Math.round(layers(DIGIT_DEPTH)), 9)
+    expect(Math.round(layers(DIGIT_DEPTH))).toBeGreaterThanOrEqual(2)
+    expect(layers(CLIP_THICKNESS - DIGIT_DEPTH)).toBeCloseTo(Math.round(layers(CLIP_THICKNESS - DIGIT_DEPTH)), 9)
+    // Three layers deep, with 1.8 mm of spine left under the strokes.
+    expect(DIGIT_DEPTH).toBeCloseTo(0.6, 9)
+    expect(CLIP_THICKNESS - DIGIT_DEPTH).toBeGreaterThanOrEqual(1.8 - 1e-9)
+    // Its strokes are whole cells, at least two lines of a 0.4 mm nozzle wide.
+    expect(DIGIT_CELL).toBeGreaterThanOrEqual(0.8)
   })
 
   it.each(FITS)('builds a closed solid that prints flat on its back with nothing steeper than 45 degrees looking down (%s)', (fit) => {
