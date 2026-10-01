@@ -76,3 +76,32 @@ export function usefulOctaves(mmPerCell: number, max: number, finestMm = 1.5): n
 
 /** Rounds to an integer >= 1; every wave vector and lattice count must be integral to stay seamless. */
 export const intAtLeast1 = (v: number): number => Math.max(1, Math.round(v))
+
+/**
+ * A rolled shoulder `d` mm in from its foot: 0 at the foot, exactly 1 from `run` on. The slope eases evenly
+ * from `ratio` times its top value at the foot down to that top value, then a `filletMm` fillet lays it onto
+ * the flat. Printed face up, that is lines closing up towards the joint and a face that is one clean skin,
+ * where a dome or a sine crown prints a flat disc or a stripe ringed by wide steps.
+ */
+export function shoulder(d: number, run: number, filletMm: number, ratio = 1): number {
+  if (d <= 0) return 0
+  if (d >= run) return 1
+  const w = Math.min(filletMm, run)
+  const top = 2 / (w + (run - w) * (1 + ratio))
+  const t = run - d
+  if (t <= w) return 1 - (top * t * t) / (2 * w)
+  const k = t - w
+  return 1 - top * (w / 2 + k + ((ratio - 1) * k * k) / (2 * (run - w)))
+}
+
+/**
+ * Longest run a `shoulder` may take and still keep its gentlest slope at `minSlope` for a relief `depthMm`
+ * deep: past it the shoulder stops widening and the flat grows instead, since a shallower slope prints stairs.
+ */
+export function shoulderRunLimit(depthMm: number, minSlope: number, filletMm: number, ratio = 1): number {
+  const span = (2 * depthMm) / minSlope
+  return filletMm + Math.max(span - filletMm, 0) / (1 + ratio)
+}
+
+/** Gentlest slope a shoulder keeps at a texture's default depth: 14 degrees, steps about 0.8 mm wide. */
+export const SHOULDER_SLOPE = 0.25

@@ -30,7 +30,9 @@ export interface TextureContext {
 /**
  * A pattern sampler over ONE period: u, v in [0, 1) (values outside wrap), returns a height in
  * [0, 1]. It must be exactly periodic with period 1 in u and in v, which is what makes every
- * tile edge meet its neighbour, and it should have no step sharper than ~0.3 mm once scaled.
+ * tile edge meet its neighbour, and it should have no step sharper than ~0.3 mm once scaled. It prints
+ * face up in flat layers, so every region should be exactly flat or sloped past ~11 degrees: a gentle
+ * curve prints as a flat disc ringed by steps (docs/architecture.md, "Printable relief").
  */
 export type PatternSampler = (u: number, v: number) => number
 

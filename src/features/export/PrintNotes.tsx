@@ -18,6 +18,8 @@ export function PrintNotes({ fixings = false, parts = false }: PrintNotesProps) 
     <ul className={styles.list}>
       <li>Print face up, flat on the plate. The relief has no overhangs, so nothing needs supports.</li>
       <li>Any PLA in your color, {PRINT_SETTINGS.summary}.</li>
+      {/* The README's layer-height advice, in a line: a relief prints as steps one layer tall. */}
+      <li>For a smoother relief, use thinner layers or your slicer&apos;s variable layer height: it thins only the relief.</li>
       {parts && <li>Print the parts in the same filament as the tiles: each part&apos;s row says which way up it goes.</li>}
       {fixings && <li>{ELEPHANT_FOOT_NOTE}</li>}
     </ul>

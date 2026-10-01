@@ -1,9 +1,45 @@
 // T-06 fluted (concave channels) and reeded (convex ribs). Both are one-dimensional profiles, so
-// the seam falls on a flat land and the two tiles meet with matching tangents.
+// the seam falls on a flat land (or a valley) and the two tiles meet with matching tangents.
+//
+// A face-up print lays a profile down in layers, so a gentle curve (the bottom of a round scoop, the
+// crest of a half-round reed) comes out as one wide flat tread edged by a line, not as a curve. Both
+// profiles here are therefore built from their SLOPE: straight flanks steep enough that every layer
+// line sits close to the next, exact flats, and short fillets sized in millimetres between them.
 
 import { hashCell } from '../noise'
 import type { PatternSampler, TextureContext, TextureDef } from '../types'
-import { cellMmX, clamp01, fract, mix, smoothstep, softMm } from './common'
+import { cellMmX, clamp01, fract, MIN_SOFT_MM, mix, smoothstep } from './common'
+
+/**
+ * A rise from 0 to 1 given by its slope at a few knots (x in mm, slope in any unit), with the slope
+ * linear between knots: each piece is then a parabola, so a straight flank prints as evenly spaced
+ * lines and a fillet is exactly as wide as its knots say. Integrated once here, evaluated in closed form.
+ */
+function slopeRamp(xs: readonly number[], gs: readonly number[]): (x: number) => number {
+  const k = xs.length
+  const ys = new Float64Array(k)
+  for (let i = 1; i < k; i++) ys[i] = ys[i - 1] + ((gs[i - 1] + gs[i]) * (xs[i] - xs[i - 1])) / 2
+  const total = ys[k - 1] > 0 ? ys[k - 1] : 1
+  const x0 = xs[0]
+  const x1 = xs[k - 1]
+  return (x) => {
+    if (x <= x0) return 0
+    if (x >= x1) return 1
+    let i = 0
+    while (i < k - 2 && x >= xs[i + 1]) i++
+    const d = x - xs[i]
+    const span = xs[i + 1] - xs[i]
+    const y = span > 0 ? ys[i] + gs[i] * d + ((gs[i + 1] - gs[i]) * d * d) / (2 * span) : ys[i]
+    return y / total
+  }
+}
+
+/**
+ * Longest flank, mm, that still prints as a slope at either texture's default depth (a mean of about 17
+ * degrees or more): a wider feature grows a flat instead (a floor in a channel, a valley between reeds)
+ * and keeps its flanks this steep, where a wider curve would spread its layers into stripes.
+ */
+const FLANK_MM = 6.5
 
 export const fluted: TextureDef = {
   id: 'fluted',
@@ -13,7 +49,8 @@ export const fluted: TextureDef = {
   blurb: 'Concave channels milled into the face, throwing one crisp shadow line each.',
   defaults: { depth: 2.4, scale: 14 },
   scaleRange: [5, 45],
-  depthRange: [0.8, 5],
+  // Shallower than this, at its default feature size, a quarter or more of it prints as stair steps wider than 1 mm.
+  depthRange: [1.4, 5],
   params: [
     {
       key: 'land',
@@ -31,7 +68,7 @@ export const fluted: TextureDef = {
       max: 1,
       step: 0.05,
       default: 0.2,
-      hint: 'From a round scoop (0) to a deep U with steep walls (1).',
+      hint: 'From a round scoop (0) to a deep U with steep walls and a flat floor (1).',
     },
     {
       key: 'lip',
@@ -51,23 +88,27 @@ export const fluted: TextureDef = {
     const mmPerCell = cellMmX(ctx)
     // The land has to hold two extrusion lines, and the channel needs room to be a channel.
     const land = clamp01(Math.max(ctx.params.land, 0.8 / mmPerCell))
-    const halfSpan = Math.max((1 - land) / 2, 0.05)
-    // A raised cosine rather than a circle: the circle meets the land with a vertical wall, which
-    // no nozzle can follow and no neighbouring tile can meet.
-    const power = mix(0.5, 1.5, ctx.params.profile)
-    const lip = ctx.params.lip
-    const lipWidth = Math.min(softMm(0.6, mmPerCell), halfSpan * 0.6)
+    const halfMm = Math.max((1 - land) / 2, 0.05) * mmPerCell
+    const profile = ctx.params.profile
+    // Channel from its centre to the land: a flat floor, a fillet, a concave flank (steeper towards the
+    // land, which is what reads as a scoop) and a short rounded shoulder that throws the shadow line.
+    const floor = Math.max(profile * 0.42 * halfMm, halfMm - FLANK_MM)
+    const flank = halfMm - floor
+    const fillet = Math.min(floor > 0 ? 0.6 : 0.9, flank * 0.25)
+    const shoulder = Math.min(0.45, flank * 0.15)
+    const steepen = mix(2.2, 3.6, profile)
+    const wall = slopeRamp([floor, floor + fillet, halfMm - shoulder, halfMm], [0, 1, steepen, 0])
+    // A bead under two layers (at the default depth) would show in the preview and vanish in the print,
+    // so the lip starts there.
+    const lip = ctx.params.lip > 0 ? mix(0.17, 0.3, ctx.params.lip) : 0
+    // The land is at least 0.8 mm, so the bead's slope is never narrower than MIN_SOFT_MM.
+    const lipWidth = Math.min(0.6, 0.4 * land * mmPerCell)
     return (u, v) => {
       void v
-      const f = fract(n * u)
-      const q = (f - 0.5) / halfSpan
-      if (q <= -1 || q >= 1) {
-        if (lip <= 0) return 1
-        const toLand = Math.min(Math.abs(q) - 1, 1) * halfSpan
-        return 1 - 0.18 * lip * smoothstep(0, lipWidth, toLand)
-      }
-      const deep = 0.5 + 0.5 * Math.cos(Math.PI * q)
-      return clamp01(1 - Math.pow(deep, power))
+      const x = Math.abs(fract(n * u) - 0.5) * mmPerCell
+      if (x < halfMm) return wall(x)
+      if (lip <= 0) return 1
+      return 1 - lip * smoothstep(0, lipWidth, x - halfMm)
     }
   },
 }
@@ -78,9 +119,11 @@ export const reeded: TextureDef = {
   name: 'Reeded',
   category: 'linear',
   blurb: 'Convex reeds, optionally in an irregular hand-cut rhythm, like a pleated curtain.',
-  defaults: { depth: 2, scale: 12 },
+  // Deep enough that the steep foot drawing each valley line leaves the flanks past 11 degrees.
+  defaults: { depth: 2.4, scale: 12 },
   scaleRange: [4, 40],
-  depthRange: [0.8, 4],
+  // Shallower than this, at its default feature size, a quarter or more of it prints as stair steps wider than 1 mm.
+  depthRange: [2, 4],
   params: [
     {
       key: 'roundness',
@@ -89,7 +132,7 @@ export const reeded: TextureDef = {
       max: 2,
       step: 0.05,
       default: 0.6,
-      hint: 'Low is a half-round reed, high is a soft flute with a flat valley.',
+      hint: 'Low is a full reed rising steeply out of a crisp valley, high a sharper ridge with straight sides.',
     },
     {
       key: 'widthVar',
@@ -107,7 +150,7 @@ export const reeded: TextureDef = {
       max: 0.6,
       step: 0.05,
       default: 0,
-      hint: 'Lets some reeds sit lower than their neighbours.',
+      hint: 'Makes some reeds smaller than their neighbours, lower and narrower alike.',
     },
     {
       key: 'groove',
@@ -117,7 +160,7 @@ export const reeded: TextureDef = {
       step: 0.1,
       default: 0,
       unit: 'mm',
-      hint: 'Flat gap between reeds. 0 keeps them touching.',
+      hint: 'Flat gap between reeds. At 0 they touch, unless a reed is too wide to keep its sides steep.',
     },
   ],
   directional: true,
@@ -125,18 +168,22 @@ export const reeded: TextureDef = {
   cellAspect: 1,
   create(ctx: TextureContext): PatternSampler {
     const n = ctx.repeatsX
-    const mmPerCell = cellMmX(ctx)
-    const gamma = ctx.params.roundness
+    const periodMm = ctx.periodMm[0]
+    // A reed is built from its slope (see slopeRamp): a steep foot out of the valley, a short shoulder that
+    // eases it into the flank, a flank that flattens towards the crest and a narrow rounded crown. The steep
+    // foot is what draws the dark valley line of reeded glass; a full reed also curves its flank, so its
+    // shading rolls across it, where a sharp one keeps straight sides and a softer valley.
+    const fullness = clamp01((2 - ctx.params.roundness) / 1.7)
+    const footSlope = mix(4, 14, fullness)
+    const sideSlope = mix(1, 2.4, fullness)
+    const crownMm = mix(0.5, 0.9, fullness)
     const rho = ctx.params.widthVar
     const sigma = ctx.params.heightVar
-    const gap = clamp01(ctx.params.groove / mmPerCell)
-    // sin(pi f) ^ gamma has an infinite slope at the rib edge when gamma < 1, so every rib gets a
-    // soft foot at least 0.3 mm wide.
-    const foot = Math.min(0.3 / mmPerCell, 0.25)
+    const groove = ctx.params.groove
     const seed = ctx.seed
 
-    // One period holds exactly n reeds; their widths and heights are precomputed so sampling is a
-    // table lookup instead of a hash chain.
+    // One period holds exactly n reeds; their widths, heights and profiles are precomputed so sampling
+    // is a table lookup instead of a hash chain.
     const edges = new Float64Array(n + 1)
     const widths = new Float64Array(n)
     const heights = new Float64Array(n)
@@ -148,10 +195,27 @@ export const reeded: TextureDef = {
       heights[i] = 1 - sigma * (hashCell(i, 77, seed) / 4294967296)
     }
     let acc = 0
+    const profiles: ((x: number) => number)[] = []
     for (let i = 0; i < n; i++) {
       widths[i] = widths[i] / total
       edges[i] = acc
       acc += widths[i]
+      // Half a reed, from its edge (the valley) to its crest, in mm. A lower reed is a smaller copy of a
+      // full one, narrower as well as lower, so its sides keep the slope that prints smoothly.
+      const halfMm = (widths[i] * periodMm) / 2
+      const flank = (halfMm - Math.max(Math.min(groove / 2, 0.4 * halfMm), halfMm - FLANK_MM)) * heights[i]
+      const valley = halfMm - flank
+      // Fillet, shoulder and crown are fixed widths in mm, so the crest prints as one tread under 2 mm wide
+      // whatever the reed's width. Where two reeds touch, their fillets meet as one MIN_SOFT_MM round.
+      const fillet = Math.min(MIN_SOFT_MM / 2, flank * 0.06)
+      const shoulder = Math.min(0.4, flank * 0.15)
+      const crown = Math.min(crownMm, flank * 0.27)
+      profiles.push(
+        slopeRamp(
+          [valley, valley + fillet, valley + fillet + shoulder, halfMm - crown, halfMm],
+          [0, footSlope, sideSlope, 1, 0],
+        ),
+      )
     }
     edges[n] = 1
 
@@ -169,17 +233,8 @@ export const reeded: TextureDef = {
       const uu = fract(u)
       let i = buckets[Math.min(buckets.length - 1, (uu * buckets.length) | 0)]
       while (i < n - 1 && uu >= edges[i + 1]) i++
-      const width = widths[i]
-      let f = (uu - edges[i]) / width
-      if (gap > 0) {
-        // The gap eats into both ends of the reed, leaving a flat valley at zero.
-        const half = Math.min(gap * 0.5, 0.45)
-        f = (f - half) / Math.max(1 - 2 * half, 1e-6)
-        if (f <= 0 || f >= 1) return 0
-      }
-      const s = Math.sin(Math.PI * clamp01(f))
-      const edge = Math.min(f, 1 - f)
-      return clamp01(heights[i] * Math.pow(s, gamma) * smoothstep(0, foot, edge))
+      const fromEdge = Math.min(uu - edges[i], edges[i + 1] - uu) * periodMm
+      return clamp01(heights[i] * profiles[i](fromEdge))
     }
   },
 }

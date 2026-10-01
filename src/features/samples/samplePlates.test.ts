@@ -5,30 +5,39 @@ import { TEXTURES, textureById } from '@/core/textures/registry'
 import type { DesignConfig } from '@/core/types'
 import {
   compactGrid,
+  EVERY_RELIEF,
+  followOwnRelief,
+  NAMED_RELIEFS,
   PLATE_GAP_MM,
   PLATE_MARGIN_MM,
   plateGrid,
   plateLegend,
+  reliefOrder,
+  reliefPick,
   SAMPLE_MM,
   sampleJob,
   samplePlates,
   samplePlatesGrams,
   sampleSet,
+  sampleZipEvent,
   STRIP_GAP_MM,
+  yoursCarries,
   type PlacedSample,
   type SamplePlates,
-  type SampleScope,
 } from './samplePlates'
 
 const design = (over: Partial<DesignConfig> = {}): DesignConfig => ({ ...structuredClone(DEFAULT_CONFIG), ...over })
 const P1S = { width: 256, depth: 256 }
 const A1_MINI = { width: 180, depth: 180 }
 
-function plated(config: DesignConfig, bed = P1S, scope: SampleScope = 'every'): SamplePlates {
-  const plates = samplePlates(config, bed, sampleSet(config), scope)
+function plated(config: DesignConfig, bed = P1S, reliefs: readonly string[] = EVERY_RELIEF): SamplePlates {
+  const plates = samplePlates(config, bed, sampleSet(config), reliefs)
   if (!plates) throw new Error('no plate')
   return plates
 }
+
+/** The maker's own relief alone, as the download page's "Test first" opens the picker. */
+const yoursOnly = (config: DesignConfig) => [config.texture.id]
 
 describe('sampleSet', () => {
   it('leads with the maker’s relief and joint, then every other relief in the studio’s order', () => {
@@ -174,6 +183,16 @@ describe('sampleSet', () => {
     expect(extras.some((s) => s.kind === 'turn')).toBe(false)
     expect(extras.filter((s) => s.kind === 'depth').map((s) => s.key)).toEqual(['shallower'])
   })
+
+  it('keeps each depth on its named side for a saved design below its relief’s range', () => {
+    // Coral wood saved at its old 3 mm default: the range now starts at 4.4, so clamping x0.5 would come out deeper.
+    const wood = textureById('coral-wood')
+    expect(wood.depthRange[0]).toBeGreaterThan(3)
+    const { extras } = sampleSet(design({ texture: { ...DEFAULT_CONFIG.texture, id: 'coral-wood', depth: 3 } }))
+    const depths = extras.filter((s) => s.kind === 'depth')
+    expect(depths.map((s) => s.key)).toEqual(['deeper'])
+    expect(depths[0].config.texture.depth).toBeGreaterThan(3)
+  })
 })
 
 describe('plateGrid', () => {
@@ -259,8 +278,9 @@ describe('samplePlates', () => {
 
 describe('only the maker\u2019s relief', () => {
   it('prints the design exactly as set: its relief and its joint, nothing varied, on one plate', () => {
-    const plates = plated(design(), P1S, 'yours')
-    expect(plates.scope).toBe('yours')
+    const plates = plated(design(), P1S, yoursOnly(design()))
+    expect(plates.pick).toBe('yours')
+    expect(plates.reliefs).toEqual([DEFAULT_CONFIG.texture.id])
     expect(plates.samples.map((s) => s.key)).toEqual(['yours', 'joint'])
     expect(plates.extrasPlaced).toBe(0)
     for (const sample of plates.samples) expect(sample.config.texture).toEqual(DEFAULT_CONFIG.texture)
@@ -272,21 +292,131 @@ describe('only the maker\u2019s relief', () => {
 
   it('adds the design\u2019s own border, at its own settings, and no other', () => {
     const perimeter = { ...DEFAULT_CONFIG.perimeter, profile: 'bullnose' as const, width: 6 }
-    const plates = plated(design({ perimeter }), P1S, 'yours')
+    const plates = plated(design({ perimeter }), P1S, yoursOnly(design()))
     expect(plates.samples.map((s) => s.key)).toEqual(['yours', 'joint', 'border-bullnose'])
     expect(plates.samples[2].config.perimeter.width).toBe(6)
     expect(plates.grid).toMatchObject({ columns: 3, rows: 1 })
   })
 
   it('still spreads over plates a bed too small for them together', () => {
-    expect(plated(design(), { width: 55, depth: 55 }, 'yours').plates.map((p) => p.length)).toEqual([1, 1])
+    expect(plated(design(), { width: 55, depth: 55 }, yoursOnly(design())).plates.map((p) => p.length)).toEqual([1, 1])
   })
 
   it('reads as the maker\u2019s own in the legend', () => {
-    expect(plateLegend(plated(design(), P1S, 'yours'))).toEqual([
+    expect(plateLegend(plated(design(), P1S, yoursOnly(design())))).toEqual([
       { numbers: '1', text: 'Your relief: Wavy' },
       { numbers: '2', text: 'Your joint: chamfer edge' },
     ])
+  })
+})
+
+describe('a pick of reliefs', () => {
+  const others = TEXTURES.filter((t) => t.id !== DEFAULT_CONFIG.texture.id).map((t) => t.id)
+
+  it('names what a pick amounts to: every relief, the maker\u2019s alone, some other set, or nothing', () => {
+    const config = design()
+    expect(reliefPick(config, EVERY_RELIEF)).toBe('every')
+    // Order and repeats do not change a pick.
+    expect(reliefPick(config, [...EVERY_RELIEF].reverse().concat(EVERY_RELIEF))).toBe('every')
+    expect(reliefPick(config, [config.texture.id])).toBe('yours')
+    expect(reliefPick(config, [others[0]])).toBe('some')
+    expect(reliefPick(config, [config.texture.id, others[0]])).toBe('some')
+    expect(reliefPick(config, EVERY_RELIEF.slice(1))).toBe('some')
+    expect(reliefPick(config, [])).toBe('none')
+    // An id the catalogue does not hold picks nothing.
+    expect(reliefPick(config, ['no-such-relief'])).toBe('none')
+  })
+
+  it('lists the maker\u2019s relief first, then the rest of the catalogue in the studio\u2019s order', () => {
+    const coral = design({ texture: { ...DEFAULT_CONFIG.texture, id: 'coral' } })
+    expect(reliefOrder(coral).map((t) => t.id)).toEqual(['coral', ...EVERY_RELIEF.filter((id) => id !== 'coral')])
+    expect(reliefOrder(coral)).toHaveLength(TEXTURES.length)
+  })
+
+  it('prints exactly what was picked, in the studio\u2019s order, with nothing varied in the spare places', () => {
+    // Picked in any order: the plate keeps the studio's.
+    const picked = [others[5], others[0], others[2]]
+    const plates = plated(design(), P1S, picked)
+    expect(plates.pick).toBe('some')
+    expect(plates.samples.map((s) => s.key)).toEqual([others[0], others[2], others[5]].map((id) => `relief-${id}`))
+    expect(plates.reliefs).toEqual([others[0], others[2], others[5]])
+    expect(plates.extrasPlaced).toBe(0)
+    expect(plates.samples.some((s) => s.group === 'extra')).toBe(false)
+    expect(plates.samples.map((s) => s.number)).toEqual([1, 2, 3])
+    expect(plates.grid).toMatchObject({ columns: 3, rows: 1 })
+  })
+
+  it('brings the maker\u2019s joint and border with their relief, and drops all three without it', () => {
+    const ogee = design({ perimeter: { ...DEFAULT_CONFIG.perimeter, profile: 'ogee' } })
+    const withYours = plated(ogee, P1S, [ogee.texture.id, others[0]])
+    expect(withYours.samples.map((s) => s.key)).toEqual(['yours', 'joint', 'border-ogee', `relief-${others[0]}`])
+    const without = plated(ogee, P1S, others)
+    expect(without.samples.some((s) => s.group === 'yours')).toBe(false)
+    expect(without.samples).toHaveLength(others.length)
+  })
+
+  it('fills the last plate\u2019s spare places only when every relief is picked', () => {
+    // One relief short of the whole catalogue leaves 3 spare places on a 256 mm plate, and none is filled.
+    const allButOne = plated(design(), P1S, EVERY_RELIEF.filter((id) => id !== others[0]))
+    expect(allButOne.pick).toBe('some')
+    expect(allButOne.samples).toHaveLength(TEXTURES.length)
+    expect(allButOne.capacity - allButOne.samples.length).toBeGreaterThan(0)
+    expect(allButOne.extrasPlaced).toBe(0)
+    expect(plated(design()).extrasPlaced).toBe(1)
+  })
+
+  it('draws no plate when nothing is picked, and still says when the bed takes no sample at all', () => {
+    const plates = plated(design(), P1S, [])
+    expect(plates.pick).toBe('none')
+    expect(plates.samples).toEqual([])
+    expect(plates.plates).toEqual([])
+    expect(plates.reliefs).toEqual([])
+    expect(samplePlatesGrams(plates)).toBe(0)
+    expect(plateLegend(plates)).toEqual([])
+    expect(samplePlates(design(), { width: 40, depth: 80 }, undefined, [])).toBeNull()
+  })
+
+  it('names a few picked reliefs one by one in the legend, and more as one run of places', () => {
+    const few = others.slice(0, NAMED_RELIEFS)
+    const named = plated(design(), P1S, [DEFAULT_CONFIG.texture.id, ...few])
+    expect(plateLegend(named)).toEqual([
+      { numbers: '1', text: 'Your relief: Wavy' },
+      { numbers: '2', text: 'Your joint: chamfer edge' },
+      ...few.map((id, i) => ({ numbers: `${i + 3}`, text: textureById(id).name })),
+    ])
+    const many = others.slice(0, NAMED_RELIEFS + 1)
+    expect(plateLegend(plated(design(), P1S, [DEFAULT_CONFIG.texture.id, ...many]))).toEqual([
+      { numbers: '1', text: 'Your relief: Wavy' },
+      { numbers: '2', text: 'Your joint: chamfer edge' },
+      { numbers: `3 to ${NAMED_RELIEFS + 3}`, text: `The ${NAMED_RELIEFS + 1} other reliefs you picked, in the studio's order` },
+    ])
+    expect(plateLegend(plated(design(), P1S, many))).toEqual([
+      { numbers: `1 to ${NAMED_RELIEFS + 1}`, text: `The ${NAMED_RELIEFS + 1} reliefs you picked, in the studio's order` },
+    ])
+  })
+
+  it('says what the maker\u2019s relief brings with it, from what the set really prints', () => {
+    expect(yoursCarries(sampleSet(design()))).toBe('with its joint')
+    expect(yoursCarries(sampleSet(design({ perimeter: { ...DEFAULT_CONFIG.perimeter, profile: 'frame' } })))).toBe('with its joint and border')
+    // Too narrow for a joint worth judging.
+    expect(yoursCarries(sampleSet(design({ tile: { width: 24, height: 60, thickness: 4 } })))).toBeNull()
+  })
+
+  it('keeps "only yours" on the maker\u2019s relief when it changes, and any other pick as its reliefs', () => {
+    expect(followOwnRelief(['wavy'], 'wavy', 'coral')).toEqual(['coral'])
+    expect(followOwnRelief(['wavy', 'wavy'], 'wavy', 'coral')).toEqual(['coral'])
+    expect(followOwnRelief(['wavy'], 'wavy', 'wavy')).toEqual(['wavy'])
+    // Picked by hand, a relief stays picked whoever's it is now.
+    expect(followOwnRelief(['coral'], 'wavy', 'zellige')).toEqual(['coral'])
+    expect(followOwnRelief(['wavy', 'stripes'], 'wavy', 'coral')).toEqual(['wavy', 'stripes'])
+    expect(followOwnRelief(EVERY_RELIEF, 'wavy', 'coral')).toEqual(EVERY_RELIEF)
+    expect(followOwnRelief([], 'wavy', 'coral')).toEqual([])
+  })
+
+  it('counts a download by the kind of pick alone', () => {
+    expect(sampleZipEvent('every')).toBe('sample-plates-zip')
+    expect(sampleZipEvent('yours')).toBe('sample-relief-zip')
+    expect(sampleZipEvent('some')).toBe('sample-picked-zip')
   })
 })
 

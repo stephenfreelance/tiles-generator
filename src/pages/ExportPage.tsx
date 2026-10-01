@@ -456,8 +456,8 @@ export function ExportPage() {
             <div className={styles.testTile}>
               <p className={styles.testTileLabel}>Test first</p>
               <p id={testTileNoteId} className={styles.secondaryNote}>
-                One 60 × 60 mm tile of the same relief and color, or a plate of samples cut from your own tile, of
-                this relief alone or of every relief: worth an hour before you print {plural(tiles, 'tile', 'tiles')}.
+                One 60 × 60 mm tile of the same relief and color, or a plate of samples cut from your own tile, in
+                this relief or any others you pick: worth printing before you print {plural(tiles, 'tile', 'tiles')}.
               </p>
               <div className={styles.testTileActions}>
                 <Button
@@ -524,8 +524,8 @@ export function ExportPage() {
       )}
 
       <MountingGuide guide={guide} />
-      {/* Here the relief is chosen and the wall is next, so the dialog opens on this relief alone. */}
-      <SamplePlatesDialog open={samplesOpen} onOpenChange={setSamplesOpen} config={config} defaultScope="yours" />
+      {/* Here the relief is chosen and the wall is next, so the picker starts on this relief alone. */}
+      <SamplePlatesDialog open={samplesOpen} onOpenChange={setSamplesOpen} config={config} defaultReliefs="yours" />
     </div>
   )
 }

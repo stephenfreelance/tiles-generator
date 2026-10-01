@@ -7,7 +7,7 @@ import { PRINT_SETTINGS } from '@/core/printSettings'
 import { textureById } from '@/core/textures/registry'
 import type { DesignConfig } from '@/core/types'
 import { JOINT_COPY } from '@/features/studio/edges'
-import type { PlacedSample, SamplePlates } from './samplePlates'
+import { NAMED_RELIEFS, type PlacedSample, type SamplePlates } from './samplePlates'
 
 export interface ZipEntry {
   name: string
@@ -20,15 +20,21 @@ export function plateFileName(plate: number, count: number): string {
   return `sample-plate-${plate + 1}-of-${count}.stl`
 }
 
+/** "Coral", "Coral and Zellige", "Wavy, Coral and Zellige". */
+const andList = (names: readonly string[]) =>
+  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
+const reliefNames = (plates: Pick<SamplePlates, 'reliefs'>) => plates.reliefs.map((id) => textureById(id).name)
+
 /**
- * Named like the wall's own zip and the fit test's, with what it holds and the plate size, so the two kinds
- * and two printers' zips never collide: "kitchen-sample-plates-256x256.zip", "kitchen-wavy-samples-180x180.zip".
+ * Named like the wall's own zip and the fit test's, with what it holds and the plate size, so the kinds and two
+ * printers' zips never collide: "kitchen-sample-plates-256x256.zip" for every relief, "kitchen-wavy-samples-180x180.zip"
+ * for one relief (the maker's own or another), "kitchen-5-relief-samples-256x256.zip" for any other pick.
  */
-export function samplePlatesZipName(
-  config: Pick<DesignConfig, 'name' | 'texture'>,
-  plates: Pick<SamplePlates, 'bed' | 'scope'>,
-): string {
-  const what = plates.scope === 'yours' ? `${slug(textureById(config.texture.id).name)}-samples` : 'sample-plates'
+export function samplePlatesZipName(config: Pick<DesignConfig, 'name'>, plates: Pick<SamplePlates, 'bed' | 'pick' | 'reliefs'>): string {
+  const names = reliefNames(plates)
+  const what =
+    plates.pick === 'every' ? 'sample-plates' : names.length === 1 ? `${slug(names[0])}-samples` : `${names.length}-relief-samples`
   return `${slug(config.name) || 'tessera'}-${what}-${bedText(plates)}.zip`
 }
 
@@ -80,20 +86,29 @@ function plateMap(plates: SamplePlates, samples: readonly PlacedSample[]): strin
 export function samplePlatesReadme(config: DesignConfig, plates: SamplePlates, printer: string): string {
   const count = plates.plates.length
   const joint = JOINT_COPY[config.bevel > 0 ? config.jointEdge : 'square'].name.toLowerCase()
-  const every = plates.scope === 'every'
   const relief = textureById(config.texture.id).name
+  const names = reliefNames(plates)
   const laid = `laid out on ${count === 1 ? 'a plate' : `${count} plates`} of ${sizeText(plates.bed.width)} x ${sizeText(plates.bed.depth)} mm (${printer})`
   const tile = `your ${sizeText(config.tile.width)} x ${sizeText(config.tile.height)} mm tile, on your ${sizeText(config.tile.thickness)} mm base with ${joint} joints`
-  const lines = [`TESSERA / ${config.name} / ${every ? 'sample plates' : `${relief} samples`}`, '']
-  lines.push(
-    ...wrapped(
-      every
-        ? `Small squares of your own tile in every relief, ${laid}, so each relief can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}: only what its name says is changed.`
-        : `Small squares of your own tile in your ${relief} relief, exactly as you set it, ${laid}, so it can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}, and nothing about it is changed.`,
-      '  ',
-    ),
-    '',
-  )
+  const title =
+    plates.pick === 'every' ? 'sample plates' : names.length === 1 ? `${names[0]} samples` : `samples of ${names.length} reliefs`
+  let intro: string
+  if (plates.pick === 'every') {
+    intro = `Small squares of your own tile in every relief, ${laid}, so each relief can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}: only what its name says is changed.`
+  } else if (plates.pick === 'yours') {
+    intro = `Small squares of your own tile in your ${relief} relief, exactly as you set it, ${laid}, so it can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}, and nothing about it is changed.`
+  } else if (names.length === 1) {
+    intro = `Small squares of your own tile in the ${names[0]} relief, at its own depth and feature size, ${laid}, so it can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}: only its relief is changed.`
+  } else {
+    // A few reliefs are named here; more are named under the plates, where each has its number.
+    const which = names.length <= NAMED_RELIEFS ? andList(names) : `the ${names.length} reliefs you picked`
+    const own = plates.reliefs.includes(textureById(config.texture.id).id)
+      ? ` Your ${relief} relief is exactly as you set it; every other one is at its own depth and feature size.`
+      : ''
+    intro = `Small squares of your own tile in ${which}, ${laid}, so each relief can be held in the hand before a wall of tiles is printed. Every sample is cut from ${tile}: only what its name says is changed.${own}`
+  }
+  const lines = [`TESSERA / ${config.name} / ${title}`, '']
+  lines.push(...wrapped(intro, '  '), '')
 
   lines.push('FILES, at the root of this zip')
   const nameWidth = plateFileName(count - 1, count).length + 3

@@ -75,6 +75,12 @@ workflow then deploys, so a red gate blocks the release.
   import ships the whole mesher in the studio's own chunk. The Back view builds its seated clips and keys
   through `partMesh` (`src/three/seatedSet.ts`), and `seatedSet.test.ts` walks the tree and fails on a
   stray import.
+- **Every relief prints face up in layers, so it is flat or steep, never gently curved.** A dome top, a shallow
+  dish or a soft crest prints as a flat disc ringed by steps (real prints showed it). `docs/architecture.md`
+  ("Printable relief") has the rules, `src/core/textures/printability.ts` measures them, and
+  `printability.test.ts` holds every texture at its defaults: change a pattern, check it there. The one
+  exception is T-10, shown as "Topographic map" (id still `dune-wave`): its printed contour lines are the look,
+  so it keeps its original gentle geometry and sits in the test's `CONTOURS_BY_DESIGN`.
 - **Only edit the files you own.** `docs/architecture.md` carries the ownership map; files marked
   `[lead]` are read-only contracts. If one blocks you, describe the change you need in your report.
 - English copy. Strict TypeScript, no `any`. Comments explain why, one line where possible.

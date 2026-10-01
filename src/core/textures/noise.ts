@@ -153,45 +153,6 @@ export function valueFbm2(
   return sum / norm
 }
 
-/**
- * Periodic ridged multifractal in [0, 1] (Musgrave): folding |n| makes sharp crests, and weighting
- * each octave by the previous one keeps detail on the ridges instead of in the valleys.
- */
-export function ridged2(
-  x: number,
-  y: number,
-  px: number,
-  py: number,
-  octaves: number,
-  seed: number,
-  gain = 2,
-): number {
-  let fx = x
-  let fy = y
-  let ppx = px
-  let ppy = py
-  let sig = 1 - Math.abs(perlin2(fx, fy, ppx, ppy, seed))
-  sig *= sig
-  let sum = sig
-  let norm = 1
-  let amp = 1
-  for (let o = 1; o < octaves; o++) {
-    fx *= 2
-    fy *= 2
-    ppx *= 2
-    ppy *= 2
-    amp *= 0.5
-    let weight = sig * gain
-    if (weight > 1) weight = 1
-    else if (weight < 0) weight = 0
-    sig = 1 - Math.abs(perlin2(fx, fy, ppx, ppy, seed + o * 3571))
-    sig = sig * sig * weight
-    sum += sig * amp
-    norm += amp
-  }
-  return sum / norm
-}
-
 /** Periodic warp offset: both components are themselves periodic, so the warped field still tiles. */
 export function warp2(
   x: number,

@@ -3,9 +3,11 @@
 
 import { hashCell, wrap } from '../noise'
 import type { PatternSampler, TextureContext, TextureDef } from '../types'
-import { clamp01, fract, intAtLeast1, mix, smoothstep, tri } from './common'
+import { clamp01, fract, intAtLeast1, MIN_SOFT_MM, shoulder, SHOULDER_SLOPE, shoulderRunLimit, tri } from './common'
 
 const SQRT2 = Math.SQRT2
+/** The lowest a herringbone brick sits, as a share of the relief. */
+const LOWEST_BRICK = 0.86
 
 export const herringbone: TextureDef = {
   id: 'herringbone',
@@ -52,7 +54,7 @@ export const herringbone: TextureDef = {
       max: 1,
       step: 0.05,
       default: 0.35,
-      hint: 'Crowns each brick like a worn, hand-laid floor.',
+      hint: 'Rolls the edges of each brick down into the joint like a worn, hand-laid floor; the face stays flat.',
     },
   ],
   directional: true,
@@ -70,9 +72,14 @@ export const herringbone: TextureDef = {
     const nx = Math.max(1, Math.round(((diagonal ? k : 1) * ny * w) / h))
     // One brick width in mm, which is what the joint and bevel widths are measured against.
     const brickMm = diagonal ? w / (SQRT2 * nx) : w / (2 * k * nx)
-    const jointHalf = Math.min(ctx.params.joint / 2 / brickMm, 0.25)
-    const bevel = Math.min(Math.max(0.3 / brickMm, 0.06), 0.3)
+    const jointHalfMm = Math.min(ctx.params.joint / 2, 0.25 * brickMm)
+    // Pillowing widens the edge and rounds it: a sine crown across a flat brick was a tenth of a millimetre,
+    // under one layer, and printed as a stray line along the brick. The face now stays exactly flat.
     const pillow = ctx.params.pillow
+    const ratio = 1 + pillow
+    const fillet = 0.5
+    const rollCap = shoulderRunLimit(herringbone.defaults.depth * LOWEST_BRICK, SHOULDER_SLOPE, fillet, ratio)
+    const rollMm = Math.max(Math.min((0.06 + 0.14 * pillow) * brickMm, rollCap, 0.3 * brickMm), MIN_SOFT_MM)
     const seed = ctx.seed
     // Wrapping moduli for the brick id: along the lattice generators (1,1) and (-k,k) in diagonal
     // mode, along the plain 2k square in straight mode.
@@ -111,15 +118,15 @@ export const herringbone: TextureDef = {
         idX = c
         idY = Math.round(y - bv)
       }
-      const edge = Math.min(Math.min(along, k - along), Math.min(cross, 1 - cross))
-      const base = smoothstep(jointHalf, jointHalf + bevel, edge)
+      const edgeMm = Math.min(Math.min(along, k - along), Math.min(cross, 1 - cross)) * brickMm
+      const base = shoulder(edgeMm - jointHalfMm, rollMm, fillet, ratio)
       if (base <= 0) return 0
       const hashed = diagonal
         ? hashCell(wrap(idX + idY, modA), wrap(idX - idY, modB), seed)
         : hashCell(wrap(idX, modA), wrap(idY, modB), seed)
-      const shade = 0.86 + 0.14 * (hashed / 4294967296)
-      const crown = 0.82 + 0.18 * Math.sin(Math.PI * clamp01(cross))
-      return clamp01(base * shade * mix(1, crown, pillow))
+      // Each brick sits at its own height, a flat face for the printer however far it stands proud.
+      const shade = LOWEST_BRICK + (1 - LOWEST_BRICK) * (hashed / 4294967296)
+      return clamp01(base * shade)
     }
   },
 }
@@ -170,7 +177,7 @@ export const chevron: TextureDef = {
       max: 1,
       step: 0.05,
       default: 0.3,
-      hint: 'Rounds each slat across its width so light rolls along the zigzag.',
+      hint: 'Rolls the long edges of each slat down into the joint so light runs along the zigzag; the face stays flat.',
     },
   ],
   directional: true,
@@ -182,21 +189,30 @@ export const chevron: TextureDef = {
     const [w, h] = ctx.periodMm
     const slatMm = h / ny
     const halfColumnMm = w / (2 * columns)
+    const angle = (ctx.params.angle * Math.PI) / 180
     // Phase shift over one half column, in slats: this is what sets the real cut angle.
-    const shift = (halfColumnMm * Math.tan((ctx.params.angle * Math.PI) / 180)) / slatMm
-    const jointHalf = ctx.params.joint / 2
+    const shift = (halfColumnMm * Math.tan(angle)) / slatMm
+    // The slats lie tilted by the cut angle, so a step in phase is cos(angle) as wide at right angles to them:
+    // measured straight up, a 0.6 mm joint at 60 degrees was a 0.3 mm slot no nozzle can cut.
+    const widthMm = slatMm * Math.cos(angle)
+    const jointHalf = Math.min(ctx.params.joint / 2, 0.25 * widthMm)
     const bevelMm = 0.35
+    // The crown widens and rounds the long edges: a sine across a flat slat was a tenth of a millimetre, under a
+    // layer, and printed as a stray line down the slat.
     const crown = ctx.params.crown
+    const ratio = 1 + crown
+    const fillet = 0.5
+    const rollCap = shoulderRunLimit(chevron.defaults.depth, SHOULDER_SLOPE, fillet, ratio)
+    const rollMm = Math.max(Math.min(bevelMm + crown * 0.25 * widthMm, rollCap), bevelMm)
     return (u, v) => {
       const phase = ny * v + shift * tri(columns * u)
       const f = fract(phase)
-      const alongMm = Math.min(f, 1 - f) * slatMm
+      const alongMm = Math.min(f, 1 - f) * widthMm
       const ffx = fract(2 * columns * u)
       const acrossMm = Math.min(ffx, 1 - ffx) * halfColumnMm
-      const edge = Math.min(alongMm, acrossMm)
-      const base = smoothstep(jointHalf, jointHalf + bevelMm, edge)
-      if (base <= 0 || crown <= 0) return base
-      return base * mix(1, 0.8 + 0.2 * Math.sin(Math.PI * f), crown)
+      const side = shoulder(alongMm - jointHalf, rollMm, Math.min(fillet, rollMm / 3), ratio)
+      if (side <= 0) return 0
+      return Math.min(side, shoulder(acrossMm - jointHalf, bevelMm, 0))
     }
   },
 }

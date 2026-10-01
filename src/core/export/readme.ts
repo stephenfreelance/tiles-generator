@@ -437,7 +437,15 @@ export function buildReadme(config: DesignConfig, plan: LayoutPlan, format: Expo
   lines.push('PRINTING')
   lines.push('  Print face up, relief upwards, flat on the plate. No supports are needed:')
   lines.push('  the relief has no overhangs.')
-  lines.push('  Layer height    0.12 to 0.2 mm. Thinner layers show more of the relief.')
+  // A relief prints as steps one layer tall, widest where it is gentlest: finer layers there are what smooths it.
+  lines.push(
+    ...field(
+      'Layer height',
+      keepUnits(
+        "0.12 to 0.2 mm. The relief prints as steps one layer tall, so thinner layers smooth its slopes. Your slicer's variable (adaptive) layer height keeps the base quick and thins only the relief.",
+      ),
+    ),
+  )
   lines.push(`  Walls           3 perimeters, so the ${edges.length === 0 ? 'chamfered ' : ''}edges stay crisp.`)
   lines.push('  Infill          15%, gyroid or grid.')
   lines.push('  Brim            Add a brim for the small cut pieces; they have little bed contact.')

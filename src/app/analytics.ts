@@ -40,7 +40,9 @@ export const EVENTS = {
   'fit-test-part': 'Downloaded one fit-test part',
   'sample-plates-open': 'Opened the sample plates',
   'sample-plates-zip': 'Downloaded the sample plates',
-  'sample-relief-zip': 'Downloaded the samples of one relief',
+  'sample-relief-zip': 'Downloaded the samples of their own relief alone',
+  // Any other pick of reliefs: never which ones, nor how many.
+  'sample-picked-zip': 'Downloaded the samples of reliefs picked by hand',
   'history-open': 'Saved designs: opened one in the studio',
   'history-files': 'Saved designs: went to the files',
   'history-duplicate': 'Saved designs: duplicated one',

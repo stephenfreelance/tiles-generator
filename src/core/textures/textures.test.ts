@@ -4,6 +4,7 @@ import type { DesignConfig, RowOffset } from '../types'
 import { rowShiftCycle } from '../layout'
 import { renderReliefChip } from './hillshade'
 import { mulberry32 } from './noise'
+import { LAYER_MM, layerStats, STEP_LIMIT_MM } from './printability'
 import { createHeightField, DEFAULT_TEXTURE_ID, resolveParams, TEXTURES, textureById } from './registry'
 import type { TextureDef } from './types'
 
@@ -319,13 +320,13 @@ describe('renderReliefChip', () => {
 describe('T-13 coral wood', () => {
   const def = textureById('coral-wood')
 
-  const configWith = (params: Record<string, number>): DesignConfig => ({
+  const configWith = (params: Record<string, number>, depth = def.defaults.depth, scale = def.defaults.scale): DesignConfig => ({
     ...DEFAULT_CONFIG,
     tile: { ...DEFAULT_CONFIG.tile, width: 150, height: 150 },
     texture: {
       id: def.id,
-      depth: def.defaults.depth,
-      scale: def.defaults.scale,
+      depth,
+      scale,
       params,
       seed: 1,
       invert: false,
@@ -344,24 +345,77 @@ describe('T-13 coral wood', () => {
     return out.sort((a, b) => a - b)
   }
 
+  /** The middle of the tile, clear of any edge: what layerStats reads. */
+  const MIDDLE = { x0: 52.5, y0: 52.5, width: 45, height: 45 }
+
   it('keeps the identity the catalog is indexed by', () => {
     expect(TEXTURES[12].id).toBe('coral-wood')
     expect(def.mark).toBe('T-13')
     expect(def.name).toBe('Coral wood')
   })
 
-  it('exposes the four carving controls', () => {
+  it('exposes the four carving controls, with the crispest rims and no grain by default', () => {
     expect(def.params.map((p) => p.key)).toEqual(['size', 'variation', 'ridge', 'grain'])
     const byKey = Object.fromEntries(def.params.map((p) => [p.key, p]))
-    expect(byKey.size.default).toBeCloseTo(0.66, 6)
+    expect(byKey.size.default).toBeCloseTo(0.62, 6)
     expect(byKey.variation.default).toBeCloseTo(0.65, 6)
-    expect(byKey.ridge.default).toBeCloseTo(0.3, 6)
-    expect(byKey.grain.default).toBeCloseTo(0.45, 6)
+    // Worn rims print their three-way tops as small flats and grain is grooves on top of the
+    // scoops, so a maker who prints the defaults gets plain scoops with sharp rims.
+    expect(byKey.ridge.default).toBe(0)
+    expect(byKey.grain.default).toBe(0)
   })
 
-  it('cuts shallow against the width of one scoop', () => {
-    // A gouge leaves a broad dish, not a dimple, so the relief stays small next to the spacing.
-    expect(def.defaults.depth / def.defaults.scale).toBeLessThan(0.2)
+  it('falls from a steep point into a dish, never from a level floor', () => {
+    // At variation 0 every cut is the nominal one, centred on the lattice, so a straight line out
+    // of a centre reads one scoop's profile. A paraboloid starts level, which is what printed as a
+    // disc ringed by wide treads; a plain cone would print evenly but shade as a funnel.
+    const field = createHeightField(configWith({ variation: 0, grain: 0 }))
+    const pitch = field.periodX / field.repeatsX
+    const reach = 0.62 * pitch
+    const cx = 4 * pitch
+    const slope = (from: number, to: number): number =>
+      (field(cx + to * reach, 0) - field(cx + from * reach, 0)) / ((to - from) * reach)
+    const bottom = slope(0.05, 0.15)
+    // Steep enough at the very bottom that a 0.2 mm layer steps less than a millimetre...
+    expect(bottom).toBeGreaterThan(0.2)
+    // ...and steeper again toward the rim, which is what shades as a dish.
+    expect(slope(0.6, 0.7)).toBeGreaterThan(bottom * 1.3)
+  })
+
+  it('prints as fine rings across its depth range, with no disc at the bottom of a scoop at its defaults', () => {
+    const atDefault = layerStats(createHeightField(configWith({})), MIDDLE)
+    expect(atDefault.caps).toBe(0)
+    expect(atDefault.shallow).toBeLessThan(0.05)
+    expect(atDefault.medianStepMm).toBeLessThan(0.8)
+    // The first version printed about two thirds of its area as wide treads at its own defaults (3 mm over
+    // 30 mm scoops). A bigger scoop needs a deeper cut, so every corner of the two ranges is held, not just
+    // the depths at the default size: 28 mm scoops 3.6 mm deep printed over half their area as treads.
+    for (const depth of def.depthRange) {
+      for (const scale of def.scaleRange) {
+        const stats = layerStats(createHeightField(configWith({}, depth, scale)), MIDDLE)
+        expect(stats.shallow, `${depth} mm deep, ${scale} mm scoops`).toBeLessThan(0.1)
+        expect(stats.medianStepMm, `${depth} mm deep, ${scale} mm scoops`).toBeLessThan(STEP_LIMIT_MM)
+      }
+    }
+  })
+
+  it('carves its grain at least two print layers deep, even at the shallowest depth', () => {
+    const depth = def.depthRange[0]
+    const plain = createHeightField(configWith({ grain: 0 }, depth))
+    const grained = createHeightField(configWith({ grain: 1 }, depth))
+    // Grain only ever cuts into the scoops (it never lifts them, which would squeeze every flank),
+    // so the deepest a line goes is the largest drop below the plain carving.
+    let deepest = 0
+    let highest = 0
+    for (let x = MIDDLE.x0; x < MIDDLE.x0 + MIDDLE.width; x += 0.1) {
+      for (let y = MIDDLE.y0; y < MIDDLE.y0 + MIDDLE.height; y += 1) {
+        const drop = plain(x, y) - grained(x, y)
+        deepest = Math.max(deepest, drop)
+        highest = Math.max(highest, -drop)
+      }
+    }
+    expect(highest).toBeLessThan(1e-9)
+    expect(deepest).toBeGreaterThanOrEqual(2 * LAYER_MM)
   })
 
   it('lifts the field off the base as the cuts get uneven', () => {
@@ -392,10 +446,11 @@ describe('sampling speed', () => {
   /**
    * Per-sample ceiling, and a deliberately generous one: it catches a texture gone pathologically
    * slow, not a constant factor. It is a wall clock, so it is calibrated off the SLOWEST machine the
-   * gates run on and not off a laptop. The dearest texture is coral wood (fifteen lattice cells
-   * searched per sample, then an fbm for the grain), which costs about 0.8 us on an Apple-silicon
-   * dev machine and about 1.3 us on a GitHub-hosted runner. The old 1 us ceiling came from the
-   * former and CI duly failed it on a texture that had never regressed.
+   * gates run on and not off a laptop. The dearest textures are voronoi stone (a spall search on top
+   * of its cells), coral (a phasor sum over nine packet cells) and ocean water, at about 0.4 us on an
+   * Apple-silicon dev machine; coral wood, the dearest once, measured 0.8 us there and about 1.3 us on
+   * a GitHub-hosted runner. The old 1 us ceiling came from the former and CI duly failed it on a
+   * texture that had never regressed.
    */
   const CEILING_NS = 4000
 

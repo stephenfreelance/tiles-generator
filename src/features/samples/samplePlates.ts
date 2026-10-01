@@ -6,11 +6,13 @@
 // different tile: the maker's tile size, base plate, joint edge and color stay, the fixings and the border
 // go (a sample is a piece from inside the wall), and the texture, the edge or the depth is the one
 // thing that moves.
+import type { EventName } from '@/app/analytics'
 import { DEFAULT_CONFIG, LIMITS } from '@/core/config'
 import { sizeText } from '@/core/export/filenames'
 import { pieceMaterialMm3, PLA_DENSITY_G_PER_CM3, PRINT_SETTINGS } from '@/core/estimate'
 import type { PrinterBed } from '@/core/layout'
 import { createHeightField, TEXTURES, textureById } from '@/core/textures/registry'
+import type { TextureDef } from '@/core/textures/types'
 import type {
   CropRect,
   DesignConfig,
@@ -46,8 +48,15 @@ export type PlateSize = Pick<PrinterBed, 'width' | 'depth'>
 /** 'yours' is the design exactly as set (its relief, joint and border), 'relief' another pattern, 'extra' a variation. */
 export type SampleGroup = 'yours' | 'relief' | 'extra'
 
-/** What the plates hold: every relief of the catalogue, or only the maker's own relief as they set it. */
-export type SampleScope = 'every' | 'yours'
+/**
+ * What a pick of reliefs amounts to. 'every' is the full sampler (every relief, then variations of the maker's
+ * in the last plate's spare places), 'yours' the maker's own relief alone as they set it, 'some' any other
+ * set, printed exactly as picked, and 'none' nothing to print.
+ */
+export type ReliefPick = 'every' | 'yours' | 'some' | 'none'
+
+/** Every relief of the catalogue by id, in the studio's order: what the plates hold until the maker picks. */
+export const EVERY_RELIEF: readonly string[] = TEXTURES.map((texture) => texture.id)
 
 /** What one sample varies, for the legend and the README. */
 export type SampleKind = 'relief' | 'joint' | 'border' | 'depth' | 'invert' | 'turn'
@@ -62,6 +71,8 @@ export interface SamplePiece {
 export interface Sample {
   /** Stable and unique within a set: 'yours', 'joint', 'relief-coral', 'border-ogee', 'deeper'. */
   key: string
+  /** The texture id of the relief it shows, which a pick of reliefs selects it by. */
+  relief: string
   group: SampleGroup
   kind: SampleKind
   /** "Your relief: Wavy", "Coral", "Rounded edge". */
@@ -76,7 +87,7 @@ export interface Sample {
 export interface SampleSet {
   /** Every sample's box on the plate, mm: the joint's two strips share one. */
   box: { width: number; height: number }
-  /** The maker's own relief, joint and border, then every other relief: always printed. */
+  /** The maker's own relief, joint and border, then every other relief: whichever of them are picked print. */
   core: Sample[]
   /** Variations on the maker's relief, in the order they fill the spare places of the last plate. */
   extras: Sample[]
@@ -105,7 +116,9 @@ export interface PlacedSample extends Sample {
 }
 
 export interface SamplePlates {
-  scope: SampleScope
+  pick: ReliefPick
+  /** The texture ids picked, in the order they print: the maker's first, then the studio's order. */
+  reliefs: string[]
   bed: PlateSize
   box: SampleSet['box']
   /** The grid the samples are laid on: the whole plate's, or a smaller one centred when a single plate is not full. */
@@ -237,11 +250,11 @@ function jointStrips(key: string, config: DesignConfig, box: SampleSet['box'], s
 const mm = (value: number) => `${formatNumber(value, 2)} mm`
 
 /**
- * Every sample a design can print. The core is always printed: the maker's relief as the wall prints it,
- * its joint, its border when it has one, then every other relief of the catalogue at its own depth and
- * feature size, in the studio's order. The extras vary one thing about the maker's relief, in the order the
- * studio asks about it: the other joint edges, the other borders, then the pattern's depth, invert and turn.
- * They only ever fill spare places.
+ * Every sample a design can print. The core is what a pick of reliefs selects from: the maker's relief as the
+ * wall prints it, its joint, its border when it has one (all three the maker's own relief, picked or left out
+ * together), then every other relief of the catalogue at its own depth and feature size, in the studio's
+ * order. The extras vary one thing about the maker's relief, in the order the studio asks about it: the other
+ * joint edges, the other borders, then the pattern's depth, invert and turn. They only ever fill spare places.
  */
 export function sampleSet(config: DesignConfig): SampleSet {
   const box = { width: round2(Math.min(SAMPLE_MM, config.tile.width)), height: round2(Math.min(SAMPLE_MM, config.tile.height)) }
@@ -255,6 +268,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
   const core: Sample[] = [
     {
       key: 'yours',
+      relief: texture.id,
       group: 'yours',
       kind: 'relief',
       title: `Your relief: ${texture.name}`,
@@ -266,6 +280,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
   if (joints) {
     core.push({
       key: 'joint',
+      relief: texture.id,
       group: 'yours',
       kind: 'joint',
       title: `Your joint: ${JOINT_COPY[joint].name.toLowerCase()} edge`,
@@ -282,6 +297,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
     const heading = PERIMETER_COPY[profile].heading
     return {
       key: `border-${profile}`,
+      relief: texture.id,
       group: profile === ownBorder ? 'yours' : 'extra',
       kind: 'border',
       title: profile === ownBorder ? `Your border: ${heading.toLowerCase()}` : heading,
@@ -290,7 +306,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
       pieces: square(`border-${profile}`, bordered, box, CORNER_EDGES),
     }
   }
-  // The design's own border is part of the design as set, so it always prints, beside its relief and joint.
+  // The design's own border is part of the design as set, so it prints whenever its relief does, beside it and its joint.
   if (ownBorder && ownBorder !== 'none') core.push(corner(ownBorder))
   for (const other of TEXTURES) {
     if (other.id === texture.id) continue
@@ -306,6 +322,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
     }
     core.push({
       key: `relief-${other.id}`,
+      relief: other.id,
       group: 'relief',
       kind: 'relief',
       title: other.name,
@@ -323,6 +340,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
       const edged = { ...base, jointEdge: edge, bevel: edge !== 'square' && base.bevel <= 0 ? DEFAULT_CONFIG.bevel : base.bevel }
       extras.push({
         key: `joint-${edge}`,
+        relief: texture.id,
         group: 'extra',
         kind: 'joint',
         title: `${JOINT_COPY[edge].name} joint`,
@@ -343,10 +361,12 @@ export function sampleSet(config: DesignConfig): SampleSet {
     ['shallower', 0.5],
   ] as const) {
     const next = round1(Math.min(high, Math.max(low, depth * factor)))
-    if (next === round1(depth)) continue
+    // A saved design can sit outside its relief's range, which only advises: keep each variation on its named side.
+    if (key === 'deeper' ? next <= round1(depth) : next >= round1(depth)) continue
     const deep = { ...base, texture: { ...base.texture, depth: next } }
     extras.push({
       key,
+      relief: texture.id,
       group: 'extra',
       kind: 'depth',
       title: `${texture.name}, ${mm(next)} deep`,
@@ -359,6 +379,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
     const inverted = { ...base, texture: { ...base.texture, invert: !base.texture.invert } }
     extras.push({
       key: 'invert',
+      relief: texture.id,
       group: 'extra',
       kind: 'invert',
       title: `${texture.name}, inverted`,
@@ -371,6 +392,7 @@ export function sampleSet(config: DesignConfig): SampleSet {
     const turned = { ...base, texture: { ...base.texture, rotate: !base.texture.rotate } }
     extras.push({
       key: 'turn',
+      relief: texture.id,
       group: 'extra',
       kind: 'turn',
       title: `${texture.name}, quarter turn`,
@@ -427,33 +449,72 @@ function centredGrid(bed: PlateSize, box: SampleSet['box'], columns: number, row
   }
 }
 
+/** The picker's order: the maker's own relief first, then the rest of the catalogue in the studio's order. */
+export function reliefOrder(config: Pick<DesignConfig, 'texture'>): TextureDef[] {
+  const own = textureById(config.texture.id)
+  return [own, ...TEXTURES.filter((texture) => texture.id !== own.id)]
+}
+
+/** What a pick of texture ids amounts to for this design. Ids the catalogue does not hold count for nothing. */
+export function reliefPick(config: Pick<DesignConfig, 'texture'>, reliefs: Iterable<string>): ReliefPick {
+  const picked = new Set(reliefs)
+  const known = TEXTURES.filter((texture) => picked.has(texture.id))
+  if (known.length === 0) return 'none'
+  if (known.length === TEXTURES.length) return 'every'
+  return known.length === 1 && known[0].id === textureById(config.texture.id).id ? 'yours' : 'some'
+}
+
 /**
- * The plates for one bed. Every relief: as many plates as the core needs, the spare places of the last one
- * filled with extras. Yours only: the design exactly as set (its relief, its joint, its border when it has
- * one) and nothing varied, since a variation is a parameter the maker did not choose. Samples are numbered in
- * reading order, from the back-left of plate 1 (the top-left of its map), so a number is a place and the map
- * is the only label a sample needs. Null when the bed takes no sample at all.
+ * A pick made while the maker's relief was `from`, read now that it is `to`. "Only yours" is the maker's relief
+ * whichever it is, so it follows them to the new one; any other pick is a list of reliefs and keeps them.
+ */
+export function followOwnRelief(reliefs: readonly string[], from: string, to: string): readonly string[] {
+  const picked = new Set(reliefs)
+  return picked.size === 1 && picked.has(from) ? [to] : reliefs
+}
+
+/** What picking the maker's own relief brings besides its square, as its picker says it, or null for nothing. */
+export function yoursCarries(set: Pick<SampleSet, 'core'>): string | null {
+  const has = (kind: SampleKind) => set.core.some((sample) => sample.group === 'yours' && sample.kind === kind)
+  const parts = [has('joint') && 'joint', has('border') && 'border'].filter((part) => part !== false)
+  return parts.length === 0 ? null : `with its ${parts.join(' and ')}`
+}
+
+/** The count a download of these plates makes: by the kind of pick alone, never which reliefs nor how many. */
+export function sampleZipEvent(pick: Exclude<ReliefPick, 'none'>): EventName {
+  return pick === 'every' ? 'sample-plates-zip' : pick === 'yours' ? 'sample-relief-zip' : 'sample-picked-zip'
+}
+
+/**
+ * The plates for one bed, holding the reliefs picked (every relief unless told otherwise). A relief prints
+ * one square, except the maker's own, which brings its joint and its border. Every relief picked: as many
+ * plates as that needs, the spare places of the last one filled with extras. Any other pick prints exactly
+ * what was picked and nothing varied, since a variation is a parameter the maker did not choose. Samples are
+ * numbered in reading order, from the back-left of plate 1 (the top-left of its map), so a number is a place
+ * and the map is the only label a sample needs. Nothing picked gives no plate at all; null is for a bed that
+ * takes no sample.
  */
 export function samplePlates(
   config: DesignConfig,
   bed: PlateSize,
   set: SampleSet = sampleSet(config),
-  scope: SampleScope = 'every',
+  reliefs: Iterable<string> = EVERY_RELIEF,
 ): SamplePlates | null {
   const full = plateGrid(bed, set.box)
   if (full.perPlate === 0) return null
-  let chosen: Sample[]
+  const picked = new Set(reliefs)
+  const pick = reliefPick(config, picked)
+  const core = set.core.filter((sample) => picked.has(sample.relief))
+  let chosen = core
   let extrasPlaced = 0
-  if (scope === 'yours') {
-    chosen = [...set.core, ...set.extras].filter((sample) => sample.group === 'yours')
-  } else {
-    const spare = Math.ceil(set.core.length / full.perPlate) * full.perPlate - set.core.length
+  if (pick === 'every') {
+    const spare = Math.ceil(core.length / full.perPlate) * full.perPlate - core.length
     const extras = set.extras.slice(0, spare)
-    chosen = [...set.core, ...extras]
+    chosen = [...core, ...extras]
     extrasPlaced = extras.length
   }
   const plateCount = Math.ceil(chosen.length / full.perPlate)
-  const grid = chosen.length < full.perPlate ? compactGrid(bed, set.box, full, chosen.length) : full
+  const grid = chosen.length > 0 && chosen.length < full.perPlate ? compactGrid(bed, set.box, full, chosen.length) : full
   const samples = chosen.map((sample, index): PlacedSample => {
     const slot = index % grid.perPlate
     const row = Math.floor(slot / grid.columns)
@@ -469,7 +530,17 @@ export function samplePlates(
     }
   })
   const plates = Array.from({ length: plateCount }, (_, plate) => samples.filter((sample) => sample.plate === plate))
-  return { scope, bed, box: set.box, grid, capacity: full.perPlate, samples, plates, extrasPlaced }
+  return {
+    pick,
+    reliefs: [...new Set(core.map((sample) => sample.relief))],
+    bed,
+    box: set.box,
+    grid,
+    capacity: full.perPlate,
+    samples,
+    plates,
+    extrasPlaced,
+  }
 }
 
 /** What the worker is asked for one sample: its design, a plan holding its pieces, and their ids. */
@@ -544,22 +615,31 @@ const EXTRA_WORDS: Record<Exclude<SampleKind, 'relief'>, [string, string]> = {
   turn: ['quarter turn', 'quarter turns'],
 }
 
+/** Up to this many reliefs picked by hand are named one by one in the legend; more read as one run. */
+export const NAMED_RELIEFS = 5
+
 /**
- * The plates in a few lines: the maker's own samples one by one, the other reliefs as one run, and the
- * extras as one run named by what they vary. Every number is a place on a plate.
+ * The plates in a few lines: the maker's own samples one by one, the other reliefs as one run (or, picked by
+ * hand and few, one by one), and the extras as one run named by what they vary. Every number is a place on a
+ * plate, so a partial pick keeps its numbers in a row too.
  */
-export function plateLegend(plates: Pick<SamplePlates, 'samples'>): LegendLine[] {
+export function plateLegend(plates: Pick<SamplePlates, 'samples' | 'pick'>): LegendLine[] {
   const lines: (LegendLine & { first: number })[] = []
-  const { samples } = plates
-  for (const sample of samples.filter((s) => s.group === 'yours')) {
-    lines.push({ first: sample.number, numbers: `${sample.number}`, text: sample.title })
-  }
+  const { samples, pick } = plates
+  const one = (sample: PlacedSample) => lines.push({ first: sample.number, numbers: `${sample.number}`, text: sample.title })
+  for (const sample of samples.filter((s) => s.group === 'yours')) one(sample)
   const reliefs = samples.filter((s) => s.group === 'relief')
-  if (reliefs.length > 0) {
+  if (reliefs.length === 1 || (pick !== 'every' && reliefs.length > 0 && reliefs.length <= NAMED_RELIEFS)) {
+    for (const sample of reliefs) one(sample)
+  } else if (reliefs.length > 0) {
+    const others = samples.some((s) => s.group === 'yours') ? ' other' : ''
     lines.push({
       first: reliefs[0].number,
       numbers: runText(reliefs[0].number, reliefs[reliefs.length - 1].number),
-      text: reliefs.length === 1 ? reliefs[0].title : `The ${reliefs.length} other reliefs, in the studio's order`,
+      text:
+        pick === 'every'
+          ? `The ${reliefs.length} other reliefs, in the studio's order`
+          : `The ${reliefs.length}${others} reliefs you picked, in the studio's order`,
     })
   }
   const extras = samples.filter((s) => s.group === 'extra')
@@ -568,8 +648,8 @@ export function plateLegend(plates: Pick<SamplePlates, 'samples'>): LegendLine[]
     for (const kind of ['joint', 'border', 'depth', 'invert', 'turn'] as const) {
       const count = extras.filter((s) => s.kind === kind).length
       if (count === 0) continue
-      const [one, many] = EXTRA_WORDS[kind]
-      kinds.push(kind === 'invert' || kind === 'turn' ? one : count === 1 ? `1 ${one}` : `${count} ${many}`)
+      const [single, many] = EXTRA_WORDS[kind]
+      kinds.push(kind === 'invert' || kind === 'turn' ? single : count === 1 ? `1 ${single}` : `${count} ${many}`)
     }
     const list = kinds.length === 1 ? kinds[0] : `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]}`
     lines.push({

@@ -1,21 +1,26 @@
-// "Sample plates": what to print (every relief, or the maker's own alone), the printer, the plates it takes
-// drawn with every sample's own relief, and one download. Opened from the studio's texture step, where a
-// relief is chosen and every relief is the useful answer, and from the download page's "Test first", where a
-// wall is about to be printed and the maker's own relief is. The printer picked here is the dialog's own: the
-// design keeps the one set in Advanced, because a sample plate must never re-lay the wall.
+// "Sample plates": the printer, which reliefs to print (every one, the maker's own alone, or any pick of them),
+// the plates that takes drawn with every sample's own relief, and one download. Opened from the studio's
+// texture step, where a relief is chosen and every relief is the useful answer, and from the download page's
+// "Test first", where a wall is about to be printed and the maker's own relief is. The printer and the reliefs
+// picked here are the dialog's own: the design keeps the printer set in Advanced, because a sample plate must
+// never re-lay the wall.
 import { useEffect, useMemo, useState } from 'react'
 import { Download, X } from 'lucide-react'
 import { track, trackDownloadFailure } from '@/app/analytics'
 import { sizeText } from '@/core/export/filenames'
 import { PRINTERS, printerById } from '@/core/printers'
-import { TEXTURES, textureById } from '@/core/textures/registry'
+import { textureById } from '@/core/textures/registry'
 import type { DesignConfig } from '@/core/types'
 import { formatBytes, formatGrams } from '@/features/export/sizes'
 import { downloadBlob, useTextureChips, type ChipItem } from '@/hooks'
-import { announce, Button, Dialog, NumberField, ProgressBar, Segmented, Select, toast } from '@/ui'
+import { announce, Button, Dialog, NumberField, ProgressBar, Select, toast } from '@/ui'
+import { ReliefPicker } from './ReliefPicker'
 import {
+  EVERY_RELIEF,
+  followOwnRelief,
   plateLegend,
   SAMPLE_MM,
+  sampleZipEvent,
   samplePlates,
   samplePlatesBytes,
   samplePlatesGrams,
@@ -23,7 +28,6 @@ import {
   type PlacedSample,
   type PlateSize,
   type SamplePlates,
-  type SampleScope,
 } from './samplePlates'
 import { useSamplePlatesDownload } from './useSamplePlatesDownload'
 import styles from './SamplePlatesDialog.module.scss'
@@ -63,16 +67,32 @@ export interface SamplePlatesDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   config: DesignConfig
-  /** What the dialog opens on until the maker picks: the page that opens it knows which answer is likelier. */
-  defaultScope?: SampleScope
+  /**
+   * The reliefs the picker starts on until the maker picks: every relief, or the maker's own alone. The page
+   * that opens it knows which answer is likelier.
+   */
+  defaultReliefs?: 'every' | 'yours'
 }
 
-export function SamplePlatesDialog({ open, onOpenChange, config, defaultScope = 'every' }: SamplePlatesDialogProps) {
-  // Until the maker picks here, the dialog follows the printer the design already names.
+export function SamplePlatesDialog({ open, onOpenChange, config, defaultReliefs = 'every' }: SamplePlatesDialogProps) {
+  // Until the maker picks here, the dialog follows the printer the design already names, and the page's default
+  // reliefs. Both picks live as long as the page that owns the dialog, so reopening it finds them as they were.
   const [picked, setPicked] = useState<string | null>(null)
   const [custom, setCustom] = useState<PlateSize | null>(null)
-  const [pickedScope, setPickedScope] = useState<SampleScope | null>(null)
-  const scope = pickedScope ?? defaultScope
+  // A pick remembers the relief that was the maker's, since the studio can change it while the dialog is shut.
+  const [pickedReliefs, setPickedReliefs] = useState<{ own: string; ids: readonly string[] } | null>(null)
+  const own = textureById(config.texture.id).id
+  const reliefs = useMemo<ReadonlySet<string>>(
+    () =>
+      new Set(
+        pickedReliefs
+          ? followOwnRelief(pickedReliefs.ids, pickedReliefs.own, own)
+          : defaultReliefs === 'yours'
+            ? [own]
+            : EVERY_RELIEF,
+      ),
+    [pickedReliefs, defaultReliefs, own],
+  )
   const choice = picked ?? config.printerId
   const preset = choice === CUSTOM ? null : printerById(choice)
   const bed = preset ? { width: preset.width, depth: preset.depth } : (custom ?? bedOf(config.printerId))
@@ -92,8 +112,8 @@ export function SamplePlatesDialog({ open, onOpenChange, config, defaultScope = 
     >
       <SamplePlatesBody
         config={config}
-        scope={scope}
-        onScope={setPickedScope}
+        reliefs={reliefs}
+        onReliefs={(ids) => setPickedReliefs({ own, ids })}
         choice={preset ? preset.id : CUSTOM}
         bed={bed}
         printer={preset ? preset.name : 'your own printer'}
@@ -107,8 +127,8 @@ export function SamplePlatesDialog({ open, onOpenChange, config, defaultScope = 
 
 interface BodyProps {
   config: DesignConfig
-  scope: SampleScope
-  onScope: (scope: SampleScope) => void
+  reliefs: ReadonlySet<string>
+  onReliefs: (reliefs: string[]) => void
   choice: string
   bed: PlateSize
   /** The printer as the README names it. */
@@ -119,26 +139,21 @@ interface BodyProps {
 }
 
 /** Mounted only while the dialog is open, so its chips and its download live and die with it. */
-function SamplePlatesBody({ config, scope, onScope, choice, bed, printer, onChoose, onBed, onDone }: BodyProps) {
+function SamplePlatesBody({ config, reliefs, onReliefs, choice, bed, printer, onChoose, onBed, onDone }: BodyProps) {
   // Finding where each relief shows most samples every pattern, so it is done once a design, not once a printer.
   const set = useMemo(() => sampleSet(config), [config])
-  const plates = useMemo(() => samplePlates(config, bed, set, scope), [config, bed, set, scope])
-  const relief = textureById(config.texture.id).name
-  const scopeOptions = [
-    { value: 'every' as const, label: 'Every relief', description: `Yours first, then the other ${TEXTURES.length - 1}` },
-    { value: 'yours' as const, label: `${relief} only`, description: 'As you set it, nothing else' },
-  ]
+  const plates = useMemo(() => samplePlates(config, bed, set, reliefs), [config, bed, set, reliefs])
   const { run, progress, busy, cancel, error } = useSamplePlatesDownload()
 
   useEffect(() => track('sample-plates-open', { once: true }), [])
 
   async function download() {
-    if (!plates) return
+    if (!plates || plates.pick === 'none') return
     announce(`Writing ${plural(plates.plates.length, 'plate')} of samples.`)
     try {
       const bundle = await run(config, plates, printer)
       downloadBlob(bundle.data, bundle.name, 'application/zip')
-      track(plates.scope === 'yours' ? 'sample-relief-zip' : 'sample-plates-zip')
+      track(sampleZipEvent(plates.pick))
       toast(`${bundle.name} is in your downloads.`, { tone: 'success' })
       announce(`Download ready: ${bundle.name}.`)
       onDone()
@@ -160,7 +175,6 @@ function SamplePlatesBody({ config, scope, onScope, choice, bed, printer, onChoo
 
   return (
     <div className={styles.body}>
-      <Segmented label="What to print" value={scope} options={scopeOptions} onChange={onScope} disabled={busy} fullWidth />
       <div className={styles.printer}>
         <Select label="Printer" value={choice} groups={PRINTER_GROUPS} onValueChange={onChoose} disabled={busy} />
         {choice === CUSTOM && (
@@ -189,29 +203,43 @@ function SamplePlatesBody({ config, scope, onScope, choice, bed, printer, onChoo
         )}
       </div>
 
-      {plates ? (
-        <>
-          <PlateDrawings config={config} plates={plates} />
+      {/* Under the printer, so what a pick changes is drawn right below it. */}
+      <ReliefPicker config={config} set={set} value={reliefs} onChange={onReliefs} chipPx={CHIP_PX} disabled={busy} />
 
-          <div className={styles.summary}>
-            <p className={styles.facts}>
-              {plural(plates.plates.length, 'plate')} · {plural(plates.samples.length, 'sample')} of{' '}
-              {sizeText(plates.box.width)} × {sizeText(plates.box.height)} mm · about {formatGrams(samplePlatesGrams(plates))}
-            </p>
-            <dl className={styles.legend}>
-              {plateLegend(plates).map((line) => (
-                <div key={line.numbers} className={styles.legendRow}>
-                  <dt>{line.numbers}</dt>
-                  <dd>{line.text}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className={styles.note}>
-              Each is cut from your {sizeText(config.tile.width)} × {sizeText(config.tile.height)} mm tile at your{' '}
-              {sizeText(config.tile.thickness)} mm base. Nothing is printed on a sample: its number is its place on the
-              plate, and the README in the zip maps them.
-            </p>
-          </div>
+      {!plates ? (
+        <p className={styles.tooSmall} role="status">
+          A {sizeText(Math.min(SAMPLE_MM, config.tile.width))} × {sizeText(Math.min(SAMPLE_MM, config.tile.height))} mm
+          sample does not fit a {sizeText(bed.width)} × {sizeText(bed.depth)} mm plate. Enter the size of your printer's
+          plate in millimetres.
+        </p>
+      ) : (
+        <>
+          {plates.samples.length > 0 && (
+            <>
+              <PlateDrawings config={config} plates={plates} />
+
+              <div className={styles.summary}>
+                <p className={styles.facts}>
+                  {plural(plates.plates.length, 'plate')} · {plural(plates.samples.length, 'sample')} of{' '}
+                  {sizeText(plates.box.width)} × {sizeText(plates.box.height)} mm · about{' '}
+                  {formatGrams(samplePlatesGrams(plates))}
+                </p>
+                <dl className={styles.legend}>
+                  {plateLegend(plates).map((line) => (
+                    <div key={line.numbers} className={styles.legendRow}>
+                      <dt>{line.numbers}</dt>
+                      <dd>{line.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className={styles.note}>
+                  Each is cut from your {sizeText(config.tile.width)} × {sizeText(config.tile.height)} mm tile at your{' '}
+                  {sizeText(config.tile.thickness)} mm base. Nothing is printed on a sample: its number is its place on
+                  the plate, and the README in the zip maps them.
+                </p>
+              </div>
+            </>
+          )}
 
           {/* The foot stays in view while the plates and the legend scroll under it, as the studio rail's does. */}
           {busy ? (
@@ -223,12 +251,21 @@ function SamplePlatesBody({ config, scope, onScope, choice, bed, printer, onChoo
             </div>
           ) : (
             <div className={`${styles.foot} ${styles.get}`}>
-              <Button variant="primary" size="lg" fullWidth leadingIcon={<Download />} onClick={download}>
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                leadingIcon={<Download />}
+                disabled={plates.samples.length === 0}
+                onClick={download}
+              >
                 Download the plates (.zip)
               </Button>
+              {/* Not live: the picker's count already speaks at every toggle, "0 of 23" included. */}
               <p className={styles.getNote}>
-                {plural(plates.plates.length + 1, 'file')}, about {formatBytes(samplePlatesBytes(plates))}: one STL a plate
-                and a README
+                {plates.samples.length === 0
+                  ? 'Pick at least one relief to print.'
+                  : `${plural(plates.plates.length + 1, 'file')}, about ${formatBytes(samplePlatesBytes(plates))}: one STL a plate and a README`}
               </p>
               {error && (
                 <p className={styles.error} role="status">
@@ -238,12 +275,6 @@ function SamplePlatesBody({ config, scope, onScope, choice, bed, printer, onChoo
             </div>
           )}
         </>
-      ) : (
-        <p className={styles.tooSmall} role="status">
-          A {sizeText(Math.min(SAMPLE_MM, config.tile.width))} × {sizeText(Math.min(SAMPLE_MM, config.tile.height))} mm
-          sample does not fit a {sizeText(bed.width)} × {sizeText(bed.depth)} mm plate. Enter the size of your printer's
-          plate in millimetres.
-        </p>
       )}
     </div>
   )
