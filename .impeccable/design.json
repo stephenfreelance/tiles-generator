@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-28T17:10:56.600Z",
+  "generatedAt": "2026-10-05T12:00:00.000Z",
   "title": "Design System: Tessera",
   "extensions": {
     "colorMeta": {
@@ -467,7 +467,7 @@
       {
         "name": "rest",
         "value": "0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28)",
-        "purpose": "Secondary buttons, the active tab, drawing mats."
+        "purpose": "Secondary buttons, the active tab, drawing mats, the uses plates' mounts (which take Lift under the hand)."
       },
       {
         "name": "lift",
@@ -544,8 +544,20 @@
     ],
     "breakpoints": [
       {
+        "name": "smallest",
+        "value": "20rem"
+      },
+      {
+        "name": "wordmark-step",
+        "value": "26rem"
+      },
+      {
         "name": "narrow",
         "value": "30rem"
+      },
+      {
+        "name": "uses-one-column",
+        "value": "34rem"
       },
       {
         "name": "tablet",
@@ -560,12 +572,16 @@
         "value": "62rem"
       },
       {
-        "name": "studio-two-column",
-        "value": "1100px"
+        "name": "uses-two-across",
+        "value": "64rem"
       },
       {
         "name": "plate-head",
         "value": "68rem"
+      },
+      {
+        "name": "studio-two-column",
+        "value": "1100px"
       },
       {
         "name": "short-laptop",
@@ -682,19 +698,26 @@
       "description": "The mark (a wall's corner: one whole tile, three cut pieces) beside the Basteleur wordmark on the espresso bar, in the tile color's own mark tones.",
       "html": "<div class=\"ds-bar\"><a class=\"ds-brand\" href=\"#\"><svg class=\"ds-mark\" viewBox=\"4 4 24 24\" aria-hidden=\"true\"><path class=\"ds-mark-whole\" d=\"M8 4H14A4 4 0 0 1 18 8V14A4 4 0 0 1 14 18H8A4 4 0 0 1 4 14V8A4 4 0 0 1 8 4Z\"/><path class=\"ds-mark-cut\" d=\"M24 4H28V18H24A4 4 0 0 1 20 14V8A4 4 0 0 1 24 4Z\"/><path class=\"ds-mark-cut\" d=\"M8 20H14A4 4 0 0 1 18 24V28H4V24A4 4 0 0 1 8 20Z\"/><path class=\"ds-mark-cut\" d=\"M24 20H28V28H20V24A4 4 0 0 1 24 20Z\"/></svg><span class=\"ds-wordmark\">Tessera</span></a></div>",
       "css": ".ds-bar { display: flex; align-items: center; height: 56px; padding: 0 16px; background: #2e241b; } .ds-brand { display: flex; align-items: center; gap: 8px; border-radius: 8px; color: #f7f1e6; text-decoration: none; } .ds-brand:focus-visible { outline: 3px solid #f7f1e6; outline-offset: 3px; } .ds-mark { display: block; width: 1.5rem; height: 1.5rem; } .ds-mark-whole { fill: var(--mark, #5c9748); } .ds-mark-cut { fill: var(--mark-cut, #90c080); } .ds-wordmark { padding-bottom: 0.08em; font: 400 1.4375rem/1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; letter-spacing: 0; }"
+    },
+    {
+      "name": "Uses Plate",
+      "kind": "card",
+      "description": "One plate of the home page's uses band: a tonal print of a room framed close on its tiled surface, mounted at 5:4 on a 22 px panel with a hairline and the Rest shadow, captioned under it with the name in Basteleur and the size and an accent arrow at the right-hand edge; under the hand it lifts onto Lift and its print draws 3% closer.",
+      "html": "<a class=\"ds-plate\" href=\"#\" aria-label=\"Splashback in a kitchen, 240 x 60 cm. Open it in the studio.\"><span class=\"ds-plate-mount\"><svg class=\"ds-plate-art\" viewBox=\"640 600 1700 1360\" aria-hidden=\"true\"><defs><filter id=\"ds-stip\" x=\"0\" y=\"0\" width=\"1\" height=\"1\"><feGaussianBlur stdDeviation=\"10\"/><feComponentTransfer><feFuncA type=\"discrete\" tableValues=\"0 0.34\"/></feComponentTransfer></filter><linearGradient id=\"ds-fade-l\" x1=\"1\" y1=\"0\" x2=\"0\" y2=\"0\"><stop offset=\"0\" stop-opacity=\"0\"/><stop offset=\"0.55\" stop-opacity=\"0.45\"/><stop offset=\"1\" stop-opacity=\"1\"/></linearGradient></defs><rect x=\"640\" y=\"600\" width=\"1700\" height=\"1360\" fill=\"color-mix(in srgb, #241c14 9%, #fffdf8)\"/><rect x=\"640\" y=\"1000\" width=\"1700\" height=\"600\" fill=\"#5c9748\"/><path d=\"M640 1150H2340M640 1300H2340M640 1450H2340M790 1000V1600M940 1000V1600M1090 1000V1600M1240 1000V1600M1390 1000V1600M1540 1000V1600M1690 1000V1600M1840 1000V1600M1990 1000V1600M2140 1000V1600\" fill=\"none\" stroke=\"color-mix(in srgb, #5c9748 52%, #2e241b)\" stroke-width=\"0.75\" vector-effect=\"non-scaling-stroke\"/><g filter=\"url(#ds-stip)\" fill=\"#241c14\"><rect x=\"1700\" y=\"1000\" width=\"110\" height=\"160\" opacity=\"0.7\"/><path d=\"M1180 1600h120l40 -330h-160z\" fill=\"url(#ds-fade-l)\"/></g><rect x=\"640\" y=\"880\" width=\"1000\" height=\"40\" fill=\"color-mix(in srgb, #241c14 48%, #fffdf8)\"/><rect x=\"1600\" y=\"600\" width=\"600\" height=\"400\" fill=\"color-mix(in srgb, #241c14 6%, #fffdf8)\"/><rect x=\"1080\" y=\"1300\" width=\"100\" height=\"300\" rx=\"10\" fill=\"color-mix(in srgb, #241c14 66%, #fffdf8)\"/><rect x=\"640\" y=\"1600\" width=\"1700\" height=\"40\" fill=\"color-mix(in srgb, #241c14 66%, #fffdf8)\"/><rect x=\"640\" y=\"1640\" width=\"1700\" height=\"320\" fill=\"#fffdf8\"/><path d=\"M1200 1640V1960M1780 1640V1960M760 1720H900M1350 1720H1480\" fill=\"none\" stroke=\"color-mix(in srgb, #241c14 66%, #fffdf8)\" stroke-width=\"1.25\" stroke-linecap=\"round\" vector-effect=\"non-scaling-stroke\"/></svg></span><span class=\"ds-plate-cap\"><span class=\"ds-plate-name\">Splashback</span><span class=\"ds-plate-size\">240 x 60 cm<svg viewBox=\"0 0 16 16\" class=\"ds-plate-arrow\" aria-hidden=\"true\"><path d=\"M2.5 8 H12.5 M8.5 3.5 L13 8 L8.5 12.5\"/></svg></span></span></a>",
+      "css": ".ds-plate { display: grid; gap: 12px; max-width: 22rem; color: #241c14; text-decoration: none; } .ds-plate:focus-visible { outline: none; } .ds-plate-mount { position: relative; display: block; aspect-ratio: 5 / 4; overflow: hidden; isolation: isolate; border: 1px solid #dcd7ce; border-radius: 22px; background: #fffdf8; box-shadow: 0 1px 2px rgb(46 36 27 / 0.06), 0 2px 6px -4px rgb(46 36 27 / 0.28); transition: box-shadow 260ms ease-out, border-color 260ms ease-out; } .ds-plate-art { display: block; width: 100%; height: 100%; transition: scale 900ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-plate:hover .ds-plate-mount { border-color: #cdc7bc; box-shadow: 0 1px 2px rgb(46 36 27 / 0.05), 0 12px 28px -22px rgb(46 36 27 / 0.5); } .ds-plate:hover .ds-plate-art { scale: 1.03; } .ds-plate:focus-visible .ds-plate-mount { outline: 3px solid var(--accent, #306918); outline-offset: 3px; } .ds-plate-cap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding-inline: 2px; } .ds-plate-name { font: 400 1.375rem/1.1 'Basteleur', ui-serif, Georgia, serif; font-synthesis: none; text-decoration: underline 1.5px transparent; text-underline-offset: 0.16em; transition: text-decoration-color 140ms ease-out; } .ds-plate:hover .ds-plate-name, .ds-plate:focus-visible .ds-plate-name { text-decoration-color: color-mix(in srgb, #241c14 40%, transparent); } .ds-plate-size { display: inline-flex; align-items: center; gap: 6px; color: #5c5044; font: 600 0.875rem/1.3 'Archivo Variable', 'Archivo', ui-sans-serif, sans-serif; font-variant-numeric: tabular-nums; } .ds-plate-arrow { width: 1.15em; height: 1.15em; fill: none; stroke: var(--accent, #306918); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; transition: translate 140ms ease-out; } .ds-plate:hover .ds-plate-arrow { translate: 3px 0; } @media (prefers-reduced-motion: reduce) { .ds-plate-art { transition: none; } .ds-plate:hover .ds-plate-art { scale: none; } } @media (forced-colors: active) { .ds-plate-mount { border-color: CanvasText; } .ds-plate-art { forced-color-adjust: none; } .ds-plate-arrow { stroke: LinkText; } }"
     }
   ],
   "narrative": {
     "northStar": "The Pattern Book",
-    "overview": "Tessera is the pattern book a tile works would print: every page is a sheet of heavy, grained grey stock bound under a dark espresso bar, printed in black ink and one spot ink, the tile's own color. Nothing on the page glows; everything is printed. Titles are set in Basteleur, a display face with the swash and ink trap of a trade catalogue, and everything read or operated is set in Archivo. No rule is drawn across a page: a plate is told from the next by its number, its title and the air around it. The spot ink lies on the stock as grainy clouds, each spent to nothing before every edge of its own box, so picking Teal reprints every cloud in teal while the type stays black.\n\nThe home page is the book itself: a title page with the visitor's wall as its frontispiece, a run of numbered plates (how it cuts, the patterns, the zip, how it goes up, the questions) and a colophon that sends the reader to the studio. The working pages (studio, download, fit test, history) are printed on the same stock, with Basteleur titles, and the download, fit test and history pages open with their title over a faint cloud of spot ink; underneath, they keep the studio's rounded warm panels, its one-accent controls and its component inventory, because a page is printed but the controls on it are pressed. The 3D render and the hero wall stay lit objects: they are the product, photographed, standing on the printed page. The render stands on its own neutral plate inside a rounded frame, and only the tiles in it are lit.\n\nThe system rejects the category's clean SaaS hero, the lamp-lit workbench it replaced (a warm #F2EADC ground, Archivo alone, light pooling on the page), the older drafting-sheet instrument panel (a 2 px ink frame round the whole sheet, lettered sheet borders, sheet feet, expanded uppercase labels, a red primary action, chalk-blue focus), and decorative horizontal rules: the double ink rule the first Pattern Book pass drew over every head, caption, colophon and footer was taken out at the user's request. The \"Visual world\" section of `docs/architecture.md` still describes the drafting sheet and is superseded by this file and `src/styles/_tokens.scss`.",
+    "overview": "Tessera is the pattern book a tile works would print: every page is a sheet of heavy, grained grey stock bound under a dark espresso bar, printed in black ink and one spot ink, the tile's own color. Nothing on the page glows; everything is printed. Titles are set in Basteleur, a display face with the swash and ink trap of a trade catalogue, and everything read or operated is set in Archivo. No rule is drawn across a page: a plate is told from the next by its number, its title and the air around it. The spot ink lies on the stock as grainy clouds, each spent to nothing before every edge of its own box, so picking Teal reprints every cloud in teal while the type stays black.\n\nThe home page is the book itself: a title page with the visitor's wall as its frontispiece, an unnumbered band of uses (six plates, a room per use, each framed close on a surface laid with the visitor's own tiles), a run of numbered plates (how it cuts, the patterns, the zip, how it goes up, the questions) and a colophon that sends the reader to the studio. The working pages (studio, download, fit test, history) are printed on the same stock, with Basteleur titles, and the download, fit test and history pages open with their title over a faint cloud of spot ink; underneath, they keep the studio's rounded warm panels, its one-accent controls and its component inventory, because a page is printed but the controls on it are pressed. The 3D render and the hero wall stay lit objects: they are the product, photographed, standing on the printed page. The render stands on its own neutral plate inside a rounded frame, and only the tiles in it are lit.\n\nThe system rejects the category's clean SaaS hero, the lamp-lit workbench it replaced (a warm #F2EADC ground, Archivo alone, light pooling on the page), the older drafting-sheet instrument panel (a 2 px ink frame round the whole sheet, lettered sheet borders, sheet feet, expanded uppercase labels, a red primary action, chalk-blue focus), and decorative horizontal rules: the double ink rule the first Pattern Book pass drew over every head, caption, colophon and footer was taken out at the user's request. The \"Visual world\" section of `docs/architecture.md` still describes the drafting sheet and is superseded by this file and `src/styles/_tokens.scss`.",
     "keyCharacteristics": [
-      "Grained grey stock (#E9E5DD with its tooth) under every page, bound by the espresso bar; the grain is part of the ground, never a separate effect.",
+      "Grained grey stock (#E9E5DD with its tooth) under every page, the running head included, so the whole site is one sheet; the grain is part of the ground, never a separate effect.",
       "Black ink plus one spot ink, the tile color, laid as grainy clouds spent to nothing at every edge. Text stays achromatic; color lives in the clouds, the wall, the plate numbers and the one action.",
       "Basteleur for titles only, at one weight; Archivo for every word read or operated.",
       "A headline of one size that breaks into four ragged lines on a narrow measure; the colophon's closing sentence is the largest type in the book.",
       "No decorative rules: plates are parted by number, title and air. A hairline is a panel's border or a row in a table, a list or the studio rail, and nothing else.",
       "Printed things are square; things a hand presses are round.",
-      "The ink pass: a cloud prints in from a few pixels off register as its plate is reached."
+      "The ink pass: each plate's ink prints in from its own few pixels off register as that plate is reached."
     ],
     "rules": [
       {
@@ -723,8 +746,8 @@
         "section": "colors"
       },
       {
-        "name": "The Bar Exception Rule",
-        "body": "The accent is illegal on the espresso bar (2.3:1 at most, whatever the tile). Everything on the bar focuses and selects in Bar Cream instead.",
+        "name": "The Espresso Is Ink, Not A Surface Rule",
+        "body": "The espresso no longer floors a bar: it is what the mark's plate, the tooltip and a selected pill-group segment are printed in, and nothing else. The accent is still illegal on it (2.3:1 at most, whatever the tile), so anything that does sit on espresso focuses and selects in Bar Cream.",
         "section": "colors"
       },
       {
@@ -763,13 +786,48 @@
         "section": "typography"
       },
       {
+        "name": "The One Page Inset Rule",
+        "body": "Every page the reader reads keeps the same margin from the window: `--page-x` (1 to 3 rem, fluid), which is the home page's own gutter promoted to a token. The working pages take more air above the title than at their sides (`--page-top`) and close on a deeper foot (`--page-bottom`), because a display page title under a sticky running head needs room to be a title. The studio is the one exception and keeps its own 16 px: it is a tool that fills the window, not a page.",
+        "section": "layout"
+      },
+      {
+        "name": "The Cadence Rule",
+        "body": "A page is groups, not a list of equal blocks. Everything a page stacks sits one step apart (`--s-5`), and a section that carries a title of its own opens on a step and a half (`+--s-2`), inside a column as well as at page level. One interval repeated until every block weighs the same is the failure this rule exists to prevent.",
+        "section": "layout"
+      },
+      {
+        "name": "The Nothing Scrolls Sideways Rule",
+        "body": "No route may scroll horizontally at any width down to 20 rem (320 px), and it is measured, not assumed. The shell's grid names its column `minmax(0, 1fr)`, because an implicit `auto` column is floored by its content's min-content width and one nowrap pill deep in the studio was pushing the whole app wider than the phone. Where a row genuinely cannot fit, it gives up words rather than overflowing: below 26 rem the wordmark steps down, below 20 rem it falls back to the mark alone and the step index to its numbers, each keeping its name in the accessibility tree.",
+        "section": "layout"
+      },
+      {
         "name": "The Printed Page Rule",
         "body": "The page itself is never lit: no light pools, glows or vignettes on the stock, and no lamp on the 3D view's frame. Color on the page is ink, laid as a grained cloud; only rendered objects (the tiles in the 3D view, the relief chips, the hero wall) carry light.",
         "section": "elevation"
       },
       {
         "name": "The Spent Edge Rule",
-        "body": "A cloud is an ellipse that fills its own box and is spent to nothing at every edge of it (the `ink-cloud` mixin: `closest-side`, flat to half its radius, 45% of its peak at three quarters, gone at the edge), so no box, window or neighbour can ever cut it square. Place and size the box; never mask a cloud with a straight edge or print a solid block of ink behind an object.",
+        "body": "Every impression of the ink is an ellipse that is spent to nothing before every edge of its own box (the `ink-shape` mixin: `closest-side` measured from its core, flat through `$flat` of its radius, 45% of its peak most of the way out, gone at the edge), so no box, window or neighbour can ever cut it square. Place and size the box; never mask an impression with a straight edge or print a solid block of ink behind an object.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Arc Rule",
+        "body": "The book's figure is an ARC: a crescent, THIN against its own span, hollow through its middle, heavy at its head and dissolving at its tail, struck across a plate. A crest is about a third of the path's radius and the span runs 150 degrees or more, because a short fat arc closes back into the oval it was built from. It is built by MULTIPLYING one oval, never by a second effect: `ink-arc` walks crests (`ink-crest`) along an elliptical path and the mask unions them, so the crests' own edges vanish and what is left is the arc and its hollow. Vary the path, the span and the taper; a single round impression is reserved for ink that SURROUNDS something (the frontispiece's halo, a working page's head), and anywhere the ink is a field, a lone ellipse is the failure mode, not the shape.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Dither Rule",
+        "body": "A figure is printed THROUGH the stipple: `--dither`, a near-binary noise coarse enough to read as dots at 1x, is the first mask layer and is intersected with the figure, so the ink is laid as grain and its fall-off dissolves into it instead of airbrushing out. A dithered figure carries no `--grain-ink` over it (the dither is the texture, and the two together only muddy each other), and it needs about double the peak of a smooth wash, because the stipple leaves roughly half the ground covered.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Spent Crest Rule",
+        "body": "Every crest is spent inside its own box: its rx may not pass its centre's distance to the left or right edge, nor its ry the distance to the top or bottom (`ink-arc` clamps each crest to exactly that). A crest centred one radius in touches that edge and is spent there, which is how an arc reaches the window without being cut. Never rotate a box to fake a diagonal: each plate is its own stacking context, so a turned box spills its corners over the plate before it.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ceiling Is Measured on the Built Page Rule",
+        "body": "Crests union rather than sum, and the dither then halves what they reach, so a plate's ceiling cannot be read off `$peak`. Measure the rendered page: the arcs are laid so their heads fall behind display type or an opaque object, and small text stands where the arc is already dissolving.",
         "section": "elevation"
       },
       {
@@ -786,37 +844,74 @@
         "name": "The One Lamp Rule",
         "body": "Rendered objects are lit from the upper left: the 3D studio lamp, the relief chips' hillshade (azimuth 135, elevation 26) and the hero wall's face light and shadow. A new rendered surface takes the same corner.",
         "section": "elevation"
+      },
+      {
+        "name": "The Render's Own Corner Rule",
+        "body": "The render stage is cut like the panel beside it: the studio's two halves, the frame and the choices rail, carry the same 22 px, and the tools resting on the render and the caption under it are held in by that same radius. The frame writes it out as a literal rather than deriving it, because a token that resolves to an invalid value squares a frame silently and `var(--x, fallback)` does not catch it.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Mounted Mat Rule",
+        "body": "A drawing large enough to be a plate of its own (the uses band's six rooms, section 01's three steps, section 04's four systems, the download page's guide) is mounted on a panel and takes the panel's corner (the user's call, 2026-09-28). Only a small drawn glyph inside a control stays square.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Tonal Print Rule",
+        "body": "Every room is drawn in one hand so six rooms print as one book: a thing is a flat shape in a tint of the warm black over the panel (t6, t12, t20, t32, t48, t66, t84; the wall 9%, the floor 21%), with no outline. A line appears only as a thing in its own right (a drawer's split, a door's gap, a stem, a rod, a floorboard's seam), and a line keeps one weight on screen whatever the plate's scale (non-scaling strokes); a shadow's shape is in millimetres and scales with the room. The visitor's relief tiles are the only colour in a plate.",
+        "section": "components"
+      },
+      {
+        "name": "The Two Layer Shade Rule",
+        "body": "Shade is a smooth tint of the warm black, never a stipple: its shapes are blurred into a penumbra and printed as one tint, so a core is flat and its edge fades out. (The stipple it replaced, dots thresholded against a tile of noise, printed every fringe of shade as dust, and WebKit drew the tile's seams as a grid of dotted lines across the plate.) A plate prints exactly two layers: the cast layer, behind the things, at 40%, holding every shadow they throw on the wall, the tiles and the floor; and the form layer, over the things, with a crisper edge and a denser ink (55%, because its fades spend most of a shape before they darken), holding the shade on their own curved or turned-away faces. Inside a layer, shade is graded by fades (right, left, down and up linear, a radial pool) so it pales toward the light and a cushion or a pot is modelled rather than stained. The only grain in a plate is the paper's, multiplied over the whole print. Two is the limit because each layer is an SVG filter over the whole plate, and a third layer is a third full-plate filter on each of six plates.",
+        "section": "components"
+      },
+      {
+        "name": "The Down and Right Rule",
+        "body": "The plates keep the One Lamp Rule: their light comes from the upper left, as on every rendered thing in the book. A thing standing off the wall throws its shadow down and to the right across the wall and across the tiles, offset by `LIGHT` (0.42 across and 0.5 down per millimetre it stands off), gentler than 45 degrees so a cabinet's shadow darkens the top of a splashback rather than swallowing it.",
+        "section": "components"
+      },
+      {
+        "name": "The Standing Shade Rule",
+        "body": "Furniture on the floor never casts a moved copy of itself, which would flood the floor in front of it where the light still reaches: it casts a band down the wall beside its right-hand side, thinning away from it, the dark on the wall under it between its legs, and a low pool of contact shade inside its own footprint, nudged right. Every part stays within the piece's own reach, because a wide thin field of shade reads as a stain, not a shadow.",
+        "section": "components"
+      },
+      {
+        "name": "The Dry Surface Rule",
+        "body": "No tile is drawn near heat or water: no hob, no sink, no tap, no shower. The kitchen shows a run of worktop and cabinets under its splashback, and the caveat under the grid says where printed tiles must not go.",
+        "section": "components"
       }
     ],
     "dos": [
-      "**Do** paint every stock surface with its grain (the `stock` mixin), never flat `--ground`.",
-      "**Do** print every cloud in `--spot-ink` through the `ink-cloud` mixin (or `head-wash` at the head of a working page): size and place its box and let the cloud spend itself before every edge.",
-      "**Do** hold Ink 3 text to 12% of a cloud and Ink 2 to 26%, and keep Archivo on a denser cloud's fringe.",
-      "**Do** part plates and page heads by number, title and air, and keep the hairline for borders and for rows in a table, a list or the studio rail.",
-      "**Do** step a bordered control's hairline to Hairline Strong (`--rule-strong`) on hover.",
-      "**Do** keep Basteleur to titles at its one declared weight, and set every other word in Archivo.",
-      "**Do** make printed things square (drawing mats at 2 px, swatches at 3 px) and pressed or mounted things round (11, 14, 22 px, 8 px nested, pills).",
-      "**Do** set the 3D render on the Stage Plate and clip its canvas to its host's corners through `--view-radius`.",
-      "**Do** read `--accent` and its companions for action, selection and focus, and keep one accent-filled primary button per screen.",
-      "**Do** set every measurement and count in tabular figures, and every label in sentence case.",
-      "**Do** give every target 24 px, and 44 px under a coarse pointer.",
-      "**Do** start every entrance from a legible state (a cloud from 35% off register, never from nothing) and collapse motion under reduced motion.",
-      "**Do** redraw every color-carried state under forced colors, and drop the clouds there."
+      "Do paint every stock surface with its grain (the `stock` mixin), never flat `--ground`.",
+      "Do print every cloud in `--spot-ink` through the `ink-cloud` mixin (or `head-wash` at the head of a working page): size and place its box and let the cloud spend itself before every edge.",
+      "Do hold Ink 3 text to 12% of a cloud and Ink 2 to 26%, and keep Archivo on a denser cloud's fringe.",
+      "Do part plates and page heads by number, title and air, and keep the hairline for borders and for rows in a table, a list or the studio rail.",
+      "Do step a bordered control's hairline to Hairline Strong (`--rule-strong`) on hover.",
+      "Do keep Basteleur to titles at its one declared weight, and set every other word in Archivo.",
+      "Do make small drawn glyphs and swatches square (2 to 3 px) and everything pressed or mounted round (11, 14, 22 px, 8 px nested, pills).",
+      "Do set the 3D render on the Stage Plate (`--stage-plate`, the same value `LOOK.palette.sheet` renders) and clip its canvas to its host's corners through `--view-radius`.",
+      "Do read `--accent` and its companions for action, selection and focus, and keep one accent-filled primary button per screen.",
+      "Do set every measurement and count in tabular figures, and every label in sentence case.",
+      "Do give every target 24 px, and 44 px under a coarse pointer.",
+      "Do start every entrance from a legible state (a cloud from 35% off register, never from nothing) and collapse motion under reduced motion.",
+      "Do redraw every color-carried state under forced colors, and drop the clouds there."
     ],
     "donts": [
-      "**Don't** print a second hue: no multi-color gradients, no clouds in anything but the spot ink, no colored body text.",
-      "**Don't** draw a decorative rule: no rule over a plate or a page head, a caption, the colophon or the footer, and no divider between questions.",
-      "**Don't** cut a cloud square: no straight-edged mask, no solid block of ink behind an object.",
-      "**Don't** light the page: no light pools, glows or vignettes on the stock and no lamp on the view frame; light belongs to rendered objects.",
-      "**Don't** set Basteleur in bold, italic or synthesized weights, or use it for a button, a label, a value or a paragraph.",
-      "**Don't** split the headline into sizes or balance it square.",
-      "**Don't** bring back the drafting sheet: a 2 px ink frame round the page, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
-      "**Don't** put the accent on the espresso bar, or use it as a status color.",
-      "**Don't** draw the mark in the accent or give it relief, a bevel or a shadow.",
-      "**Don't** use red on the working surfaces for anything but cut pieces and what is wrong.",
-      "**Don't** use grey or black shadows, or set a recessed well straight on the stock.",
-      "**Don't** select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
-      "**Don't** use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code."
+      "Don't print a second hue: no multi-color gradients, no clouds in anything but the spot ink, no colored body text.",
+      "Don't draw a decorative rule: no rule over a plate or a page head, a caption, the colophon or the footer, and no divider between questions.",
+      "Don't cut a cloud square: no straight-edged mask, no solid block of ink behind an object.",
+      "Don't give a plate a lone ellipse of ink. A field of ink is a ridge of crests with a wavy edge; the single round impression belongs to a halo around an object and to a working page's head, and nowhere else.",
+      "Don't light the page: no light pools, glows or vignettes on the stock and no lamp on the view frame; light belongs to rendered objects.",
+      "Don't set Basteleur in bold, italic or synthesized weights, or use it for a button, a label, a value or a paragraph.",
+      "Don't split the headline into sizes or balance it square.",
+      "Don't bring back the drafting sheet: a 2 px ink frame round the page, lettered or numbered sheet borders, sheet feet, expanded uppercase labels, a red primary action or chalk-blue focus.",
+      "Don't put the accent on espresso, or use it as a status color.",
+      "Don't floor a surface in espresso. It is a plate the size of the mark, a tooltip or a selected segment, never a bar, a panel or a band.",
+      "Don't draw the mark in the accent or give it relief, a bevel or a shadow.",
+      "Don't use red on the working surfaces for anything but cut pieces and what is wrong.",
+      "Don't use grey or black shadows, or set a recessed well straight on the stock.",
+      "Don't select a color swatch with the accent ring; it vanishes on a chip of its own hue.",
+      "Don't use the retired alias tokens (`--sheet`, `--desk`, `--chalk`, `--pencil`, `--red` and friends) in new code."
     ]
   }
 }

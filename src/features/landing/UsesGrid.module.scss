@@ -1,0 +1,175 @@
+@use '@/styles/mixins' as *;
+
+// The uses as six plates in an even grid. A plate is a print mounted on a panel, so it takes the panel's
+// own corner (the Mounted Mat Rule), and its caption sits under it as the book captions a figure: the
+// name in the display face, the size set to the right-hand edge.
+
+// The relief filter's own sheet: it draws nothing, so it takes no room.
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  // More air between the rows than across them: a caption belongs to the plate above it.
+  gap: clamp(var(--s-5), 3.2vw, var(--s-7)) clamp(var(--s-4), 2.2vw, var(--s-6));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  min-width: 0;
+}
+
+.link {
+  display: grid;
+  gap: var(--s-3);
+  color: var(--ink);
+  text-decoration: none;
+
+  // The ring goes round the plate, which is the thing pressed; the caption under it is its label.
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+// The mount: a panel with its hairline and its resting shadow, the print inside it cut to its corner.
+.picture {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  // A stacking context of its own, so a print scaling under the hand stays inside the rounded corner.
+  isolation: isolate;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow var(--t-med) var(--ease-out),
+    border-color var(--t-med) var(--ease-out);
+
+  // The paper's tooth over the print, as over the page: the flat tints read as ink on stock, not as fills.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--grain) 0 0 / var(--grain-size);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+}
+
+.print {
+  display: block;
+  height: 100%;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-1) var(--s-3);
+  padding-inline: 2px;
+}
+
+.name {
+  @include display(clamp(1.25rem, 1rem + 0.6vw, 1.625rem), 1.1);
+
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.16em;
+  transition: text-decoration-color var(--t-fast) var(--ease-out);
+}
+
+.detail {
+  @include tabular;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.arrow {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: translate var(--t-fast) var(--ease-out);
+}
+
+// Under the hand the plate lifts off the stock onto the panel's own lift, its print drawing a little
+// closer, the name underlines and the arrow steps toward where the plate goes.
+.link:hover {
+  .picture {
+    border-color: var(--rule-strong);
+    box-shadow: var(--shadow-md);
+  }
+
+  .name {
+    text-decoration-color: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
+
+  .arrow {
+    translate: 3px 0;
+  }
+}
+
+.link:focus-visible {
+  .picture {
+    @include focus-ring(3px);
+  }
+
+  .name {
+    text-decoration-color: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
+}
+
+@include motion-safe {
+  .print {
+    transition: scale 900ms var(--ease-out);
+  }
+
+  .link:hover .print {
+    scale: 1.03;
+  }
+}
+
+// Two plates a row from a tablet to a small laptop.
+@media (max-width: 64rem) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// One a row on a phone, each the width of the column.
+@media (max-width: 34rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@include forced-colors {
+  .picture {
+    border-color: CanvasText;
+  }
+
+  .arrow {
+    stroke: LinkText;
+  }
+}

@@ -129,6 +129,14 @@ src/
     landing/            the home page. It never imports three: HeroWall.tsx lays the visitor's whole
                         wall as a CSS grid of relief chips over wallGrid.ts (shared with JointProof)
                         and useTextureChips, so one chip per unique piece covers a wall of any size.
+                        Under the title page, an unnumbered band shows what the tiles are for:
+                        UsesGrid.tsx lays six plates in an even grid, one room per use (uses.ts: the
+                        six uses, each surface's rect and the plate's frame in room millimetres,
+                        tileCells() laying exactly what computeLayout lays), each room an SVG
+                        tonal print in rooms/ (rooms/roomKit.tsx, rooms/drawing.ts, its shade in
+                        rooms/sceneShade.ts, rooms/rooms.module.scss) and a link
+                        that opens the studio on its surface. Every plate lays the hero's own
+                        whole-tile chip, so the grid costs the shade budget nothing.
                         Section 01 (CutConcept.tsx) explains the cut idea in three drawings, then proves
                         it with JointProof on a fixed concept wall (conceptConfig in landingDesign.ts);
                         03 is the "In the zip" plate (KitStrip.tsx, kit.ts); 04 (FixingSystems.tsx,

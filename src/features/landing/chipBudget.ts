@@ -11,7 +11,7 @@ import { reliefShadeBytes } from '@/core/textures/hillshade'
 /** The 23 pattern samples: the largest size at which the whole grid still fits the ledger. */
 export const PATTERN_CHIP_PX = 160
 
-/** The hero wall, the concept corner and the kit. All ask for this one number, so their shades are one set. */
+/** The hero wall, the concept corner, the kit and the uses grid's plates. All ask for this one number, so their shades are one set. */
 export const PROOF_CHIP_PX = 192
 
 // The number itself belongs to the ledger useTextureChips keeps, not to this page: passed through so

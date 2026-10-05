@@ -31,6 +31,7 @@ import {
 import { LandingMotion } from '@/features/landing/LandingMotion'
 import { Questions } from '@/features/landing/Questions'
 import { SpecimenStrip } from '@/features/landing/SpecimenStrip'
+import { UsesGrid } from '@/features/landing/UsesGrid'
 import { useLandingDesign } from '@/features/landing/useLandingDesign'
 import { WallFields } from '@/features/landing/WallFields'
 import { useLayout } from '@/hooks'
@@ -311,6 +312,29 @@ export function LandingPage() {
               onPickSpecimen={pickSpecimen}
               onPreviewTexture={setPreviewTextureId}
             />
+          </div>
+        </section>
+
+        {/* What the tiles are for, before how they are made: six plates, a room per use, each laid with
+            the visitor's own tiles. No number, because it is not a step in how a wall is made, and no
+            cloud: the tiles in its plates are this band's spot ink. */}
+        <section className={styles.section}>
+          <header className={cx(styles.plateHead, styles.plateHeadBare)}>
+            <div className={styles.plateTitle}>
+              <h2 className={styles.heading}>A splashback, a sideboard, a whole wall</h2>
+              <p className={styles.lede}>
+                Measure any flat surface and Tessera fits the tiles to it. Each room opens the studio at its size, in your
+                relief and color.
+              </p>
+            </div>
+          </header>
+          <div className={styles.usesBlock}>
+            <UsesGrid config={settledConfig} studioHref={studioHref} />
+            {/* Where printed tiles must not go, said once and plainly, with no figure Tessera has not measured. */}
+            <p className={styles.usesNote}>
+              Printed tiles are plastic: keep them clear of a hob, a radiator or a fireplace, out of the shower, and
+              indoors.
+            </p>
           </div>
         </section>
 

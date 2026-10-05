@@ -1,0 +1,208 @@
+@use '@/styles/mixins' as *;
+
+// The plates' one hand. Every room is a tonal print in the book's two inks: things are flat shapes in a
+// tint of the warm black, screened at a handful of strengths, with no outline; shade is a softer tint of
+// the same ink (roomKit's Shade); and the only colour is the visitor's own tiles.
+.scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  // An illustration, like a photograph: the viewer's forced palette does not repaint it.
+  forced-color-adjust: none;
+}
+
+// A drawn line keeps one weight on screen whatever the plate's scale, so a stem is as fine on a phone as on
+// a desk. Only the lines: a shadow's stroke is a shape in millimetres and scales with the room.
+%line {
+  vector-effect: non-scaling-stroke;
+}
+
+// The ink, screened. The name is the strength: t20 is the warm black at 20% over the paper.
+.paper {
+  fill: var(--panel);
+}
+
+.t6 {
+  fill: color-mix(in srgb, var(--ink) 6%, var(--panel));
+}
+
+.t12 {
+  fill: color-mix(in srgb, var(--ink) 12%, var(--panel));
+}
+
+.t20 {
+  fill: color-mix(in srgb, var(--ink) 20%, var(--panel));
+}
+
+.t32 {
+  fill: color-mix(in srgb, var(--ink) 32%, var(--panel));
+}
+
+.t48 {
+  fill: color-mix(in srgb, var(--ink) 48%, var(--panel));
+}
+
+.t66 {
+  fill: color-mix(in srgb, var(--ink) 66%, var(--panel));
+}
+
+.t84 {
+  fill: color-mix(in srgb, var(--ink) 84%, var(--panel));
+}
+
+// The room: the wall a shade over the paper, so a white thing stands off it in tone, and the floor a plane
+// of its own a few shades under the wall.
+.wall {
+  fill: color-mix(in srgb, var(--ink) 9%, var(--panel));
+}
+
+.floor {
+  fill: color-mix(in srgb, var(--ink) 21%, var(--panel));
+}
+
+// A floorboard's seam, opening up toward the viewer.
+.seam {
+  @extend %line;
+
+  stroke: color-mix(in srgb, var(--ink) 24%, var(--panel));
+  stroke-width: 1;
+}
+
+// A line as a thing: a drawer's split, a door's gap, a stem. Never an outline round a shape.
+.hair {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 34%, var(--panel));
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.hairDark {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 66%, var(--panel));
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+// A vein on a dark leaf: lighter than the leaf, so it reads as the leaf's own line.
+.vein {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 44%, var(--panel));
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+// A rod: a lamp's stem, a branch, a tap.
+.rod {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 74%, var(--panel));
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// A groove in fluted wood: the shadowed side of each flute, a line a tint deeper than the oak.
+.flute {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 46%, var(--panel));
+  stroke-width: 1;
+}
+
+// The light lying across dark glass: the paper, barely.
+.glare {
+  fill: var(--panel);
+  fill-opacity: 0.09;
+}
+
+// A loop of something pale: a jug's handle.
+.loop {
+  @extend %line;
+
+  fill: none;
+  stroke: var(--panel);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+// What the shade prints: the warm black as a smooth tint, so a solid core of shade is a tint, never a hole.
+.castInk {
+  flood-color: var(--ink);
+  flood-opacity: 0.4;
+}
+
+// The shade on a thing's own face, denser: its fade is spent over most of the shape before it darkens, and
+// a pale pot or cushion needs this much to read as round.
+.formInk {
+  flood-color: var(--ink);
+  flood-opacity: 0.55;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The tiles. Each surface is laid with the visitor's own chip; until it lands, with their colour.
+// ---------------------------------------------------------------------------------------------
+
+// Under the tiles, the joint's own deep tone of the tile colour: what a lay-in shows between tiles in flight.
+.joint {
+  fill: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 52%, var(--bar));
+  stroke: none;
+}
+
+// The joint between two tiles, a hairline in that same deep tone, the one the hero wall's joints are.
+.jointLine {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 52%, var(--bar));
+  stroke-width: 0.75;
+}
+
+.tileFlat {
+  fill: var(--tile-ink, var(--panel-2));
+  stroke: none;
+}
+
+// The tiling's own edge, in its deep tone: where the tiles stop against the wall or a door's frame.
+.edge {
+  @extend %line;
+
+  fill: none;
+  stroke: color-mix(in srgb, var(--tile-ink, var(--ink-3)) 45%, var(--bar));
+  stroke-width: 1;
+}
+
+// The lay-in: once a plate is reached (UsesGrid marks it), its surfaces are laid tile by tile from the
+// corner each is set out from, plates reached together left to right, the way a wall is tiled. The tiles
+// start pale over their own colour, never hidden, so a lay-in that never runs still shows every surface.
+@include motion-safe {
+  .tile {
+    opacity: 0.3;
+    transform: translateY(-36px) scale(1.04);
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      opacity 520ms var(--ease-out),
+      transform 520ms var(--ease-out);
+    transition-delay: calc(var(--room-delay, 0ms) + var(--lay, 0) * 640ms);
+  }
+
+  [data-laid] .tile {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media print {
+  .tile {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

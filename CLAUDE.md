@@ -12,7 +12,14 @@ Analytics). Designs persist in localStorage.
 The 3D preview (`src/three`, react-three-fiber) lives on `/studio` and `/download` only. The home page
 builds its wall (`src/features/landing/HeroWall.tsx` over `wallGrid.ts` and `useTextureChips`) out of
 the same CPU-rendered relief chips as section 01's corner proof (`JointProof`), so it downloads no
-three.js at all: one chip per unique piece covers a wall of any size.
+three.js at all: one chip per unique piece covers a wall of any size. Under the hero, six plates in an
+even grid (`UsesGrid.tsx` over `uses.ts`, its rooms in `src/features/landing/rooms`) show what the tiles are
+for, one room per use, each framed close on its surface, laid with that same whole-tile chip at its real
+size and each a link into the studio sized for it. A room is a tonal print in millimetres (flat tints of
+the ink, shade as a smooth tint of it, light from the upper left) drawn with `roomKit.tsx`,
+`drawing.ts` and `rooms.module.scss` only, and shows no tile near heat or water. Its shade layers are SVG
+filters: keep to one cast layer and one form layer a plate, because each covers the whole plate, and never
+print them through noise (a stipple read as dust on every fringe, and WebKit seamed its tiled screen).
 
 Live at https://tessera.stephenperrin.fr/ (a custom domain on GitHub Pages; the old
 https://stephenfreelance.github.io/tiles-generator/ address redirects there), deployed by CI from
@@ -341,7 +348,9 @@ the data boundaries and the peek store), and pure helpers elsewhere have their o
 `src/app`, LOD, chip caching and the preview request in `src/hooks`, colour, shader, wave and tile-flip
 maths and the seated parts' set in `src/three`, field parsing and color-wheel maths in `src/ui`, sizing,
 plan fixes, step 6's helpers, the step-7 copy, the fit summary, the tile's back, the zip contents, the
-heavy-download rule, the drawings' and the tile-back figure's geometry, the landing samples and the
+heavy-download rule, the drawings' and the tile-back figure's geometry, the landing samples, the home
+page's uses (`uses.test.ts`: every surface at its size, in its plate and whole where the plate can hold it,
+laid as the studio lays it) and the
 sample plates (their set, grid, STL plate and README) in `src/features`, and the accent defaults in `src/styles`. Component behaviour is verified in a real browser instead of jsdom, which
 would need a new devDependency.
 

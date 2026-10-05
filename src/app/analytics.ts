@@ -56,6 +56,8 @@ export type EventName = keyof typeof EVENTS
 
 /** Events named after a choice, `<kind>-<value>`, each listed as "<title>: <value>". */
 export const CHOICES = {
+  // Which of the home page's rooms was opened in the studio: a use's id, never its size.
+  'home-use': 'Home: opened a room in the studio',
   'studio-edit': 'Studio: first change to',
   'fit-test-chose': 'Fit test: chose',
   'zip-format': 'Zip: format',

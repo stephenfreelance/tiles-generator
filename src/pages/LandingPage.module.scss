@@ -419,6 +419,22 @@
   line-height: 1.5;
 }
 
+// The uses grid and the one line under it, held closer than the plate's own rhythm: the line belongs to it.
+.usesBlock {
+  display: grid;
+  gap: clamp(var(--s-5), 3vw, var(--s-6));
+  padding-top: clamp(0px, 1vw, var(--s-3));
+}
+
+// Under the grid: where printed tiles must not go.
+.usesNote {
+  max-width: 62ch;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 // The proof beside the note that sends the reader to the studio for their own wall's plan.
 .proof {
   display: grid;
